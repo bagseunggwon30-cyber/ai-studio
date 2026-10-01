@@ -164,7 +164,11 @@ def kill_tree(pid: int) -> None:
         import signal
 
         try:
-            os.killpg(os.getpgid(pid), signal.SIGKILL)
+            # Only kill a group created for this child, never our supervisor's.
+            if os.getpgid(pid) == pid and pid != os.getpgrp():
+                os.killpg(pid, signal.SIGKILL)
+            else:
+                os.kill(pid, signal.SIGKILL)
         except OSError:
             pass
 

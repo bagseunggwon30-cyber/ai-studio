@@ -60,11 +60,13 @@ class Engine:
         self._thread = threading.Thread(target=self._loop, name="studio-worker", daemon=True)
         self._thread.start()
 
-    def shutdown(self, timeout: float = 10) -> None:
+    def shutdown(self, timeout: float | None = 10) -> bool:
         self._shutdown.set()
         self._wake.set()
         if self._thread:
             self._thread.join(timeout)
+            return not self._thread.is_alive()
+        return True
 
     def recover(self) -> None:
         """비정상 종료로 '작업 중'에 남은 카드는 다시 부르지 않고 막힘으로 돌린다."""
@@ -633,6 +635,9 @@ class Engine:
                 return t
         return None
 
+    def _should_stop(self, task_id: str) -> bool:
+        return self._shutdown.is_set() or self._stop.is_set() or self._cancel_task == task_id or self._cancelled(task_id)
+
     def _cancelled(self, task_id: str) -> bool:
         fresh = self.store.get(task_id)
         return fresh is None or fresh.status == "cancelled"
@@ -665,6 +670,8 @@ class Engine:
         runtime_name = runtime_name or rcfg.runtime
         model = rcfg.model if model is None else model
         effort = rcfg.effort if effort is None else effort
+        if self._should_stop(task.id):
+            return RunResult(False, runtime_name, model, None, 0.0, error_kind="stopped", error="중단됨")
         usage = self.store.today_usage()
         if usage["runs"] >= self.cfg.limit("max_runs_per_day") or usage["minutes"] >= self.cfg.limit("max_agent_minutes_per_day"):
             return RunResult(False, runtime_name, model, None, 0.0, error_kind="cap", error="하루 실행 상한에 도달했습니다.")
@@ -708,7 +715,10 @@ class Engine:
             want_image=want_image,
             mcp=mcp_specs,
         )
-        result = runtime.run(spec, lambda: self._stop.is_set() or self._cancel_task == task.id)
+        if self._should_stop(task.id):
+            result = RunResult(False, runtime_name, model, None, 0.0, error_kind="stopped", error="중단됨")
+        else:
+            result = runtime.run(spec, lambda: self._should_stop(task.id))
         rec = {
             "run_id": run_id,
             "task": task.id,
@@ -1136,7 +1146,7 @@ class Engine:
                 self.store.save(task)
                 self.store.transition(task, "awaiting_approval", note=f"도구 결재 요청 · {proposal['title']}")
                 return
-            if review["verdict"] == "stopped":
+            if review["verdict"] == "stopped" or self._should_stop(task.id):
                 self.store.block(task, "긴급 정지로 리뷰가 멈췄습니다.")
                 return
             if review["verdict"] == "unavailable":
@@ -1607,6 +1617,9 @@ class Engine:
         feedback = self._latest_feedback(task)
 
         while task.attempts < max_attempts:
+            if self._should_stop(task.id):
+                self.store.block(task, "감독 프로그램 정지로 중단됐습니다.")
+                return
             task.attempts += 1
             task.run_requested = False
             self.store.save(task)
@@ -1660,12 +1673,24 @@ class Engine:
                     continue
                 self.store.block(task, "작업자가 허용 범위 안에서 아무것도 바꾸지 않았습니다." + _violation_text(violations))
                 return
-            task.candidate_sha = sha
-            self.store.save(task)
-
-            task = self.store.transition(task, "checking", note="신뢰 테스트 실행")
+            # Git staging/commit can take long enough for a cancellation request.
+            # Reload under the same lock used by cancel before saving any result.
+            with self.store.lock:
+                fresh = self._task(task.id)
+                if fresh.status == "cancelled":
+                    self._cleanup_worktree(fresh)
+                    return
+                self.store._check_current(task)
+                fresh.report = task.report
+                fresh.candidate_sha = sha
+                self.store.save(fresh)
+                task = fresh
+                if self._should_stop(task.id):
+                    self.store.block(task, "감독 프로그램 정지로 중단됐습니다.")
+                    return
+                task = self.store.transition(task, "checking", note="신뢰 테스트 실행")
             qa_dir = self.store.qa_dir / f"Q{stamp()}-{task.id}-{task.attempts}"
-            qa = run_qa(self.cfg, project, sha or "", qa_dir, lambda: self._stop.is_set() or self._cancel_task == task.id,
+            qa = run_qa(self.cfg, project, sha or "", qa_dir, lambda: self._should_stop(task.id),
                         base=task.base_sha)
             qa["violations"] = violations
             if self._cancelled(task.id):
@@ -1676,7 +1701,7 @@ class Engine:
             task.review = None
             self.store.save(task)
             self.store.event("qa.finished", f"{task.id} 검증 {qa['verdict']} · {qa['reason']}", task=task.id, verdict=qa["verdict"])
-            if qa["verdict"] == "stopped":
+            if qa["verdict"] == "stopped" or self._should_stop(task.id):
                 self.store.block(task, "긴급 정지로 검증이 중단됐습니다.")
                 return
             if qa["verdict"] == "fail":
@@ -1695,7 +1720,7 @@ class Engine:
             task = self._task(task.id)
             task.review = review
             self.store.save(task)
-            if review["verdict"] == "stopped":
+            if review["verdict"] == "stopped" or self._should_stop(task.id):
                 self.store.block(task, "긴급 정지로 리뷰가 중단됐습니다.")
                 return
             if review["verdict"] in ("approve", "unavailable"):

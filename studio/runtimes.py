@@ -138,8 +138,11 @@ def run_process(
     if IS_WINDOWS:
         flags |= subprocess.CREATE_NEW_PROCESS_GROUP
     with open(stdout_path, "wb") as out, open(stderr_path, "wb") as err:
+        if should_stop():
+            return None, "stopped", time.monotonic() - start
         proc = subprocess.Popen(
-            args, cwd=str(cwd), stdin=subprocess.PIPE, stdout=out, stderr=err, env=env, creationflags=flags
+            args, cwd=str(cwd), stdin=subprocess.PIPE, stdout=out, stderr=err, env=env, creationflags=flags,
+            start_new_session=not IS_WINDOWS
         )
 
         def feed() -> None:
@@ -162,7 +165,10 @@ def run_process(
                 try:
                     proc.wait(15)
                 except subprocess.TimeoutExpired:
-                    pass
+                    # Do not report completion while the child still owns files.
+                    kill_tree(proc.pid)
+                    proc.kill()
+                    proc.wait()
                 break
             time.sleep(0.3)
     return proc.returncode, reason, time.monotonic() - start

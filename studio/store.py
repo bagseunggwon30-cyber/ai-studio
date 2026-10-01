@@ -24,7 +24,6 @@ from .util import (
     append_jsonl,
     atomic_write_json,
     now_iso,
-    pid_alive,
     read_json,
     read_jsonl,
     today_str,
@@ -33,6 +32,10 @@ from .util import (
 
 class StoreLockedError(RuntimeError):
     pass
+
+
+class StaleTaskError(RuntimeError):
+    """A worker tried to overwrite a newer task state/history."""
 
 
 class Store:
@@ -49,29 +52,58 @@ class Store:
         self.lock = threading.RLock()
         self._version = 0
         self._lock_path: Path | None = None
+        self._lock_file = None
         self._events: deque[dict] = deque(read_jsonl(self.events_path)[-2000:], maxlen=2000)
         self._runs: list[dict] = read_jsonl(self.runs_index)
 
     # ---- 프로세스 잠금: 감독 프로그램은 한 번에 하나만 ----
     def acquire_process_lock(self) -> None:
-        path = self.dir / "studio.lock"
-        if path.exists():
+        with self.lock:
+            if self._lock_file is not None:
+                return
+            path = self.dir / "studio.lock"
+            handle = open(path, "a+b")
             try:
-                pid = int(path.read_text(encoding="utf-8").strip() or 0)
-            except ValueError:
-                pid = 0
-            if pid and pid != os.getpid() and pid_alive(pid):
-                raise StoreLockedError(f"감독 프로그램이 이미 실행 중입니다 (PID {pid}).")
-        path.write_text(str(os.getpid()), encoding="utf-8")
-        self._lock_path = path
+                # Keep this inode for the lifetime of the store. Unlinking it on
+                # release would allow waiters to lock a different inode.
+                handle.seek(0)
+                if os.name == "nt":
+                    import msvcrt
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError as exc:
+                handle.close()
+                raise StoreLockedError("감독 프로그램이 이미 실행 중입니다.") from exc
+            try:
+                handle.seek(0)
+                handle.truncate()
+                handle.write(str(os.getpid()).encode("ascii"))
+                handle.flush()
+            except BaseException:
+                handle.close()
+                raise
+            self._lock_path = path
+            self._lock_file = handle
 
     def release_process_lock(self) -> None:
-        path = self._lock_path
-        try:
-            if path and path.exists() and path.read_text(encoding="utf-8").strip() == str(os.getpid()):
-                path.unlink()
-        except OSError:
-            pass
+        with self.lock:
+            handle = self._lock_file
+            if handle is None:
+                return
+            try:
+                handle.seek(0)
+                if os.name == "nt":
+                    import msvcrt
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            finally:
+                handle.close()
+                self._lock_file = None
+                self._lock_path = None
 
     # ---- 변경 카운터 (화면 갱신용) ----
     def _bump(self) -> None:
@@ -129,8 +161,14 @@ class Store:
         atomic_write_json(self.tasks_dir / f"{task.id}.json", task.to_dict())
         self._bump()
 
+    def _check_current(self, task: Task) -> None:
+        fresh = self.get(task.id)
+        if fresh and (fresh.status != task.status or fresh.history != task.history):
+            raise StaleTaskError(f"{task.id}: 작업 상태가 바뀌었습니다. 다시 읽어 주세요.")
+
     def save(self, task: Task) -> None:
         with self.lock:
+            self._check_current(task)
             self._save(task)
 
     def get(self, task_id: str) -> Task | None:
@@ -147,6 +185,7 @@ class Store:
 
     def transition(self, task: Task, new: str, *, by: str = "system", note: str = "") -> Task:
         with self.lock:
+            self._check_current(task)
             check_transition(task.status, new)
             old = task.status
             task.status = new

@@ -27,7 +27,7 @@
 3. Claude Code 리뷰는 `--restricted --strict-mcp-config --tools Read,Grep,Glob`로 읽기 전용. `--bare`는 구독 로그인을 읽지 않으므로 쓰지 않는다.
 4. 작업 상태는 `Store.transition`/`Store.block`으로만 바꾼다. `done`은 CEO 승인(`Engine.approve`)으로만.
 5. 병합은 `qa.candidate_sha == task.candidate_sha`이고 검증이 `pass`/`none`일 때만.
-6. 대시보드 서버는 127.0.0.1에만 열고, Host 검사와 쓰기 요청 토큰 검사를 유지한다. 휴대폰 리모컨(`studio/remote.py`, CEO 승인 2026-09-29)만 예외: CEO가 켠 같은 와이파이 서버(이 PC의 집 안 주소)와 허용한 Tailscale 이름(`*.ts.net`)으로 온 요청은 휴대폰 화면(`/m`, `/m/api/*`, 그림)만 받고, `/m/api`는 짝지은 기기 토큰(해시로 저장, 한 번 쓰는 5분 번호로 발급, 5번 틀리면 1분 잠금)으로만 쓴다. PC용 `/api`와 세션 토큰은 휴대폰 쪽으로 내보내지 않는다. 휴대폰에서는 MCP·토큰·직원·설정을 바꿀 수 없다.
+6. 대시보드 서버는 127.0.0.1에만 열고, Host 검사와 쓰기 요청 토큰 검사를 유지한다. 휴대폰 리모컨(`studio/remote.py`, CEO 승인 2026-09-29)만 예외: CEO가 켠 같은 와이파이 서버(이 PC의 집 안 주소)와 허용한 Tailscale 이름(`*.ts.net`)으로 온 요청은 휴대폰 화면(`/m`, `/m/api/*`, 그림)만 받고, `/m/api`는 짝지은 기기 토큰(해시로 저장, 한 번 쓰는 5분 번호로 발급, 5번 틀리면 1분 잠금)으로만 쓴다. PC용 `/api`와 세션 토큰은 휴대폰 쪽으로 내보내지 않는다. 휴대폰에서도 짝지은 CEO는 기존 결재 흐름으로 MCP 설치·직원 채용을 승인할 수 있다(의도한 기능). 토큰·설정의 직접 편집 등 그 밖의 제한과 인증 검사는 유지한다.
 7. 비정상 종료 뒤 '작업 중' 카드는 다시 부르지 않고 막힘으로 돌린다 (fail-closed).
 8. Grok CLI는 그림 그리기에만, 본인 grok.com 로그인으로 쓴다. `--tools`로 그림 도구·파일 읽기만 허용하고 승인 우회 플래그(`--always-approve`, `--yolo`, `bypassPermissions`)를 쓰지 않는다 (윈도우에서는 그록 샌드박스가 강제되지 않는다).
 9. MCP 보관소(`studio/mcp.py`, CEO 승인 2026-09-29): 직원에게는 CEO가 장착한 MCP만 붙인다 (Codex는 `--ignore-user-config` 그대로 `-c mcp_servers.*`, Claude는 `--strict-mcp-config --mcp-config <임시 파일>`). 리뷰 담당과 리뷰 실행·그림 실행에는 붙이지 않는다. MCP 토큰은 CEO가 넣은 것만 `data/mcp-secrets.json`에 두고, 명령줄·실행 기록·프롬프트·화면에 값을 내보내지 않으며(Codex는 환경변수 이름만 알려 주고 셸 환경에서는 뺀다, Claude 임시 설정은 실행 뒤 지운다), 모델 API 키 이름(`util.API_KEY_VARS`)은 토큰으로 받지 않는다. 내장 MCP(`studio/mcp_builtin/`)는 표준 라이브러리만, 읽기 전용, 웹 읽기는 이 PC·집 안 네트워크 주소를 막는다.

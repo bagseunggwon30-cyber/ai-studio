@@ -957,6 +957,7 @@ def serve(cfg: Config, *, port: int | None = None, open_browser: bool = True) ->
     finally:
         store.event("company.closed", "감독 프로그램 종료")
         server.stop_lan(save=False)
-        engine.shutdown()
+        # Keep the lifetime lock until the worker and its child have exited.
+        engine.shutdown(timeout=None)
         server.server_close()
         store.release_process_lock()
