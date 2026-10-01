@@ -1,0 +1,21 @@
+{
+  "action": "work",
+  "anchor": {
+    "x": 118,
+    "y": 265
+  },
+  "cells": [
+    0.0,
+    1.0
+  ],
+  "character": "hana@summer",
+  "contentHeight": 261,
+  "facing": "right",
+  "file": "hana@summer.work.strip.png",
+  "fps": 3,
+  "frameHeight": 265,
+  "frameWidth": 236,
+  "frames": 2,
+  "loop": true,
+  "source": "assets-raw/looks/summer/char-hana.png"
+}

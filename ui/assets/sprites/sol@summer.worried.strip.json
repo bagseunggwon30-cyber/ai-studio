@@ -1,0 +1,20 @@
+{
+  "action": "worried",
+  "anchor": {
+    "x": 84,
+    "y": 343
+  },
+  "cells": [
+    6.0
+  ],
+  "character": "sol@summer",
+  "contentHeight": 339,
+  "facing": "left",
+  "file": "sol@summer.worried.strip.png",
+  "fps": 1,
+  "frameHeight": 343,
+  "frameWidth": 168,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/looks/summer/char-sol.png"
+}

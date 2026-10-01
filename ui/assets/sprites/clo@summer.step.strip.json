@@ -1,0 +1,20 @@
+{
+  "action": "step",
+  "anchor": {
+    "x": 94,
+    "y": 349
+  },
+  "cells": [
+    7.0
+  ],
+  "character": "clo@summer",
+  "contentHeight": 345,
+  "facing": "right",
+  "file": "clo@summer.step.strip.png",
+  "fps": 1,
+  "frameHeight": 349,
+  "frameWidth": 189,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/looks/summer/char-clo.png"
+}

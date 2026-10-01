@@ -1,0 +1,20 @@
+{
+  "action": "call",
+  "anchor": {
+    "x": 120,
+    "y": 390
+  },
+  "cells": [
+    3.0
+  ],
+  "character": "luna",
+  "contentHeight": 386,
+  "facing": "left",
+  "file": "luna.call.strip.png",
+  "fps": 1,
+  "frameHeight": 390,
+  "frameWidth": 240,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/char-luna.png"
+}

@@ -1,0 +1,20 @@
+{
+  "action": "frozen",
+  "anchor": {
+    "x": 117,
+    "y": 310
+  },
+  "cells": [
+    5.0
+  ],
+  "character": "clo",
+  "contentHeight": 306,
+  "facing": "right",
+  "file": "clo.frozen.strip.png",
+  "fps": 1,
+  "frameHeight": 310,
+  "frameWidth": 234,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/char-clo.png"
+}

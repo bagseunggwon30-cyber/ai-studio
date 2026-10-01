@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="studio-token" content="__STUDIO_TOKEN__">
+  <title>AI 스튜디오</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/popups.css">
+  <link rel="stylesheet" href="/board.css">
+</head>
+<body>
+  <div id="stage">
+
+    <!-- ① 배경 -->
+    <div class="layer" id="layer-bg" data-name="① 배경">
+      <img class="bg" src="/assets/bg/office-f1.png" alt="" draggable="false" loading="lazy">
+      <!-- 본사(1층)에만 있는 것 (class hq): 층을 바꾸면 숨는다 -->
+      <span class="sign quest plated hq">퀘스트 보드</span>
+      <span class="sign meeting hq">회의실</span>
+      <span class="sign trophy hq">완성작</span>
+      <span class="sign skill plated hq">스킬 학습</span>
+      <span class="sign mcp plated hq">MCP 보관소</span>
+      <span class="sign lounge" id="lounge-sign">휴식터</span>
+      <div class="wall-clock hq" id="wall-clock" aria-hidden="true"><i class="hand hour"></i><i class="hand minute"></i></div>
+      <div class="wall-notes hq" id="wall-notes"></div>
+      <div class="shelf-items hq" id="shelf-items"></div>
+      <div class="skill-notes hq" id="skill-notes"></div>
+      <button class="hotspot quests hq" type="button" data-action="quests" aria-label="퀘스트 보드"></button>
+      <button class="hotspot meeting hq" type="button" data-action="meeting" aria-label="회의실"></button>
+      <button class="hotspot trophies hq" type="button" data-action="trophies" aria-label="완성작"></button>
+      <button class="hotspot skills hq" type="button" data-action="skills" aria-label="스킬 학습"></button>
+      <button class="hotspot mcp hq" type="button" data-action="mcp" aria-label="MCP 보관소 (서재)"></button>
+      <button class="hotspot clock hq" type="button" data-action="schedules" aria-label="자동 업무 (벽시계)"></button>
+    </div>
+
+    <!-- ② 캐릭터·소품: scene.js가 채운다 -->
+    <div class="layer" id="layer-sprites" data-name="② 캐릭터·소품"></div>
+
+    <!-- ②¼ 진행판 (칸반 보드 + 진행 발표 캐릭터): board.js가 채운다. 켜면 사무실(①②)은 숨는다 -->
+    <div class="layer" id="layer-board" data-name="②¼ 진행판" hidden></div>
+
+    <!-- ②½ 긴급 정지: 붉은 조명, 경광등, 가운데 배너 -->
+    <div class="layer" id="layer-alarm" hidden>
+      <div class="alarm-tint"></div>
+      <div class="alarm-glow"></div>
+      <div class="beacon" aria-hidden="true"><span class="beam"></span><img src="/assets/ui/beacon.png" alt="" draggable="false"></div>
+      <div class="alarm-banner" role="alert">
+        <svg class="tri" viewBox="0 0 76 64" aria-hidden="true"><path d="M38 4L72 60H4Z" fill="#2a1a24" stroke="#ff4d55" stroke-width="5" stroke-linejoin="round"/><path d="M38 22V42" stroke="#fff" stroke-width="7" stroke-linecap="round"/><circle cx="38" cy="51" r="4" fill="#fff"/></svg>
+        <h2>긴급 정지 · 모든 작업 멈춤</h2>
+        <p class="alarm-reason" id="alarm-reason"></p>
+        <button class="btn go" type="button" data-action="resume">재개</button>
+      </div>
+    </div>
+
+    <!-- ③ 팝업: popups.js가 채운다 -->
+    <div class="layer" id="layer-popup" data-name="③ 팝업" hidden>
+      <div class="scrim"></div>
+      <div id="popup-host"></div>
+    </div>
+
+    <!-- ④ 상단 바·알림·하단 명령창 -->
+    <div class="layer" id="layer-ui" data-name="④ 상단 바·명령창">
+      <header class="hud">
+        <div class="brand">
+          <img class="logo" src="/assets/ui/icon-logo.png" alt="" draggable="false">
+          <span class="company" id="hud-company"></span>
+          <span class="clock" id="hud-clock"></span>
+        </div>
+
+        <button class="energy" type="button" data-action="energy" aria-describedby="energy-tip">
+          <img class="bolt" src="/assets/ui/icon-bolt.png" alt="" draggable="false">
+          <span class="bar"><span class="fill" id="hud-energy-fill"></span></span>
+          <span class="energy-text" id="hud-energy-text"></span>
+        </button>
+
+        <div class="hud-right">
+          <button class="icon-btn phone-btn" type="button" data-action="remote" aria-label="휴대폰 연결">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="9" y="3" width="14" height="26" rx="3" fill="#F6F0E4" stroke="#1F1C2B" stroke-width="1.6"/><rect x="11.5" y="7" width="9" height="15" rx="1" fill="#7F6AD6"/><circle cx="16" cy="25.5" r="1.4" fill="#1F1C2B"/></svg>
+          </button>
+          <button class="icon-btn" type="button" data-action="inbox" aria-label="결재함">
+            <img src="/assets/ui/icon-mail.png" alt="" draggable="false">
+            <span class="badge" id="hud-inbox"></span>
+          </button>
+          <button class="icon-btn" type="button" data-action="alerts" aria-label="알림">
+            <img src="/assets/ui/icon-bell.png" alt="" draggable="false">
+            <span class="badge dot" id="hud-alerts"></span>
+          </button>
+          <button class="icon-btn fx-btn" type="button" data-action="motion" aria-pressed="true" aria-label="효과 켜짐 · 누르면 끄기">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M15 3L18 12L27 15L18 18L15 27L12 18L3 15L12 12Z" fill="#F7C53C"/><path d="M26 3L27.2 6.8L31 8L27.2 9.2L26 13L24.8 9.2L21 8L24.8 6.8Z" fill="#F6F0E4"/><circle cx="6" cy="27" r="2.2" fill="#F6F0E4"/></svg>
+          </button>
+          <button class="icon-btn snd-btn" type="button" data-action="sound" aria-pressed="false" aria-label="소리 꺼짐 · 누르면 켜기">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 12H10L17 6V26L10 20H4Z" fill="#F6F0E4" stroke="#1F1C2B" stroke-width="1.5" stroke-linejoin="round"/><path class="wave" d="M21 11C23 13 23 19 21 21M24.5 8C28 12 28 20 24.5 24" stroke="#F6F0E4" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>
+          </button>
+          <button class="stop-btn" type="button" data-action="stop" aria-label="긴급 정지" aria-pressed="false">
+            <img src="/assets/ui/icon-stop.png" alt="" draggable="false">
+          </button>
+        </div>
+      </header>
+
+      <div class="tip" id="energy-tip" role="tooltip" hidden></div>
+
+      <div class="offline" id="offline" role="status" hidden>
+        <span class="offline-dot" aria-hidden="true"></span>
+        <span>감독 프로그램과 연결이 끊겼어요 · 다시 연결하는 중…</span>
+      </div>
+
+      <!-- 새 버전 알림: 서버가 켜진 뒤 감독 프로그램 코드가 바뀌었다 (studio.restart) -->
+      <!-- 한도·로그인 만료로 멈춤: 누르면 '다른 아이디로 로그인' 창 (studio/login.py) -->
+      <button class="login-note" id="login-note" type="button" data-action="login" hidden>
+        <span class="login-dot" aria-hidden="true"></span>
+        <span id="login-note-text">사용 한도가 다 됐어요 · 눌러서 다른 아이디로 로그인</span>
+      </button>
+
+      <div class="restart-note" id="restart-note" role="status" hidden>
+        <span class="restart-dot" aria-hidden="true"></span>
+        <span>새 버전이 있어요 · AI 스튜디오를 껐다 켜 주세요</span>
+      </div>
+
+      <button class="notice hidden" id="notice" type="button" data-action="notice">
+        <span class="face" id="notice-face" aria-hidden="true"></span>
+        <span class="notice-text" id="notice-text"></span>
+      </button>
+
+      <div class="devpanel" id="devpanel" hidden></div>
+
+      <!-- 층 버튼 (app.js renderFloors): 위층이 위, 맨 위 +는 층 늘리기 -->
+      <nav class="floors" id="floors" aria-label="층"></nav>
+
+      <nav class="dock" aria-label="바로가기">
+        <button class="dock-btn" type="button" data-action="board" aria-label="진행판 (칸반 보드)">
+          <img src="/assets/ui/icon-scroll.png" alt="" draggable="false">
+        </button>
+        <button class="dock-btn" type="button" data-action="team" aria-label="직원">
+          <img src="/assets/ui/icon-team.png" alt="" draggable="false">
+        </button>
+        <button class="dock-btn" type="button" data-action="diary" aria-label="업무 일지">
+          <img src="/assets/ui/icon-book.png" alt="" draggable="false">
+        </button>
+      </nav>
+
+      <form class="command" id="command" autocomplete="off">
+        <button class="project-chip" id="project-chip" type="button" data-action="project" hidden></button>
+        <input id="command-input" type="text" maxlength="4000" placeholder="무엇을 시킬까요?" aria-label="지시 입력">
+        <button class="send" type="submit" aria-label="보내기">
+          <img src="/assets/ui/icon-send.png" alt="" draggable="false">
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/data.js"></script>
+  <script src="/sound.js"></script>
+  <script src="/effects.js"></script>
+  <script src="/looks.js"></script>
+  <script src="/scene.js"></script>
+  <script src="/popups.js"></script>
+  <script src="/puppet.js"></script>
+  <script src="/board.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

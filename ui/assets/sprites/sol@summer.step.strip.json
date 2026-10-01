@@ -1,0 +1,20 @@
+{
+  "action": "step",
+  "anchor": {
+    "x": 87,
+    "y": 330
+  },
+  "cells": [
+    7.0
+  ],
+  "character": "sol@summer",
+  "contentHeight": 326,
+  "facing": "left",
+  "file": "sol@summer.step.strip.png",
+  "fps": 1,
+  "frameHeight": 330,
+  "frameWidth": 174,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/looks/summer/char-sol.png"
+}

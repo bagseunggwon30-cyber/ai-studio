@@ -1,0 +1,20 @@
+{
+  "action": "celebrate",
+  "anchor": {
+    "x": 149,
+    "y": 409
+  },
+  "cells": [
+    4.0
+  ],
+  "character": "luna",
+  "contentHeight": 405,
+  "facing": "left",
+  "file": "luna.celebrate.strip.png",
+  "fps": 1,
+  "frameHeight": 409,
+  "frameWidth": 299,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/char-luna.png"
+}

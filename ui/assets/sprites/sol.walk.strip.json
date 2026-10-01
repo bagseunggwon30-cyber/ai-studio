@@ -1,0 +1,24 @@
+{
+  "action": "walk",
+  "anchor": {
+    "x": 80,
+    "y": 329
+  },
+  "cells": [
+    0.0,
+    1.0,
+    2.0,
+    3.0
+  ],
+  "character": "sol",
+  "contentHeight": 326,
+  "facing": "right",
+  "file": "sol.walk.strip.png",
+  "fps": 8,
+  "frameHeight": 329,
+  "frameWidth": 161,
+  "frames": 4,
+  "loop": true,
+  "seam": 1.056,
+  "source": "assets-raw/walk-sol.png"
+}

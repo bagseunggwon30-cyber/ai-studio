@@ -1,0 +1,20 @@
+{
+  "action": "celebrate",
+  "anchor": {
+    "x": 128,
+    "y": 277
+  },
+  "cells": [
+    4.0
+  ],
+  "character": "clo@summer",
+  "contentHeight": 273,
+  "facing": "right",
+  "file": "clo@summer.celebrate.strip.png",
+  "fps": 1,
+  "frameHeight": 277,
+  "frameWidth": 256,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/looks/summer/char-clo.png"
+}

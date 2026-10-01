@@ -1,0 +1,20 @@
+{
+  "action": "call",
+  "anchor": {
+    "x": 161,
+    "y": 380
+  },
+  "cells": [
+    3.0
+  ],
+  "character": "hana",
+  "contentHeight": 376,
+  "facing": "right",
+  "file": "hana.call.strip.png",
+  "fps": 1,
+  "frameHeight": 380,
+  "frameWidth": 322,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/char-hana.png"
+}

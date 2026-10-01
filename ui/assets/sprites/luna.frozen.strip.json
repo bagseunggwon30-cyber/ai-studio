@@ -1,0 +1,20 @@
+{
+  "action": "frozen",
+  "anchor": {
+    "x": 125,
+    "y": 333
+  },
+  "cells": [
+    5.0
+  ],
+  "character": "luna",
+  "contentHeight": 329,
+  "facing": "left",
+  "file": "luna.frozen.strip.png",
+  "fps": 1,
+  "frameHeight": 333,
+  "frameWidth": 251,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/char-luna.png"
+}

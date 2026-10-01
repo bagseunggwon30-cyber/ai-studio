@@ -1,0 +1,20 @@
+{
+  "_comment": "의상 세트. make_look_set.ps1이 Codex로 그림을 뽑아 assets-raw/looks/<세트>/에 둔다. 옷 색은 직원마다 기본 색을 유지해서 색 바꾸기(마스크)가 그대로 먹게 한다.",
+  "characters": {
+    "hana": "하나 (female, dark ponytail, purple clothes)",
+    "sol": "솔 (male, messy brown hair, blue clothes)",
+    "clo": "클로 (female, short black bob, coral clothes)",
+    "luna": "루나 (female, long brown hair, round glasses, amber clothes)"
+  },
+  "sets": {
+    "summer": {
+      "label": "여름 옷",
+      "outfits": {
+        "hana": "a short-sleeved lavender-purple cotton t-shirt with a small white star print and loose dark gray long cotton pants, the same lavender sneakers",
+        "sol": "a short-sleeved blue cotton t-shirt with one white stripe across the chest and loose gray-blue long cotton pants, the same white sneakers",
+        "clo": "a short-sleeved coral cotton blouse with a round collar and loose black long cotton pants, the same white sneakers",
+        "luna": "a short-sleeved amber-yellow button-up cotton shirt over a white t-shirt and the same teal long pants, the same white sneakers"
+      }
+    }
+  }
+}

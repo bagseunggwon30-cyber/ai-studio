@@ -1,0 +1,130 @@
+{
+  "date": "2026-10-01",
+  "engine": "AI Studio Puppet / rigid PNG cutouts",
+  "active_config": "data/assets/mascot/mascot.json",
+  "assets": [
+    {
+      "file": "README.md",
+      "bytes": 508,
+      "sha256": "0e721dee7b246e1e88629a93d645db0eeb9c63400ea2cfaa869acd81ba71ff7a"
+    },
+    {
+      "file": "index.html",
+      "bytes": 1499,
+      "sha256": "8b61a3ab7e67028604ad7dea522162ffe3400c53f81123cee1da58d46af9a312"
+    },
+    {
+      "file": "mascot.json",
+      "bytes": 7257,
+      "sha256": "28f19fb302bac0764c094851f188f4583d3789db1d6f979e66279ef3a664251f"
+    },
+    {
+      "file": "normal-standing.png",
+      "bytes": 934991,
+      "sha256": "99987631e71a2dc4e542adefea37c15d7813cd04a4e69a2ffa739de1e0b3b410"
+    },
+    {
+      "file": "preview.css",
+      "bytes": 1249,
+      "sha256": "af0df8a4715f19d4dc84546841a5f94ea06c289e7fcef5c192d93e07aa0f83ef"
+    },
+    {
+      "file": "preview.js",
+      "bytes": 2360,
+      "sha256": "c4007eb5dd47c354243a6ee6968198e2d208f7801335c0c65d1b5eea7f8b62c9"
+    },
+    {
+      "file": "puppet.js",
+      "bytes": 51246,
+      "sha256": "4262be5f793eb8182555e40f9ea37ce199644a5bffc783820acb08510f79d89a"
+    },
+    {
+      "file": "serve.py",
+      "bytes": 865,
+      "sha256": "14be13b78bb23aae2d1a5516c7e16d6527ad03fb6a8f6d78bf52f6d8dfbac134"
+    },
+    {
+      "file": "standing-anchor.png",
+      "bytes": 53479,
+      "sha256": "4faf2538216c5c2c4af79e85cc36c580e21875cdc0a292fc0961dc38e8425ae9"
+    },
+    {
+      "file": "standing-blink.png",
+      "bytes": 17135,
+      "sha256": "be9401bddcce2a23d5087f4953ea8604a71303fd22b9354f48ac89547c44546b"
+    },
+    {
+      "file": "standing-calfl.png",
+      "bytes": 50573,
+      "sha256": "f0e67be660e50fa5905290d854f5bea042734e80625280fb73066d8a78336c48"
+    },
+    {
+      "file": "standing-calfr.png",
+      "bytes": 49598,
+      "sha256": "7b7efa04eda90058242ceef03f9a678925b12cb06a16fe10a1653016bdde1683"
+    },
+    {
+      "file": "standing-chest.png",
+      "bytes": 91726,
+      "sha256": "b5a4fbd48e9e82cabdb236ffe3986f1217be7a0206816d47c50f115c7b36a215"
+    },
+    {
+      "file": "standing-cloth.png",
+      "bytes": 140382,
+      "sha256": "fe85a70b2696336bc414cadc3bbc1159c9c1a7071ca81c38f83586cc9018a022"
+    },
+    {
+      "file": "standing-eyes-half.png",
+      "bytes": 17731,
+      "sha256": "f800bd832c359d80ffdd7d7cc08d354e3530435b602845dbd612af110961d1b1"
+    },
+    {
+      "file": "standing-hairr.png",
+      "bytes": 67565,
+      "sha256": "da2dc4d357b4ef8ca04a3522dadb0cb2263bfda7e1556673e1a6baccb37f458c"
+    },
+    {
+      "file": "standing-head.png",
+      "bytes": 205344,
+      "sha256": "acc25867b4a04cd6f5f7fa16e7248e94d026f6627a5e3c20e698e78646b2918d"
+    },
+    {
+      "file": "standing-mouth-closed.png",
+      "bytes": 3248,
+      "sha256": "f232914500fe21e735c96d48d76812818afbb280853c28d989e328dc7b465efd"
+    },
+    {
+      "file": "standing-mouth-half.png",
+      "bytes": 3754,
+      "sha256": "949fc2c7fb3823efa99eafefecbf660138bea3fd742dbb2840ab013a7acc113a"
+    },
+    {
+      "file": "standing-thighl.png",
+      "bytes": 60430,
+      "sha256": "7d278e3e53a6e21bdbea89921edbd1347befc044fad35f3e783dd903033e9f49"
+    },
+    {
+      "file": "standing-thighr.png",
+      "bytes": 70404,
+      "sha256": "b7c5922aa182f7f48ce44f34c79ee0724ee50d8ddf276ea23b3ca64d873f9be8"
+    },
+    {
+      "file": "standing-torso.png",
+      "bytes": 218243,
+      "sha256": "cffeac06f124aa36f09b8ec438427e6470f88754e717fd224c50c47622f12ad1"
+    }
+  ],
+  "checks": {
+    "puppet_sim": 31,
+    "edge_length_cases": 4032,
+    "knee_ankle_cases": 12,
+    "foot_poses": 3,
+    "missing_opaque_pixels": 0,
+    "runtime_preview": "verified",
+    "recording_frames": 211,
+    "recording_ms": 9002,
+    "live_company": "not run",
+    "unittest": 217,
+    "doctor": "pass"
+  }
+}

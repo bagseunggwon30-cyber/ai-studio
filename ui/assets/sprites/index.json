@@ -1,0 +1,1386 @@
+{
+  "clo.call": {
+    "action": "call",
+    "anchor": {
+      "x": 110.0,
+      "y": 351.0
+    },
+    "cells": [
+      3.0
+    ],
+    "character": "clo",
+    "contentHeight": 347.0,
+    "facing": "right",
+    "file": "clo.call.strip.png",
+    "fps": 1.0,
+    "frameHeight": 351.0,
+    "frameWidth": 221.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "clo.call.mask.png",
+    "source": "assets-raw/char-clo.png"
+  },
+  "clo.celebrate": {
+    "action": "celebrate",
+    "anchor": {
+      "x": 128.0,
+      "y": 276.0
+    },
+    "cells": [
+      4.0
+    ],
+    "character": "clo",
+    "contentHeight": 272.0,
+    "facing": "right",
+    "file": "clo.celebrate.strip.png",
+    "fps": 1.0,
+    "frameHeight": 276.0,
+    "frameWidth": 256.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "clo.celebrate.mask.png",
+    "source": "assets-raw/char-clo.png"
+  },
+  "clo.frozen": {
+    "action": "frozen",
+    "anchor": {
+      "x": 117.0,
+      "y": 310.0
+    },
+    "cells": [
+      5.0
+    ],
+    "character": "clo",
+    "contentHeight": 306.0,
+    "facing": "right",
+    "file": "clo.frozen.strip.png",
+    "fps": 1.0,
+    "frameHeight": 310.0,
+    "frameWidth": 234.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "clo.frozen.mask.png",
+    "source": "assets-raw/char-clo.png"
+  },
+  "clo.rest": {
+    "action": "rest",
+    "anchor": {
+      "x": 101.0,
+      "y": 286.0
+    },
+    "cells": [
+      2.0
+    ],
+    "character": "clo",
+    "contentHeight": 282.0,
+    "facing": "right",
+    "file": "clo.rest.strip.png",
+    "fps": 1.0,
+    "frameHeight": 286.0,
+    "frameWidth": 202.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "clo.rest.mask.png",
+    "source": "assets-raw/char-clo.png"
+  },
+  "clo.step": {
+    "action": "step",
+    "anchor": {
+      "x": 94.0,
+      "y": 349.0
+    },
+    "cells": [
+      7.0
+    ],
+    "character": "clo",
+    "contentHeight": 345.0,
+    "facing": "right",
+    "file": "clo.step.strip.png",
+    "fps": 1.0,
+    "frameHeight": 349.0,
+    "frameWidth": 189.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "clo.step.mask.png",
+    "source": "assets-raw/char-clo.png"
+  },
+  "clo.walk": {
+    "action": "walk",
+    "anchor": {
+      "x": 102.0,
+      "y": 348.0
+    },
+    "cells": [
+      0.0,
+      1.0,
+      2.0,
+      3.0
+    ],
+    "character": "clo",
+    "contentHeight": 345.0,
+    "facing": "right",
+    "file": "clo.walk.strip.png",
+    "fps": 8.0,
+    "frameHeight": 348.0,
+    "frameWidth": 205.0,
+    "frames": 4.0,
+    "loop": true,
+    "mask": "clo.walk.mask.png",
+    "seam": 0.956,
+    "source": "assets-raw/walk-clo.png"
+  },
+  "clo.work": {
+    "action": "work",
+    "anchor": {
+      "x": 117.0,
+      "y": 281.0
+    },
+    "cells": [
+      0.0,
+      1.0
+    ],
+    "character": "clo",
+    "contentHeight": 277.0,
+    "facing": "right",
+    "file": "clo.work.strip.png",
+    "fps": 3.0,
+    "frameHeight": 281.0,
+    "frameWidth": 235.0,
+    "frames": 2.0,
+    "loop": true,
+    "mask": "clo.work.mask.png",
+    "source": "assets-raw/char-clo.png"
+  },
+  "clo.worried": {
+    "action": "worried",
+    "anchor": {
+      "x": 101.0,
+      "y": 356.0
+    },
+    "cells": [
+      6.0
+    ],
+    "character": "clo",
+    "contentHeight": 352.0,
+    "facing": "right",
+    "file": "clo.worried.strip.png",
+    "fps": 1.0,
+    "frameHeight": 356.0,
+    "frameWidth": 203.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "clo.worried.mask.png",
+    "source": "assets-raw/char-clo.png"
+  },
+  "clo@summer.call": {
+    "action": "call",
+    "anchor": {
+      "x": 111.0,
+      "y": 351.0
+    },
+    "cells": [
+      3.0
+    ],
+    "character": "clo@summer",
+    "contentHeight": 347.0,
+    "facing": "right",
+    "file": "clo@summer.call.strip.png",
+    "fps": 1.0,
+    "frameHeight": 351.0,
+    "frameWidth": 222.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "clo@summer.call.mask.png",
+    "source": "assets-raw/looks/summer/char-clo.png"
+  },
+  "clo@summer.celebrate": {
+    "action": "celebrate",
+    "anchor": {
+      "x": 128.0,
+      "y": 277.0
+    },
+    "cells": [
+      4.0
+    ],
+    "character": "clo@summer",
+    "contentHeight": 273.0,
+    "facing": "right",
+    "file": "clo@summer.celebrate.strip.png",
+    "fps": 1.0,
+    "frameHeight": 277.0,
+    "frameWidth": 256.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "clo@summer.celebrate.mask.png",
+    "source": "assets-raw/looks/summer/char-clo.png"
+  },
+  "clo@summer.frozen": {
+    "action": "frozen",
+    "anchor": {
+      "x": 120.0,
+      "y": 319.0
+    },
+    "cells": [
+      5.0
+    ],
+    "character": "clo@summer",
+    "contentHeight": 315.0,
+    "facing": "right",
+    "file": "clo@summer.frozen.strip.png",
+    "fps": 1.0,
+    "frameHeight": 319.0,
+    "frameWidth": 241.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "clo@summer.frozen.mask.png",
+    "source": "assets-raw/looks/summer/char-clo.png"
+  },
+  "clo@summer.rest": {
+    "action": "rest",
+    "anchor": {
+      "x": 101.0,
+      "y": 286.0
+    },
+    "cells": [
+      2.0
+    ],
+    "character": "clo@summer",
+    "contentHeight": 282.0,
+    "facing": "right",
+    "file": "clo@summer.rest.strip.png",
+    "fps": 1.0,
+    "frameHeight": 286.0,
+    "frameWidth": 202.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "clo@summer.rest.mask.png",
+    "source": "assets-raw/looks/summer/char-clo.png"
+  },
+  "clo@summer.step": {
+    "action": "step",
+    "anchor": {
+      "x": 94.0,
+      "y": 349.0
+    },
+    "cells": [
+      7.0
+    ],
+    "character": "clo@summer",
+    "contentHeight": 345.0,
+    "facing": "right",
+    "file": "clo@summer.step.strip.png",
+    "fps": 1.0,
+    "frameHeight": 349.0,
+    "frameWidth": 189.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "clo@summer.step.mask.png",
+    "source": "assets-raw/looks/summer/char-clo.png"
+  },
+  "clo@summer.walk": {
+    "action": "walk",
+    "anchor": {
+      "x": 102.0,
+      "y": 348.0
+    },
+    "cells": [
+      0.0,
+      1.0,
+      2.0,
+      3.0
+    ],
+    "character": "clo@summer",
+    "contentHeight": 345.0,
+    "facing": "right",
+    "file": "clo@summer.walk.strip.png",
+    "fps": 8.0,
+    "frameHeight": 348.0,
+    "frameWidth": 205.0,
+    "frames": 4.0,
+    "loop": true,
+    "mask": "clo@summer.walk.mask.png",
+    "seam": 0.961,
+    "source": "assets-raw/looks/summer/walk-clo.png"
+  },
+  "clo@summer.work": {
+    "action": "work",
+    "anchor": {
+      "x": 102.0,
+      "y": 279.0
+    },
+    "cells": [
+      0.0,
+      1.0
+    ],
+    "character": "clo@summer",
+    "contentHeight": 275.0,
+    "facing": "right",
+    "file": "clo@summer.work.strip.png",
+    "fps": 3.0,
+    "frameHeight": 279.0,
+    "frameWidth": 205.0,
+    "frames": 2.0,
+    "loop": true,
+    "mask": "clo@summer.work.mask.png",
+    "source": "assets-raw/looks/summer/char-clo.png"
+  },
+  "clo@summer.worried": {
+    "action": "worried",
+    "anchor": {
+      "x": 101.0,
+      "y": 356.0
+    },
+    "cells": [
+      6.0
+    ],
+    "character": "clo@summer",
+    "contentHeight": 352.0,
+    "facing": "right",
+    "file": "clo@summer.worried.strip.png",
+    "fps": 1.0,
+    "frameHeight": 356.0,
+    "frameWidth": 202.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "clo@summer.worried.mask.png",
+    "source": "assets-raw/looks/summer/char-clo.png"
+  },
+  "hana.call": {
+    "action": "call",
+    "anchor": {
+      "x": 161.0,
+      "y": 380.0
+    },
+    "cells": [
+      3.0
+    ],
+    "character": "hana",
+    "contentHeight": 376.0,
+    "facing": "right",
+    "file": "hana.call.strip.png",
+    "fps": 1.0,
+    "frameHeight": 380.0,
+    "frameWidth": 322.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "hana.call.mask.png",
+    "source": "assets-raw/char-hana.png"
+  },
+  "hana.celebrate": {
+    "action": "celebrate",
+    "anchor": {
+      "x": 130.0,
+      "y": 368.0
+    },
+    "cells": [
+      4.0
+    ],
+    "character": "hana",
+    "contentHeight": 364.0,
+    "facing": "right",
+    "file": "hana.celebrate.strip.png",
+    "fps": 1.0,
+    "frameHeight": 368.0,
+    "frameWidth": 261.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "hana.celebrate.mask.png",
+    "source": "assets-raw/char-hana.png"
+  },
+  "hana.frozen": {
+    "action": "frozen",
+    "anchor": {
+      "x": 124.0,
+      "y": 238.0
+    },
+    "cells": [
+      5.0
+    ],
+    "character": "hana",
+    "contentHeight": 234.0,
+    "facing": "right",
+    "file": "hana.frozen.strip.png",
+    "fps": 1.0,
+    "frameHeight": 238.0,
+    "frameWidth": 249.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "hana.frozen.mask.png",
+    "source": "assets-raw/char-hana.png"
+  },
+  "hana.rest": {
+    "action": "rest",
+    "anchor": {
+      "x": 126.0,
+      "y": 327.0
+    },
+    "cells": [
+      2.0
+    ],
+    "character": "hana",
+    "contentHeight": 323.0,
+    "facing": "right",
+    "file": "hana.rest.strip.png",
+    "fps": 1.0,
+    "frameHeight": 327.0,
+    "frameWidth": 252.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "hana.rest.mask.png",
+    "source": "assets-raw/char-hana.png"
+  },
+  "hana.step": {
+    "action": "step",
+    "anchor": {
+      "x": 120.0,
+      "y": 362.0
+    },
+    "cells": [
+      7.0
+    ],
+    "character": "hana",
+    "contentHeight": 358.0,
+    "facing": "right",
+    "file": "hana.step.strip.png",
+    "fps": 1.0,
+    "frameHeight": 362.0,
+    "frameWidth": 240.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "hana.step.mask.png",
+    "source": "assets-raw/char-hana.png"
+  },
+  "hana.walk": {
+    "action": "walk",
+    "anchor": {
+      "x": 113.0,
+      "y": 361.0
+    },
+    "cells": [
+      0.0,
+      1.0,
+      2.0,
+      3.0
+    ],
+    "character": "hana",
+    "contentHeight": 358.0,
+    "facing": "right",
+    "file": "hana.walk.strip.png",
+    "fps": 8.0,
+    "frameHeight": 361.0,
+    "frameWidth": 226.0,
+    "frames": 4.0,
+    "loop": true,
+    "mask": "hana.walk.mask.png",
+    "seam": 0.998,
+    "source": "assets-raw/walk-hana.png"
+  },
+  "hana.work": {
+    "action": "work",
+    "anchor": {
+      "x": 105.0,
+      "y": 237.0
+    },
+    "cells": [
+      0.0,
+      1.0
+    ],
+    "character": "hana",
+    "contentHeight": 233.0,
+    "facing": "right",
+    "file": "hana.work.strip.png",
+    "fps": 3.0,
+    "frameHeight": 237.0,
+    "frameWidth": 210.0,
+    "frames": 2.0,
+    "loop": true,
+    "mask": "hana.work.mask.png",
+    "source": "assets-raw/char-hana.png"
+  },
+  "hana.worried": {
+    "action": "worried",
+    "anchor": {
+      "x": 128.0,
+      "y": 371.0
+    },
+    "cells": [
+      6.0
+    ],
+    "character": "hana",
+    "contentHeight": 367.0,
+    "facing": "right",
+    "file": "hana.worried.strip.png",
+    "fps": 1.0,
+    "frameHeight": 371.0,
+    "frameWidth": 256.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "hana.worried.mask.png",
+    "source": "assets-raw/char-hana.png"
+  },
+  "hana@summer.call": {
+    "action": "call",
+    "anchor": {
+      "x": 160.0,
+      "y": 379.0
+    },
+    "cells": [
+      3.0
+    ],
+    "character": "hana@summer",
+    "contentHeight": 375.0,
+    "facing": "right",
+    "file": "hana@summer.call.strip.png",
+    "fps": 1.0,
+    "frameHeight": 379.0,
+    "frameWidth": 321.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "hana@summer.call.mask.png",
+    "source": "assets-raw/looks/summer/char-hana.png"
+  },
+  "hana@summer.celebrate": {
+    "action": "celebrate",
+    "anchor": {
+      "x": 130.0,
+      "y": 368.0
+    },
+    "cells": [
+      4.0
+    ],
+    "character": "hana@summer",
+    "contentHeight": 364.0,
+    "facing": "right",
+    "file": "hana@summer.celebrate.strip.png",
+    "fps": 1.0,
+    "frameHeight": 368.0,
+    "frameWidth": 261.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "hana@summer.celebrate.mask.png",
+    "source": "assets-raw/looks/summer/char-hana.png"
+  },
+  "hana@summer.frozen": {
+    "action": "frozen",
+    "anchor": {
+      "x": 124.0,
+      "y": 264.0
+    },
+    "cells": [
+      5.0
+    ],
+    "character": "hana@summer",
+    "contentHeight": 260.0,
+    "facing": "right",
+    "file": "hana@summer.frozen.strip.png",
+    "fps": 1.0,
+    "frameHeight": 264.0,
+    "frameWidth": 248.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "hana@summer.frozen.mask.png",
+    "source": "assets-raw/looks/summer/char-hana.png"
+  },
+  "hana@summer.rest": {
+    "action": "rest",
+    "anchor": {
+      "x": 125.0,
+      "y": 327.0
+    },
+    "cells": [
+      2.0
+    ],
+    "character": "hana@summer",
+    "contentHeight": 323.0,
+    "facing": "right",
+    "file": "hana@summer.rest.strip.png",
+    "fps": 1.0,
+    "frameHeight": 327.0,
+    "frameWidth": 251.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "hana@summer.rest.mask.png",
+    "source": "assets-raw/looks/summer/char-hana.png"
+  },
+  "hana@summer.step": {
+    "action": "step",
+    "anchor": {
+      "x": 120.0,
+      "y": 362.0
+    },
+    "cells": [
+      7.0
+    ],
+    "character": "hana@summer",
+    "contentHeight": 358.0,
+    "facing": "right",
+    "file": "hana@summer.step.strip.png",
+    "fps": 1.0,
+    "frameHeight": 362.0,
+    "frameWidth": 240.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "hana@summer.step.mask.png",
+    "source": "assets-raw/looks/summer/char-hana.png"
+  },
+  "hana@summer.walk": {
+    "action": "walk",
+    "anchor": {
+      "x": 114.0,
+      "y": 361.0
+    },
+    "cells": [
+      0.0,
+      1.0,
+      2.0,
+      3.0
+    ],
+    "character": "hana@summer",
+    "contentHeight": 358.0,
+    "facing": "right",
+    "file": "hana@summer.walk.strip.png",
+    "fps": 8.0,
+    "frameHeight": 361.0,
+    "frameWidth": 228.0,
+    "frames": 4.0,
+    "loop": true,
+    "mask": "hana@summer.walk.mask.png",
+    "seam": 1.009,
+    "source": "assets-raw/looks/summer/walk-hana.png"
+  },
+  "hana@summer.work": {
+    "action": "work",
+    "anchor": {
+      "x": 118.0,
+      "y": 265.0
+    },
+    "cells": [
+      0.0,
+      1.0
+    ],
+    "character": "hana@summer",
+    "contentHeight": 261.0,
+    "facing": "right",
+    "file": "hana@summer.work.strip.png",
+    "fps": 3.0,
+    "frameHeight": 265.0,
+    "frameWidth": 236.0,
+    "frames": 2.0,
+    "loop": true,
+    "mask": "hana@summer.work.mask.png",
+    "source": "assets-raw/looks/summer/char-hana.png"
+  },
+  "hana@summer.worried": {
+    "action": "worried",
+    "anchor": {
+      "x": 128.0,
+      "y": 371.0
+    },
+    "cells": [
+      6.0
+    ],
+    "character": "hana@summer",
+    "contentHeight": 367.0,
+    "facing": "right",
+    "file": "hana@summer.worried.strip.png",
+    "fps": 1.0,
+    "frameHeight": 371.0,
+    "frameWidth": 256.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "hana@summer.worried.mask.png",
+    "source": "assets-raw/looks/summer/char-hana.png"
+  },
+  "luna.call": {
+    "action": "call",
+    "anchor": {
+      "x": 120.0,
+      "y": 390.0
+    },
+    "cells": [
+      3.0
+    ],
+    "character": "luna",
+    "contentHeight": 386.0,
+    "facing": "left",
+    "file": "luna.call.strip.png",
+    "fps": 1.0,
+    "frameHeight": 390.0,
+    "frameWidth": 240.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "luna.call.mask.png",
+    "source": "assets-raw/char-luna.png"
+  },
+  "luna.celebrate": {
+    "action": "celebrate",
+    "anchor": {
+      "x": 149.0,
+      "y": 409.0
+    },
+    "cells": [
+      4.0
+    ],
+    "character": "luna",
+    "contentHeight": 405.0,
+    "facing": "left",
+    "file": "luna.celebrate.strip.png",
+    "fps": 1.0,
+    "frameHeight": 409.0,
+    "frameWidth": 299.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "luna.celebrate.mask.png",
+    "source": "assets-raw/char-luna.png"
+  },
+  "luna.frozen": {
+    "action": "frozen",
+    "anchor": {
+      "x": 125.0,
+      "y": 333.0
+    },
+    "cells": [
+      5.0
+    ],
+    "character": "luna",
+    "contentHeight": 329.0,
+    "facing": "left",
+    "file": "luna.frozen.strip.png",
+    "fps": 1.0,
+    "frameHeight": 333.0,
+    "frameWidth": 251.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "luna.frozen.mask.png",
+    "source": "assets-raw/char-luna.png"
+  },
+  "luna.rest": {
+    "action": "rest",
+    "anchor": {
+      "x": 119.0,
+      "y": 311.0
+    },
+    "cells": [
+      2.0
+    ],
+    "character": "luna",
+    "contentHeight": 307.0,
+    "facing": "left",
+    "file": "luna.rest.strip.png",
+    "fps": 1.0,
+    "frameHeight": 311.0,
+    "frameWidth": 239.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "luna.rest.mask.png",
+    "source": "assets-raw/char-luna.png"
+  },
+  "luna.step": {
+    "action": "step",
+    "anchor": {
+      "x": 113.0,
+      "y": 363.0
+    },
+    "cells": [
+      7.0
+    ],
+    "character": "luna",
+    "contentHeight": 359.0,
+    "facing": "left",
+    "file": "luna.step.strip.png",
+    "fps": 1.0,
+    "frameHeight": 363.0,
+    "frameWidth": 226.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "luna.step.mask.png",
+    "source": "assets-raw/char-luna.png"
+  },
+  "luna.walk": {
+    "action": "walk",
+    "anchor": {
+      "x": 115.0,
+      "y": 363.0
+    },
+    "cells": [
+      0.0,
+      1.0,
+      2.0,
+      3.0
+    ],
+    "character": "luna",
+    "contentHeight": 359.0,
+    "facing": "right",
+    "file": "luna.walk.strip.png",
+    "fps": 8.0,
+    "frameHeight": 363.0,
+    "frameWidth": 231.0,
+    "frames": 4.0,
+    "loop": true,
+    "mask": "luna.walk.mask.png",
+    "seam": 0.984,
+    "source": "assets-raw/walk-luna.png"
+  },
+  "luna.work": {
+    "action": "work",
+    "anchor": {
+      "x": 117.0,
+      "y": 292.0
+    },
+    "cells": [
+      0.0,
+      1.0
+    ],
+    "character": "luna",
+    "contentHeight": 288.0,
+    "facing": "left",
+    "file": "luna.work.strip.png",
+    "fps": 3.0,
+    "frameHeight": 292.0,
+    "frameWidth": 235.0,
+    "frames": 2.0,
+    "loop": true,
+    "mask": "luna.work.mask.png",
+    "source": "assets-raw/char-luna.png"
+  },
+  "luna.worried": {
+    "action": "worried",
+    "anchor": {
+      "x": 111.0,
+      "y": 390.0
+    },
+    "cells": [
+      6.0
+    ],
+    "character": "luna",
+    "contentHeight": 386.0,
+    "facing": "left",
+    "file": "luna.worried.strip.png",
+    "fps": 1.0,
+    "frameHeight": 390.0,
+    "frameWidth": 222.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "luna.worried.mask.png",
+    "source": "assets-raw/char-luna.png"
+  },
+  "luna@summer.call": {
+    "action": "call",
+    "anchor": {
+      "x": 119.0,
+      "y": 389.0
+    },
+    "cells": [
+      3.0
+    ],
+    "character": "luna@summer",
+    "contentHeight": 385.0,
+    "facing": "left",
+    "file": "luna@summer.call.strip.png",
+    "fps": 1.0,
+    "frameHeight": 389.0,
+    "frameWidth": 239.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "luna@summer.call.mask.png",
+    "source": "assets-raw/looks/summer/char-luna.png"
+  },
+  "luna@summer.celebrate": {
+    "action": "celebrate",
+    "anchor": {
+      "x": 149.0,
+      "y": 408.0
+    },
+    "cells": [
+      4.0
+    ],
+    "character": "luna@summer",
+    "contentHeight": 404.0,
+    "facing": "left",
+    "file": "luna@summer.celebrate.strip.png",
+    "fps": 1.0,
+    "frameHeight": 408.0,
+    "frameWidth": 299.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "luna@summer.celebrate.mask.png",
+    "source": "assets-raw/looks/summer/char-luna.png"
+  },
+  "luna@summer.frozen": {
+    "action": "frozen",
+    "anchor": {
+      "x": 109.0,
+      "y": 255.0
+    },
+    "cells": [
+      5.0
+    ],
+    "character": "luna@summer",
+    "contentHeight": 251.0,
+    "facing": "left",
+    "file": "luna@summer.frozen.strip.png",
+    "fps": 1.0,
+    "frameHeight": 255.0,
+    "frameWidth": 218.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "luna@summer.frozen.mask.png",
+    "source": "assets-raw/looks/summer/char-luna.png"
+  },
+  "luna@summer.rest": {
+    "action": "rest",
+    "anchor": {
+      "x": 119.0,
+      "y": 312.0
+    },
+    "cells": [
+      2.0
+    ],
+    "character": "luna@summer",
+    "contentHeight": 308.0,
+    "facing": "left",
+    "file": "luna@summer.rest.strip.png",
+    "fps": 1.0,
+    "frameHeight": 312.0,
+    "frameWidth": 238.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "luna@summer.rest.mask.png",
+    "source": "assets-raw/looks/summer/char-luna.png"
+  },
+  "luna@summer.step": {
+    "action": "step",
+    "anchor": {
+      "x": 112.0,
+      "y": 363.0
+    },
+    "cells": [
+      7.0
+    ],
+    "character": "luna@summer",
+    "contentHeight": 359.0,
+    "facing": "left",
+    "file": "luna@summer.step.strip.png",
+    "fps": 1.0,
+    "frameHeight": 363.0,
+    "frameWidth": 225.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "luna@summer.step.mask.png",
+    "source": "assets-raw/looks/summer/char-luna.png"
+  },
+  "luna@summer.walk": {
+    "action": "walk",
+    "anchor": {
+      "x": 116.0,
+      "y": 363.0
+    },
+    "cells": [
+      0.0,
+      1.0,
+      2.0,
+      3.0
+    ],
+    "character": "luna@summer",
+    "contentHeight": 359.0,
+    "facing": "right",
+    "file": "luna@summer.walk.strip.png",
+    "fps": 8.0,
+    "frameHeight": 363.0,
+    "frameWidth": 232.0,
+    "frames": 4.0,
+    "loop": true,
+    "mask": "luna@summer.walk.mask.png",
+    "seam": 0.979,
+    "source": "assets-raw/looks/summer/walk-luna.png"
+  },
+  "luna@summer.work": {
+    "action": "work",
+    "anchor": {
+      "x": 113.0,
+      "y": 252.0
+    },
+    "cells": [
+      0.0,
+      1.0
+    ],
+    "character": "luna@summer",
+    "contentHeight": 248.0,
+    "facing": "left",
+    "file": "luna@summer.work.strip.png",
+    "fps": 3.0,
+    "frameHeight": 252.0,
+    "frameWidth": 226.0,
+    "frames": 2.0,
+    "loop": true,
+    "mask": "luna@summer.work.mask.png",
+    "source": "assets-raw/looks/summer/char-luna.png"
+  },
+  "luna@summer.worried": {
+    "action": "worried",
+    "anchor": {
+      "x": 111.0,
+      "y": 389.0
+    },
+    "cells": [
+      6.0
+    ],
+    "character": "luna@summer",
+    "contentHeight": 385.0,
+    "facing": "left",
+    "file": "luna@summer.worried.strip.png",
+    "fps": 1.0,
+    "frameHeight": 389.0,
+    "frameWidth": 223.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "luna@summer.worried.mask.png",
+    "source": "assets-raw/looks/summer/char-luna.png"
+  },
+  "sol.call": {
+    "action": "call",
+    "anchor": {
+      "x": 92.0,
+      "y": 342.0
+    },
+    "cells": [
+      3.0
+    ],
+    "character": "sol",
+    "contentHeight": 338.0,
+    "facing": "left",
+    "file": "sol.call.strip.png",
+    "fps": 1.0,
+    "frameHeight": 342.0,
+    "frameWidth": 184.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "sol.call.mask.png",
+    "source": "assets-raw/char-sol.png"
+  },
+  "sol.celebrate": {
+    "action": "celebrate",
+    "anchor": {
+      "x": 109.0,
+      "y": 344.0
+    },
+    "cells": [
+      4.0
+    ],
+    "character": "sol",
+    "contentHeight": 340.0,
+    "facing": "left",
+    "file": "sol.celebrate.strip.png",
+    "fps": 1.0,
+    "frameHeight": 344.0,
+    "frameWidth": 218.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "sol.celebrate.mask.png",
+    "source": "assets-raw/char-sol.png"
+  },
+  "sol.frozen": {
+    "action": "frozen",
+    "anchor": {
+      "x": 104.0,
+      "y": 310.0
+    },
+    "cells": [
+      5.0
+    ],
+    "character": "sol",
+    "contentHeight": 306.0,
+    "facing": "left",
+    "file": "sol.frozen.strip.png",
+    "fps": 1.0,
+    "frameHeight": 310.0,
+    "frameWidth": 208.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "sol.frozen.mask.png",
+    "source": "assets-raw/char-sol.png"
+  },
+  "sol.rest": {
+    "action": "rest",
+    "anchor": {
+      "x": 101.0,
+      "y": 313.0
+    },
+    "cells": [
+      2.0
+    ],
+    "character": "sol",
+    "contentHeight": 309.0,
+    "facing": "left",
+    "file": "sol.rest.strip.png",
+    "fps": 1.0,
+    "frameHeight": 313.0,
+    "frameWidth": 202.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "sol.rest.mask.png",
+    "source": "assets-raw/char-sol.png"
+  },
+  "sol.step": {
+    "action": "step",
+    "anchor": {
+      "x": 87.0,
+      "y": 330.0
+    },
+    "cells": [
+      7.0
+    ],
+    "character": "sol",
+    "contentHeight": 326.0,
+    "facing": "left",
+    "file": "sol.step.strip.png",
+    "fps": 1.0,
+    "frameHeight": 330.0,
+    "frameWidth": 174.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "sol.step.mask.png",
+    "source": "assets-raw/char-sol.png"
+  },
+  "sol.walk": {
+    "action": "walk",
+    "anchor": {
+      "x": 80.0,
+      "y": 329.0
+    },
+    "cells": [
+      0.0,
+      1.0,
+      2.0,
+      3.0
+    ],
+    "character": "sol",
+    "contentHeight": 326.0,
+    "facing": "right",
+    "file": "sol.walk.strip.png",
+    "fps": 8.0,
+    "frameHeight": 329.0,
+    "frameWidth": 161.0,
+    "frames": 4.0,
+    "loop": true,
+    "mask": "sol.walk.mask.png",
+    "seam": 1.056,
+    "source": "assets-raw/walk-sol.png"
+  },
+  "sol.work": {
+    "action": "work",
+    "anchor": {
+      "x": 90.0,
+      "y": 289.0
+    },
+    "cells": [
+      0.0,
+      1.0
+    ],
+    "character": "sol",
+    "contentHeight": 285.0,
+    "facing": "left",
+    "file": "sol.work.strip.png",
+    "fps": 3.0,
+    "frameHeight": 289.0,
+    "frameWidth": 180.0,
+    "frames": 2.0,
+    "loop": true,
+    "mask": "sol.work.mask.png",
+    "source": "assets-raw/char-sol.png"
+  },
+  "sol.worried": {
+    "action": "worried",
+    "anchor": {
+      "x": 84.0,
+      "y": 344.0
+    },
+    "cells": [
+      6.0
+    ],
+    "character": "sol",
+    "contentHeight": 340.0,
+    "facing": "left",
+    "file": "sol.worried.strip.png",
+    "fps": 1.0,
+    "frameHeight": 344.0,
+    "frameWidth": 169.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "sol.worried.mask.png",
+    "source": "assets-raw/char-sol.png"
+  },
+  "sol@summer.call": {
+    "action": "call",
+    "anchor": {
+      "x": 92.0,
+      "y": 340.0
+    },
+    "cells": [
+      3.0
+    ],
+    "character": "sol@summer",
+    "contentHeight": 336.0,
+    "facing": "left",
+    "file": "sol@summer.call.strip.png",
+    "fps": 1.0,
+    "frameHeight": 340.0,
+    "frameWidth": 184.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "sol@summer.call.mask.png",
+    "source": "assets-raw/looks/summer/char-sol.png"
+  },
+  "sol@summer.celebrate": {
+    "action": "celebrate",
+    "anchor": {
+      "x": 109.0,
+      "y": 342.0
+    },
+    "cells": [
+      4.0
+    ],
+    "character": "sol@summer",
+    "contentHeight": 338.0,
+    "facing": "left",
+    "file": "sol@summer.celebrate.strip.png",
+    "fps": 1.0,
+    "frameHeight": 342.0,
+    "frameWidth": 218.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "sol@summer.celebrate.mask.png",
+    "source": "assets-raw/looks/summer/char-sol.png"
+  },
+  "sol@summer.frozen": {
+    "action": "frozen",
+    "anchor": {
+      "x": 98.0,
+      "y": 259.0
+    },
+    "cells": [
+      5.0
+    ],
+    "character": "sol@summer",
+    "contentHeight": 255.0,
+    "facing": "left",
+    "file": "sol@summer.frozen.strip.png",
+    "fps": 1.0,
+    "frameHeight": 259.0,
+    "frameWidth": 196.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "sol@summer.frozen.mask.png",
+    "source": "assets-raw/looks/summer/char-sol.png"
+  },
+  "sol@summer.rest": {
+    "action": "rest",
+    "anchor": {
+      "x": 100.0,
+      "y": 312.0
+    },
+    "cells": [
+      2.0
+    ],
+    "character": "sol@summer",
+    "contentHeight": 308.0,
+    "facing": "left",
+    "file": "sol@summer.rest.strip.png",
+    "fps": 1.0,
+    "frameHeight": 312.0,
+    "frameWidth": 200.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "sol@summer.rest.mask.png",
+    "source": "assets-raw/looks/summer/char-sol.png"
+  },
+  "sol@summer.step": {
+    "action": "step",
+    "anchor": {
+      "x": 87.0,
+      "y": 330.0
+    },
+    "cells": [
+      7.0
+    ],
+    "character": "sol@summer",
+    "contentHeight": 326.0,
+    "facing": "left",
+    "file": "sol@summer.step.strip.png",
+    "fps": 1.0,
+    "frameHeight": 330.0,
+    "frameWidth": 174.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "sol@summer.step.mask.png",
+    "source": "assets-raw/looks/summer/char-sol.png"
+  },
+  "sol@summer.walk": {
+    "action": "walk",
+    "anchor": {
+      "x": 79.0,
+      "y": 329.0
+    },
+    "cells": [
+      0.0,
+      1.0,
+      2.0,
+      3.0
+    ],
+    "character": "sol@summer",
+    "contentHeight": 326.0,
+    "facing": "right",
+    "file": "sol@summer.walk.strip.png",
+    "fps": 8.0,
+    "frameHeight": 329.0,
+    "frameWidth": 159.0,
+    "frames": 4.0,
+    "loop": true,
+    "mask": "sol@summer.walk.mask.png",
+    "seam": 1.028,
+    "source": "assets-raw/looks/summer/walk-sol.png"
+  },
+  "sol@summer.work": {
+    "action": "work",
+    "anchor": {
+      "x": 79.0,
+      "y": 252.0
+    },
+    "cells": [
+      0.0,
+      1.0
+    ],
+    "character": "sol@summer",
+    "contentHeight": 248.0,
+    "facing": "left",
+    "file": "sol@summer.work.strip.png",
+    "fps": 3.0,
+    "frameHeight": 252.0,
+    "frameWidth": 158.0,
+    "frames": 2.0,
+    "loop": true,
+    "mask": "sol@summer.work.mask.png",
+    "source": "assets-raw/looks/summer/char-sol.png"
+  },
+  "sol@summer.worried": {
+    "action": "worried",
+    "anchor": {
+      "x": 84.0,
+      "y": 343.0
+    },
+    "cells": [
+      6.0
+    ],
+    "character": "sol@summer",
+    "contentHeight": 339.0,
+    "facing": "left",
+    "file": "sol@summer.worried.strip.png",
+    "fps": 1.0,
+    "frameHeight": 343.0,
+    "frameWidth": 168.0,
+    "frames": 1.0,
+    "loop": false,
+    "mask": "sol@summer.worried.mask.png",
+    "source": "assets-raw/looks/summer/char-sol.png"
+  }
+}

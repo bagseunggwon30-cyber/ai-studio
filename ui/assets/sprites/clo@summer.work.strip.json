@@ -1,0 +1,21 @@
+{
+  "action": "work",
+  "anchor": {
+    "x": 102,
+    "y": 279
+  },
+  "cells": [
+    0.0,
+    1.0
+  ],
+  "character": "clo@summer",
+  "contentHeight": 275,
+  "facing": "right",
+  "file": "clo@summer.work.strip.png",
+  "fps": 3,
+  "frameHeight": 279,
+  "frameWidth": 205,
+  "frames": 2,
+  "loop": true,
+  "source": "assets-raw/looks/summer/char-clo.png"
+}

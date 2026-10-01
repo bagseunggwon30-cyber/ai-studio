@@ -1,0 +1,20 @@
+{
+  "action": "call",
+  "anchor": {
+    "x": 92,
+    "y": 340
+  },
+  "cells": [
+    3.0
+  ],
+  "character": "sol@summer",
+  "contentHeight": 336,
+  "facing": "left",
+  "file": "sol@summer.call.strip.png",
+  "fps": 1,
+  "frameHeight": 340,
+  "frameWidth": 184,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/looks/summer/char-sol.png"
+}

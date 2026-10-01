@@ -1,0 +1,24 @@
+{
+  "action": "walk",
+  "anchor": {
+    "x": 102,
+    "y": 348
+  },
+  "cells": [
+    0.0,
+    1.0,
+    2.0,
+    3.0
+  ],
+  "character": "clo@summer",
+  "contentHeight": 345,
+  "facing": "right",
+  "file": "clo@summer.walk.strip.png",
+  "fps": 8,
+  "frameHeight": 348,
+  "frameWidth": 205,
+  "frames": 4,
+  "loop": true,
+  "seam": 0.961,
+  "source": "assets-raw/looks/summer/walk-clo.png"
+}

@@ -1,0 +1,20 @@
+{
+  "action": "rest",
+  "anchor": {
+    "x": 125,
+    "y": 327
+  },
+  "cells": [
+    2.0
+  ],
+  "character": "hana@summer",
+  "contentHeight": 323,
+  "facing": "right",
+  "file": "hana@summer.rest.strip.png",
+  "fps": 1,
+  "frameHeight": 327,
+  "frameWidth": 251,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/looks/summer/char-hana.png"
+}

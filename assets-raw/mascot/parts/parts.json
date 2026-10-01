@@ -1,0 +1,95 @@
+{
+  "box": {
+    "h": 1536,
+    "w": 1018,
+    "x": 6,
+    "y": 0
+  },
+  "hair": {
+    "blob_rect": {
+      "h": 368,
+      "w": 184,
+      "x": 336,
+      "y": 88
+    },
+    "changed_whole": 26001,
+    "check": {
+      "composite_diff": 13,
+      "composite_diff_in_area": 13,
+      "opaque_pixels": 197222
+    },
+    "faint_pixels": 621,
+    "files": [
+      "hair.png",
+      "normal-nohair.png",
+      "happy-nohair.png",
+      "worried-nohair.png",
+      "point-nohair.png"
+    ],
+    "joined_blobs": 1,
+    "mask_pixels": 35212,
+    "mask_rect": {
+      "h": 385,
+      "w": 194,
+      "x": 335,
+      "y": 85
+    },
+    "mood_differs_inside_mask": {
+      "happy": 674,
+      "point": 960,
+      "worried": 907
+    },
+    "raw_pixels": 22562,
+    "strand_pixels": 389,
+    "trimmed_pixels": 791,
+    "warns": []
+  },
+  "pieces": {
+    "blink": {
+      "changed": 4027,
+      "changed_inside": 504,
+      "feather": 0,
+      "h": 40,
+      "residual_near": 3,
+      "same_as_ui_blink_bytes": true,
+      "w": 48,
+      "x": 300,
+      "y": 116
+    },
+    "eyes-half": {
+      "changed": 2524,
+      "changed_inside": 383,
+      "feather": 4,
+      "h": 46,
+      "residual_near": 4,
+      "w": 55,
+      "x": 300,
+      "y": 116
+    },
+    "mouth-closed": {
+      "changed": 3516,
+      "changed_inside": 382,
+      "feather": 4,
+      "h": 42,
+      "residual_near": 35,
+      "w": 50,
+      "x": 274,
+      "y": 172
+    },
+    "mouth-half": {
+      "changed": 3075,
+      "changed_inside": 251,
+      "feather": 4,
+      "h": 40,
+      "residual_near": 32,
+      "w": 50,
+      "x": 274,
+      "y": 174
+    }
+  },
+  "problems": [],
+  "size": {
+    "h": 800,
+    "w": 530
+  }
+}

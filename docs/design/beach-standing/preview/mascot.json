@@ -1,0 +1,416 @@
+{
+  "version": 1,
+  "name": "하나",
+  "box": {
+    "w": 396,
+    "h": 560
+  },
+  "board": {
+    "x": 2,
+    "y": 6,
+    "w": 222,
+    "h": 238,
+    "stand": "pole",
+    "behind": true
+  },
+  "moods": {
+    "normal": {
+      "image": "normal-standing.png",
+      "x": 78,
+      "y": 80,
+      "h": 480
+    }
+  },
+  "anim": {
+    "blink": {
+      "image": "standing-blink.png",
+      "x": 215.76623376623377,
+      "y": 132.36363636363637,
+      "h": 19.01298701298701
+    }
+  },
+  "rig": {
+    "version": 1,
+    "size": {
+      "w": 1021,
+      "h": 1540
+    },
+    "grid": {
+      "cols": 4,
+      "rows": 4
+    },
+    "regions": {
+      "head": {
+        "ellipse": [
+          538,
+          175,
+          155,
+          160
+        ],
+        "feather": 0
+      }
+    },
+    "deformers": [
+      {
+        "type": "rotate",
+        "region": "*",
+        "param": "bodyX",
+        "k": 0.25,
+        "pivot": [
+          474,
+          1046
+        ],
+        "layers": [
+          "thighL"
+        ]
+      },
+      {
+        "type": "rotate",
+        "region": "*",
+        "param": "bodyX",
+        "k": 0.25,
+        "pivot": [
+          638,
+          1060
+        ],
+        "layers": [
+          "thighR"
+        ]
+      },
+      {
+        "type": "rotate",
+        "region": "*",
+        "param": "bodyX",
+        "k": 0.6,
+        "pivot": [
+          493,
+          1430
+        ],
+        "layers": [
+          "thighL",
+          "calfL"
+        ]
+      },
+      {
+        "type": "rotate",
+        "region": "*",
+        "param": "bodyX",
+        "k": 0.6,
+        "pivot": [
+          696,
+          1433
+        ],
+        "layers": [
+          "thighR",
+          "calfR"
+        ]
+      },
+      {
+        "type": "shift",
+        "region": "*",
+        "param": "chestSway",
+        "kx": 0,
+        "ky": 2.2,
+        "layers": [
+          "chest"
+        ]
+      },
+      {
+        "type": "rotate",
+        "region": "*",
+        "param": "clothSway",
+        "k": 0.8,
+        "pivot": [
+          658,
+          655
+        ],
+        "layers": [
+          "cloth"
+        ]
+      },
+      {
+        "type": "rotate",
+        "region": "*",
+        "param": "hairSway",
+        "k": 1.4,
+        "pivot": [
+          650,
+          312
+        ],
+        "layers": [
+          "hairR"
+        ]
+      },
+      {
+        "type": "rotate",
+        "region": "*",
+        "param": "angleZ",
+        "k": 1.2,
+        "pivot": [
+          538,
+          318
+        ],
+        "layers": [
+          "head",
+          "hairR",
+          "eyesHalf",
+          "blink",
+          "mouthClosed",
+          "mouthHalf"
+        ]
+      },
+      {
+        "type": "rotate",
+        "region": "*",
+        "param": "angleX",
+        "k": 0.25,
+        "pivot": [
+          538,
+          318
+        ],
+        "layers": [
+          "head",
+          "hairR",
+          "eyesHalf",
+          "blink",
+          "mouthClosed",
+          "mouthHalf"
+        ]
+      },
+      {
+        "type": "rotate",
+        "region": "*",
+        "param": "bodyZ",
+        "k": 0.45,
+        "pivot": [
+          526,
+          690
+        ],
+        "layers": [
+          "torso",
+          "hairR",
+          "head",
+          "chest",
+          "cloth",
+          "eyesHalf",
+          "blink",
+          "mouthClosed",
+          "mouthHalf"
+        ]
+      },
+      {
+        "type": "shift",
+        "region": "*",
+        "param": "bodyX",
+        "kx": 8.4,
+        "ky": 0,
+        "layers": [
+          "torso",
+          "hairR",
+          "head",
+          "chest",
+          "cloth",
+          "eyesHalf",
+          "blink",
+          "mouthClosed",
+          "mouthHalf"
+        ]
+      }
+    ],
+    "physics": [
+      {
+        "out": "hairSway",
+        "in": [
+          [
+            "angleZ",
+            0.55,
+            -0.05
+          ],
+          [
+            "bodyZ",
+            0.5,
+            -0.05
+          ],
+          [
+            "bodyX",
+            0.15
+          ]
+        ],
+        "stiffness": 22,
+        "damping": 8
+      },
+      {
+        "out": "chestSway",
+        "in": [
+          [
+            "bodyZ",
+            0.35,
+            -0.04
+          ],
+          [
+            "bodyX",
+            0.2,
+            -0.025
+          ],
+          [
+            "breath",
+            0.45
+          ]
+        ],
+        "stiffness": 70,
+        "damping": 15
+      },
+      {
+        "out": "clothSway",
+        "in": [
+          [
+            "bodyX",
+            0.6,
+            -0.04
+          ],
+          [
+            "bodyZ",
+            0.3,
+            -0.04
+          ]
+        ],
+        "stiffness": 22,
+        "damping": 8
+      }
+    ],
+    "bases": {
+      "normal": "standing-anchor.png"
+    },
+    "layers": [
+      {
+        "id": "base"
+      },
+      {
+        "id": "calfL",
+        "image": "standing-calfl.png",
+        "x": 407,
+        "y": 1030,
+        "h": 414
+      },
+      {
+        "id": "calfR",
+        "image": "standing-calfr.png",
+        "x": 578,
+        "y": 1045,
+        "h": 399
+      },
+      {
+        "id": "thighL",
+        "image": "standing-thighl.png",
+        "x": 350,
+        "y": 658,
+        "h": 407
+      },
+      {
+        "id": "thighR",
+        "image": "standing-thighr.png",
+        "x": 522,
+        "y": 670,
+        "h": 408
+      },
+      {
+        "id": "torso",
+        "image": "standing-torso.png",
+        "x": 155,
+        "y": 313,
+        "h": 484
+      },
+      {
+        "id": "hairR",
+        "image": "standing-hairr.png",
+        "x": 595,
+        "y": 280,
+        "h": 328,
+        "under": true
+      },
+      {
+        "id": "head",
+        "image": "standing-head.png",
+        "x": 388,
+        "y": 0,
+        "h": 331
+      },
+      {
+        "id": "chest",
+        "image": "standing-chest.png",
+        "x": 371,
+        "y": 335,
+        "h": 211
+      },
+      {
+        "id": "cloth",
+        "image": "standing-cloth.png",
+        "x": 578,
+        "y": 624,
+        "h": 496
+      },
+      {
+        "id": "eyesHalf",
+        "image": "standing-eyes-half.png",
+        "x": 442,
+        "y": 168,
+        "h": 61,
+        "show": {
+          "param": "eyeOpen",
+          "min": 0.3,
+          "max": 0.82,
+          "fade": 0.08
+        },
+        "moods": [
+          "normal"
+        ]
+      },
+      {
+        "id": "blink",
+        "image": "standing-blink.png",
+        "x": 442,
+        "y": 168,
+        "h": 61,
+        "show": {
+          "param": "eyeOpen",
+          "max": 0.38,
+          "fade": 0.07
+        },
+        "moods": [
+          "normal"
+        ]
+      },
+      {
+        "id": "mouthClosed",
+        "image": "standing-mouth-closed.png",
+        "x": 497,
+        "y": 229,
+        "h": 40,
+        "show": {
+          "param": "mouthOpen",
+          "max": 0.43,
+          "fade": 0.07
+        },
+        "moods": [
+          "normal"
+        ]
+      },
+      {
+        "id": "mouthHalf",
+        "image": "standing-mouth-half.png",
+        "x": 497,
+        "y": 229,
+        "h": 40,
+        "show": {
+          "param": "mouthOpen",
+          "min": 0.32,
+          "max": 0.82,
+          "fade": 0.08
+        },
+        "moods": [
+          "normal"
+        ]
+      }
+    ]
+  }
+}

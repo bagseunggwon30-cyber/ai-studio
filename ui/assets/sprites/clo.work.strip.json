@@ -1,0 +1,21 @@
+{
+  "action": "work",
+  "anchor": {
+    "x": 117,
+    "y": 281
+  },
+  "cells": [
+    0.0,
+    1.0
+  ],
+  "character": "clo",
+  "contentHeight": 277,
+  "facing": "right",
+  "file": "clo.work.strip.png",
+  "fps": 3,
+  "frameHeight": 281,
+  "frameWidth": 235,
+  "frames": 2,
+  "loop": true,
+  "source": "assets-raw/char-clo.png"
+}

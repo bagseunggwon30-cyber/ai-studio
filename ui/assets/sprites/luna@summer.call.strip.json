@@ -1,0 +1,20 @@
+{
+  "action": "call",
+  "anchor": {
+    "x": 119,
+    "y": 389
+  },
+  "cells": [
+    3.0
+  ],
+  "character": "luna@summer",
+  "contentHeight": 385,
+  "facing": "left",
+  "file": "luna@summer.call.strip.png",
+  "fps": 1,
+  "frameHeight": 389,
+  "frameWidth": 239,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/looks/summer/char-luna.png"
+}

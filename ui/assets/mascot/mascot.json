@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "name": "하나",
+  "note": "기본 발표 캐릭터: Codex로 그린 일러스트 (tools/sprites/draw_mascot.py → make_mascot.gd, 원본 assets-raw/mascot). 기상 캐스터처럼 오른쪽에 서서 왼쪽 위의 돌리는 판을 손바닥으로 가리킨다. 바꾸는 법은 docs/design/mascot.md",
+  "box": {
+    "w": 396,
+    "h": 560
+  },
+  "board": {
+    "x": 2,
+    "y": 6,
+    "w": 222,
+    "h": 238,
+    "stand": "pole",
+    "behind": true
+  },
+  "moods": {
+    "normal": {
+      "image": "normal.png",
+      "x": 78,
+      "y": 80,
+      "h": 480
+    },
+    "happy": {
+      "image": "happy.png",
+      "x": 78,
+      "y": 80,
+      "h": 480
+    },
+    "worried": {
+      "image": "worried.png",
+      "x": 78,
+      "y": 80,
+      "h": 480
+    }
+  },
+  "anim": {
+    "blink": {
+      "image": "blink.png",
+      "x": 258.0,
+      "y": 149.6,
+      "h": 24.0
+    },
+    "point": {
+      "image": "point.png",
+      "x": 78,
+      "y": 80,
+      "h": 480
+    }
+  },
+  "rig": {
+    "version": 1,
+    "size": {"w": 530, "h": 800},
+    "grid": {"cols": 28, "rows": 42},
+    "regions": {
+      "head": {"poly": [[205, 50], [230, 10], [275, -8], [335, -10], [392, 15], [412, 65], [415, 120], [410, 190], [392, 238], [330, 240], [300, 242], [262, 240], [258, 270], [212, 268], [198, 200], [196, 110]], "feather": 20},
+      "hairR": {"poly": [[335, 80], [430, 90], [500, 180], [530, 300], [530, 470], [472, 470], [456, 440], [452, 335], [478, 300], [462, 255], [380, 255], [335, 160]], "feather": 22},
+      "hairL": {"poly": [[205, 150], [258, 150], [262, 262], [212, 268], [198, 200]], "feather": 15},
+      "forearm": {"poly": [[0, 262], [70, 262], [125, 290], [168, 345], [200, 398], [215, 420], [190, 432], [160, 405], [120, 340], [60, 318], [0, 300]], "feather": 22},
+      "skirt": {"poly": [[180, 440], [330, 435], [400, 470], [520, 690], [420, 760], [240, 775], [100, 720], [150, 560]], "feather": 20},
+      "upper": {"poly": [[165, 250], [300, 236], [440, 250], [455, 340], [440, 455], [178, 455], [160, 310]], "feather": 22}
+    },
+    "deformers": [
+      {"type": "rotate", "region": "hairR", "pivot": [360, 150], "param": "hairSway", "k": 5, "falloff": {"from": [360, 150], "to": [470, 440], "power": 1.5}, "layers": ["hairR"]},
+      {"type": "rotate", "region": "hairL", "pivot": [235, 150], "param": "sideSway", "k": 3, "falloff": {"from": [235, 150], "to": [235, 265], "power": 1.3}},
+      {"type": "shift", "region": "head", "param": "angleX", "kx": 5},
+      {"type": "shift", "region": "head", "param": "angleY", "ky": -3},
+      {"type": "shift", "region": "head", "param": "breath", "ky": -1.2},
+      {"type": "shift", "region": "upper", "param": "breath", "ky": -1.2},
+      {"type": "rotate", "region": "head", "pivot": [290, 238], "param": "angleX", "k": 1.5},
+      {"type": "rotate", "region": "head", "pivot": [290, 238], "param": "angleZ", "k": 8},
+      {"type": "rotate", "region": "forearm", "pivot": [190, 420], "param": "point", "k": 5},
+      {"type": "rotate", "region": "skirt", "pivot": [300, 440], "param": "skirtSway", "k": 6, "falloff": {"from": [300, 440], "to": [300, 740], "power": 1.5}},
+      {"type": "rotate", "region": "*", "pivot": [300, 800], "param": "bodyZ", "k": 1.5},
+      {"type": "shift", "region": "*", "param": "bodyX", "kx": 3},
+      {"type": "shift", "region": "*", "param": "posY", "ky": -27}
+    ],
+    "physics": [
+      {"out": "hairSway", "in": [["angleZ", 0.6, -0.05], ["bodyZ", 0.8, -0.05], ["angleX", 0.3]], "stiffness": 20, "damping": 3.5},
+      {"out": "sideSway", "in": [["angleZ", 0.5, -0.04], ["angleX", 0.4]], "stiffness": 28, "damping": 4},
+      {"out": "skirtSway", "in": [["bodyX", 0.5, 0.05], ["bodyZ", 0.4, -0.04]], "stiffness": 16, "damping": 3}
+    ],
+    "bases": {"normal": "normal-nohair.png", "happy": "happy-nohair.png", "worried": "worried-nohair.png", "point": "point-nohair.png"},
+    "layers": [
+      {"id": "base"},
+      {"id": "hairR", "image": "hair.png", "x": 0, "y": 0, "h": 800},
+      {"id": "eyesHalf", "image": "eyes-half.png", "x": 300, "y": 116, "h": 46, "show": {"param": "eyeOpen", "min": 0.3, "max": 0.85, "fade": 0.1}, "moods": ["normal"]},
+      {"id": "blink", "image": "blink.png", "x": 300, "y": 116, "h": 40, "show": {"param": "eyeOpen", "max": 0.45, "fade": 0.1}, "moods": ["normal"]},
+      {"id": "mouthClosed", "image": "mouth-closed.png", "x": 274, "y": 172, "h": 42, "show": {"param": "mouthOpen", "min": 0.04, "max": 0.42, "fade": 0.06}, "moods": ["normal"]},
+      {"id": "mouthHalf", "image": "mouth-half.png", "x": 274, "y": 174, "h": 40, "show": {"param": "mouthOpen", "min": 0.3, "max": 0.8, "fade": 0.1}, "moods": ["normal"]}
+    ]
+  }
+}

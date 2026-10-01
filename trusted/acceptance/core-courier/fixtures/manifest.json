@@ -1,0 +1,8 @@
+[
+  {
+    "file": "broken_run_state.gd",
+    "target": "src/core/run_state.gd",
+    "expect": "fail",
+    "note": "정규화·영역 제한·중복 방지·무적 시간·일시정지가 빠진 구현"
+  }
+]

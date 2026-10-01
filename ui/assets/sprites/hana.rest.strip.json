@@ -1,0 +1,20 @@
+{
+  "action": "rest",
+  "anchor": {
+    "x": 126,
+    "y": 327
+  },
+  "cells": [
+    2.0
+  ],
+  "character": "hana",
+  "contentHeight": 323,
+  "facing": "right",
+  "file": "hana.rest.strip.png",
+  "fps": 1,
+  "frameHeight": 327,
+  "frameWidth": 252,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/char-hana.png"
+}

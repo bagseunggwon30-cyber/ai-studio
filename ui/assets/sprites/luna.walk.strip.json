@@ -1,0 +1,24 @@
+{
+  "action": "walk",
+  "anchor": {
+    "x": 115,
+    "y": 363
+  },
+  "cells": [
+    0.0,
+    1.0,
+    2.0,
+    3.0
+  ],
+  "character": "luna",
+  "contentHeight": 359,
+  "facing": "right",
+  "file": "luna.walk.strip.png",
+  "fps": 8,
+  "frameHeight": 363,
+  "frameWidth": 231,
+  "frames": 4,
+  "loop": true,
+  "seam": 0.984,
+  "source": "assets-raw/walk-luna.png"
+}

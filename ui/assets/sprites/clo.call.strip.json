@@ -1,0 +1,20 @@
+{
+  "action": "call",
+  "anchor": {
+    "x": 110,
+    "y": 351
+  },
+  "cells": [
+    3.0
+  ],
+  "character": "clo",
+  "contentHeight": 347,
+  "facing": "right",
+  "file": "clo.call.strip.png",
+  "fps": 1,
+  "frameHeight": 351,
+  "frameWidth": 221,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/char-clo.png"
+}

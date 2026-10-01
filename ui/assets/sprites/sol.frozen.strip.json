@@ -1,0 +1,20 @@
+{
+  "action": "frozen",
+  "anchor": {
+    "x": 104,
+    "y": 310
+  },
+  "cells": [
+    5.0
+  ],
+  "character": "sol",
+  "contentHeight": 306,
+  "facing": "left",
+  "file": "sol.frozen.strip.png",
+  "fps": 1,
+  "frameHeight": 310,
+  "frameWidth": 208,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/char-sol.png"
+}

@@ -1,0 +1,54 @@
+# 실행 중 생기는 데이터
+data/*
+!data/assets/
+data/assets/*
+!data/assets/mascot/
+data/assets/mascot/*
+!data/assets/mascot/mascot.json
+!data/assets/mascot/normal-standing.png
+!data/assets/mascot/standing-anchor.png
+!data/assets/mascot/standing-blink.png
+!data/assets/mascot/standing-calfl.png
+!data/assets/mascot/standing-calfr.png
+!data/assets/mascot/standing-chest.png
+!data/assets/mascot/standing-cloth.png
+!data/assets/mascot/standing-eyes-half.png
+!data/assets/mascot/standing-hairr.png
+!data/assets/mascot/standing-head.png
+!data/assets/mascot/standing-mouth-closed.png
+!data/assets/mascot/standing-mouth-half.png
+!data/assets/mascot/standing-thighl.png
+!data/assets/mascot/standing-thighr.png
+!data/assets/mascot/standing-torso.png
+worktrees/
+
+# 제품 저장소는 각자 별도 git 저장소
+projects/
+
+# Godot 도구 캐시
+tools/sprites/.godot/
+
+# Python
+__pycache__/
+*.pyc
+
+# Local agent settings and retired UI
+.claude/
+ui-old/
+
+# Export archives and intermediate mascot processing
+docs/exports/
+docs/design/beach-standing/stage/
+docs/design/beach-standing/frames/
+
+# Local credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Retired intermediate preview assets remain local
+docs/design/beach-standing/preview/normal-standing-nohair.png
+docs/design/beach-standing/preview/standing-hair.png
+docs/design/beach-standing/preview-blink.png

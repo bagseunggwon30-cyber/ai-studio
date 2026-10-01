@@ -1,0 +1,20 @@
+{
+  "action": "celebrate",
+  "anchor": {
+    "x": 109,
+    "y": 342
+  },
+  "cells": [
+    4.0
+  ],
+  "character": "sol@summer",
+  "contentHeight": 338,
+  "facing": "left",
+  "file": "sol@summer.celebrate.strip.png",
+  "fps": 1,
+  "frameHeight": 342,
+  "frameWidth": 218,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/looks/summer/char-sol.png"
+}

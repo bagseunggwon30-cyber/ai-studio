@@ -1,0 +1,20 @@
+{
+  "action": "rest",
+  "anchor": {
+    "x": 119,
+    "y": 312
+  },
+  "cells": [
+    2.0
+  ],
+  "character": "luna@summer",
+  "contentHeight": 308,
+  "facing": "left",
+  "file": "luna@summer.rest.strip.png",
+  "fps": 1,
+  "frameHeight": 312,
+  "frameWidth": 238,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/looks/summer/char-luna.png"
+}

@@ -1,0 +1,20 @@
+{
+  "action": "frozen",
+  "anchor": {
+    "x": 124,
+    "y": 238
+  },
+  "cells": [
+    5.0
+  ],
+  "character": "hana",
+  "contentHeight": 234,
+  "facing": "right",
+  "file": "hana.frozen.strip.png",
+  "fps": 1,
+  "frameHeight": 238,
+  "frameWidth": 249,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/char-hana.png"
+}

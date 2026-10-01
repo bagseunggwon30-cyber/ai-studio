@@ -1,0 +1,20 @@
+{
+  "action": "worried",
+  "anchor": {
+    "x": 84,
+    "y": 344
+  },
+  "cells": [
+    6.0
+  ],
+  "character": "sol",
+  "contentHeight": 340,
+  "facing": "left",
+  "file": "sol.worried.strip.png",
+  "fps": 1,
+  "frameHeight": 344,
+  "frameWidth": 169,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/char-sol.png"
+}

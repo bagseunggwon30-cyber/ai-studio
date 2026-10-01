@@ -1,0 +1,21 @@
+{
+  "action": "work",
+  "anchor": {
+    "x": 105,
+    "y": 237
+  },
+  "cells": [
+    0.0,
+    1.0
+  ],
+  "character": "hana",
+  "contentHeight": 233,
+  "facing": "right",
+  "file": "hana.work.strip.png",
+  "fps": 3,
+  "frameHeight": 237,
+  "frameWidth": 210,
+  "frames": 2,
+  "loop": true,
+  "source": "assets-raw/char-hana.png"
+}

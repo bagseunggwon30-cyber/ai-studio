@@ -1,0 +1,20 @@
+{
+  "action": "celebrate",
+  "anchor": {
+    "x": 128,
+    "y": 276
+  },
+  "cells": [
+    4.0
+  ],
+  "character": "clo",
+  "contentHeight": 272,
+  "facing": "right",
+  "file": "clo.celebrate.strip.png",
+  "fps": 1,
+  "frameHeight": 276,
+  "frameWidth": 256,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/char-clo.png"
+}

@@ -1,0 +1,16 @@
+{
+  "cell": 256,
+  "characters": [
+    "hana",
+    "sol",
+    "clo",
+    "luna"
+  ],
+  "file": "portraits@summer.png",
+  "moods": [
+    "normal",
+    "happy",
+    "worried"
+  ],
+  "source": "assets-raw/looks/summer/portraits.png"
+}

@@ -1,0 +1,16 @@
+{
+  "cell": 256,
+  "characters": [
+    "hana",
+    "sol",
+    "clo",
+    "luna"
+  ],
+  "file": "portraits.png",
+  "moods": [
+    "normal",
+    "happy",
+    "worried"
+  ],
+  "source": "assets-raw/portraits.png"
+}

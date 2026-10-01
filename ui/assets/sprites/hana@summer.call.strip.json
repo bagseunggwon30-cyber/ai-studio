@@ -1,0 +1,20 @@
+{
+  "action": "call",
+  "anchor": {
+    "x": 160,
+    "y": 379
+  },
+  "cells": [
+    3.0
+  ],
+  "character": "hana@summer",
+  "contentHeight": 375,
+  "facing": "right",
+  "file": "hana@summer.call.strip.png",
+  "fps": 1,
+  "frameHeight": 379,
+  "frameWidth": 321,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/looks/summer/char-hana.png"
+}

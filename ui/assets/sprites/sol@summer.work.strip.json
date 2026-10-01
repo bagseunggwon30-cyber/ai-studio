@@ -1,0 +1,21 @@
+{
+  "action": "work",
+  "anchor": {
+    "x": 79,
+    "y": 252
+  },
+  "cells": [
+    0.0,
+    1.0
+  ],
+  "character": "sol@summer",
+  "contentHeight": 248,
+  "facing": "left",
+  "file": "sol@summer.work.strip.png",
+  "fps": 3,
+  "frameHeight": 252,
+  "frameWidth": 158,
+  "frames": 2,
+  "loop": true,
+  "source": "assets-raw/looks/summer/char-sol.png"
+}

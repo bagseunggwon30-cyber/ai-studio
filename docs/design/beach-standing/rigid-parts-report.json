@@ -1,0 +1,79 @@
+{
+  "missing_bounds": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "missing_opaque_pixels": 0,
+  "pieces": {
+    "calfL": {
+      "h": 414,
+      "image": "standing-calfl.png",
+      "w": 144,
+      "x": 407,
+      "y": 1030
+    },
+    "calfR": {
+      "h": 399,
+      "image": "standing-calfr.png",
+      "w": 168,
+      "x": 578,
+      "y": 1045
+    },
+    "chest": {
+      "h": 211,
+      "image": "standing-chest.png",
+      "w": 283,
+      "x": 371,
+      "y": 335
+    },
+    "cloth": {
+      "h": 496,
+      "image": "standing-cloth.png",
+      "w": 215,
+      "x": 578,
+      "y": 624
+    },
+    "hairR": {
+      "h": 328,
+      "image": "standing-hairr.png",
+      "w": 233,
+      "x": 595,
+      "y": 280
+    },
+    "head": {
+      "h": 331,
+      "image": "standing-head.png",
+      "w": 388,
+      "x": 388,
+      "y": 0
+    },
+    "thighL": {
+      "h": 407,
+      "image": "standing-thighl.png",
+      "w": 172,
+      "x": 350,
+      "y": 658
+    },
+    "thighR": {
+      "h": 408,
+      "image": "standing-thighr.png",
+      "w": 173,
+      "x": 522,
+      "y": 670
+    },
+    "torso": {
+      "h": 484,
+      "image": "standing-torso.png",
+      "w": 655,
+      "x": 155,
+      "y": 313
+    }
+  },
+  "size": {
+    "h": 1540,
+    "w": 1021
+  },
+  "underleg": true
+}

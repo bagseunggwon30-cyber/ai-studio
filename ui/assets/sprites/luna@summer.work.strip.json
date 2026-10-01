@@ -1,0 +1,21 @@
+{
+  "action": "work",
+  "anchor": {
+    "x": 113,
+    "y": 252
+  },
+  "cells": [
+    0.0,
+    1.0
+  ],
+  "character": "luna@summer",
+  "contentHeight": 248,
+  "facing": "left",
+  "file": "luna@summer.work.strip.png",
+  "fps": 3,
+  "frameHeight": 252,
+  "frameWidth": 226,
+  "frames": 2,
+  "loop": true,
+  "source": "assets-raw/looks/summer/char-luna.png"
+}

@@ -1,0 +1,25 @@
+"use strict";
+(async () => {
+  const status = document.querySelector('#status');
+  const raw = await (await fetch('mascot.json',{cache:'no-store'})).json();
+  const base = '';
+  const rig = Puppet.logic.cleanRig(raw.rig,raw.moods.normal,{base});
+  if (!rig) throw new Error('캐릭터 설정을 읽을 수 없습니다.');
+  const host = document.querySelector('#puppet');
+  const puppet = Puppet.create(host,{rig,box:rig.size,normal:{x:0,y:0,h:rig.size.h},images:{normal:raw.moods.normal.image},pad:8});
+  if (!puppet) throw new Error('이 브라우저에서 WebGL을 사용할 수 없습니다.');
+  let playing = true;
+  const setPlaying = (on) => {playing=on;if(on){document.querySelector('#eyes').value='100';document.querySelector('#mouth').value='0';}puppet.setPose(on?null:{});puppet.setActive(true);status.textContent=on?'눈 깜박임 · 작은 체중 이동 · 머리카락과 흉부의 지연 움직임':'정지된 자세입니다.';};
+  document.querySelector('#idle').addEventListener('click',()=>setPlaying(true));
+  document.querySelector('#pause').addEventListener('click',()=>setPlaying(false));
+  document.querySelector('#talk').addEventListener('click',()=>{setPlaying(true);puppet.talk(5000);status.textContent='말하기 · 입 모양이 바뀝니다.';});
+  document.querySelector('#point').addEventListener('click',()=>{setPlaying(true);puppet.point(1600);});
+  for(const [id,sign] of [['pose-left',-1],['pose-right',1]])document.querySelector('#'+id).addEventListener('click',()=>{playing=false;puppet.setPose({bodyX:sign,bodyZ:.5*sign,angleZ:.4*sign,breath:1});status.textContent='조각의 길이와 관절 연결 확인 중입니다.';});
+  const poseFace=()=>{playing=false;puppet.setPose({eyeOpen:Number(document.querySelector('#eyes').value)/100,mouthOpen:Number(document.querySelector('#mouth').value)/100});status.textContent='눈과 입 모양 확인 중입니다.';};
+  document.querySelector('#eyes').addEventListener('input',poseFace);
+  document.querySelector('#mouth').addEventListener('input',poseFace);
+  host.addEventListener('pointermove',e=>{if(playing)puppet.lookAt(e.clientX,e.clientY);});
+  host.addEventListener('pointerleave',()=>puppet.lookAt(null));
+  window.beachPreview={puppet,rig,setPlaying};
+  setPlaying(true);
+})().catch(e=>{document.querySelector('#status').textContent=e.message;console.error(e);});

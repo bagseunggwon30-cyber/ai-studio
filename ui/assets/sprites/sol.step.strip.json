@@ -1,0 +1,20 @@
+{
+  "action": "step",
+  "anchor": {
+    "x": 87,
+    "y": 330
+  },
+  "cells": [
+    7.0
+  ],
+  "character": "sol",
+  "contentHeight": 326,
+  "facing": "left",
+  "file": "sol.step.strip.png",
+  "fps": 1,
+  "frameHeight": 330,
+  "frameWidth": 174,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/char-sol.png"
+}

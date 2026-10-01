@@ -1,0 +1,24 @@
+{
+  "action": "walk",
+  "anchor": {
+    "x": 114,
+    "y": 361
+  },
+  "cells": [
+    0.0,
+    1.0,
+    2.0,
+    3.0
+  ],
+  "character": "hana@summer",
+  "contentHeight": 358,
+  "facing": "right",
+  "file": "hana@summer.walk.strip.png",
+  "fps": 8,
+  "frameHeight": 361,
+  "frameWidth": 228,
+  "frames": 4,
+  "loop": true,
+  "seam": 1.009,
+  "source": "assets-raw/looks/summer/walk-hana.png"
+}

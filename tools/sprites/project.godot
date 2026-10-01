@@ -1,0 +1,6 @@
+; 스프라이트 도구 실행용 빈 프로젝트 (게임 프로젝트가 아님)
+config_version=5
+
+[application]
+
+config/name="sprite-tools"

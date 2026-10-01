@@ -1,0 +1,20 @@
+{
+  "action": "frozen",
+  "anchor": {
+    "x": 98,
+    "y": 259
+  },
+  "cells": [
+    5.0
+  ],
+  "character": "sol@summer",
+  "contentHeight": 255,
+  "facing": "left",
+  "file": "sol@summer.frozen.strip.png",
+  "fps": 1,
+  "frameHeight": 259,
+  "frameWidth": 196,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/looks/summer/char-sol.png"
+}

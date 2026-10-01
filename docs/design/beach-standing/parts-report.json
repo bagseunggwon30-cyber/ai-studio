@@ -1,0 +1,74 @@
+{
+  "hair": {
+    "blob_rect": {
+      "h": 320,
+      "w": 232,
+      "x": 592,
+      "y": 280
+    },
+    "changed_whole": 33267,
+    "check": {
+      "composite_diff": 55,
+      "composite_diff_in_area": 174,
+      "opaque_pixels": 410017
+    },
+    "faint_pixels": 768,
+    "files": [
+      "hair.png",
+      "normal-nohair.png"
+    ],
+    "joined_blobs": 2,
+    "mask_pixels": 45259,
+    "mask_rect": {
+      "h": 333,
+      "w": 239,
+      "x": 590,
+      "y": 281
+    },
+    "mood_differs_inside_mask": {},
+    "nonhair_pixels_removed": 7434,
+    "raw_pixels": 32536,
+    "strand_pixels": 145,
+    "trimmed_pixels": 1501,
+    "warns": []
+  },
+  "pieces": {
+    "blink": {
+      "changed_inside": 1638,
+      "feather": 4,
+      "h": 61,
+      "w": 137,
+      "x": 442,
+      "y": 168
+    },
+    "eyes-half": {
+      "changed_inside": 1496,
+      "feather": 4,
+      "h": 61,
+      "w": 137,
+      "x": 442,
+      "y": 168
+    },
+    "mouth-closed": {
+      "changed_inside": 489,
+      "feather": 4,
+      "h": 40,
+      "w": 56,
+      "x": 497,
+      "y": 229
+    },
+    "mouth-half": {
+      "changed_inside": 330,
+      "feather": 4,
+      "h": 40,
+      "w": 56,
+      "x": 497,
+      "y": 229
+    }
+  },
+  "problems": [],
+  "size": {
+    "h": 1540,
+    "w": 1021
+  }
+}

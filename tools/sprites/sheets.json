@@ -1,0 +1,53 @@
+{
+  "out": "ui/assets/sprites",
+  "loops": ["work", "walk"],
+  "fps": { "work": 3, "walk": 8, "default": 1 },
+  "sets": ["summer"],
+  "_parts": "색 바꾸기용 표시 규칙 (make_masks.gd). h는 색상(도, 앞이 뒤보다 크면 0도를 건너 감), s·v는 채도·밝기 0~1, y는 높이 비율(위가 0). 얼굴 그림은 칸마다 y를 따로 재고, 머리는 칸 전체·옷은 아래쪽만 본다(face로 덮어쓰기). 옷 표시는 minArea보다 작은 조각(입, 반짝이)을 버린다.",
+  "minArea": { "outfit": 300, "faceOutfit": 150 },
+  "parts": {
+    "hana": {
+      "hair": { "h": [276, 360], "s": [0.12, 0.42], "v": [0.15, 0.5], "y": [0, 0.8] },
+      "outfit": { "h": [258, 290], "s": [0.34, 1], "v": [0.5, 1], "y": [0.2, 1] }
+    },
+    "sol": {
+      "hair": { "h": [4, 28], "s": [0.45, 1], "v": [0.16, 0.76], "y": [0, 0.55] },
+      "outfit": { "h": [204, 226], "s": [0.58, 1], "v": [0.55, 1], "y": [0.2, 1] }
+    },
+    "clo": {
+      "hair": { "h": [240, 358], "s": [0.08, 0.44], "v": [0.12, 0.52], "y": [0, 0.48] },
+      "outfit": { "h": [348, 16], "s": [0.45, 1], "v": [0.72, 1], "y": [0.25, 1] },
+      "face": { "hair": { "h": [240, 320], "s": [0.1, 0.45], "v": [0.1, 0.46], "y": [0, 1] }, "outfit": { "y": [0.82, 1] } }
+    },
+    "luna": {
+      "hair": { "h": [3, 24], "s": [0.44, 1], "v": [0.15, 0.66], "y": [0, 0.8] },
+      "outfit": { "h": [27, 42], "s": [0.6, 1], "v": [0.72, 1], "y": [0.2, 1] }
+    }
+  },
+  "portraits": {
+    "file": "assets-raw/portraits.png", "out": "ui/assets/portraits.png", "cell": 256,
+    "characters": ["hana", "sol", "clo", "luna"], "moods": ["normal", "happy", "worried"]
+  },
+  "sheets": [
+    {
+      "file": "assets-raw/char-hana.png", "character": "hana", "cols": 4, "rows": 2, "facing": "right",
+      "actions": { "work": [0, 1], "rest": [2], "call": [3], "celebrate": [4], "frozen": [5], "worried": [6], "step": [7] }
+    },
+    {
+      "file": "assets-raw/char-sol.png", "character": "sol", "cols": 4, "rows": 2, "facing": "left",
+      "actions": { "work": [0, 1], "rest": [2], "call": [3], "celebrate": [4], "frozen": [5], "worried": [6], "step": [7] }
+    },
+    {
+      "file": "assets-raw/char-clo.png", "character": "clo", "cols": 4, "rows": 2, "facing": "right",
+      "actions": { "work": [0, 1], "rest": [2], "call": [3], "celebrate": [4], "frozen": [5], "worried": [6], "step": [7] }
+    },
+    {
+      "file": "assets-raw/char-luna.png", "character": "luna", "cols": 4, "rows": 2, "facing": "left",
+      "actions": { "work": [0, 1], "rest": [2], "call": [3], "celebrate": [4], "frozen": [5], "worried": [6], "step": [7] }
+    },
+    { "file": "assets-raw/walk-hana.png", "character": "hana", "cols": 4, "rows": 1, "facing": "right", "matchHeightOf": "step", "align": "head", "actions": { "walk": [0, 1, 2, 3] } },
+    { "file": "assets-raw/walk-sol.png", "character": "sol", "cols": 4, "rows": 1, "facing": "right", "matchHeightOf": "step", "align": "head", "actions": { "walk": [0, 1, 2, 3] } },
+    { "file": "assets-raw/walk-clo.png", "character": "clo", "cols": 4, "rows": 1, "facing": "right", "matchHeightOf": "step", "align": "head", "actions": { "walk": [0, 1, 2, 3] } },
+    { "file": "assets-raw/walk-luna.png", "character": "luna", "cols": 4, "rows": 1, "facing": "right", "matchHeightOf": "step", "align": "head", "actions": { "walk": [0, 1, 2, 3] } }
+  ]
+}

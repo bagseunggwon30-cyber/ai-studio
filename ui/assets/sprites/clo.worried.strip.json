@@ -1,0 +1,20 @@
+{
+  "action": "worried",
+  "anchor": {
+    "x": 101,
+    "y": 356
+  },
+  "cells": [
+    6.0
+  ],
+  "character": "clo",
+  "contentHeight": 352,
+  "facing": "right",
+  "file": "clo.worried.strip.png",
+  "fps": 1,
+  "frameHeight": 356,
+  "frameWidth": 203,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/char-clo.png"
+}

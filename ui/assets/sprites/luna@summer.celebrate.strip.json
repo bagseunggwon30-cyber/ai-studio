@@ -1,0 +1,20 @@
+{
+  "action": "celebrate",
+  "anchor": {
+    "x": 149,
+    "y": 408
+  },
+  "cells": [
+    4.0
+  ],
+  "character": "luna@summer",
+  "contentHeight": 404,
+  "facing": "left",
+  "file": "luna@summer.celebrate.strip.png",
+  "fps": 1,
+  "frameHeight": 408,
+  "frameWidth": 299,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/looks/summer/char-luna.png"
+}

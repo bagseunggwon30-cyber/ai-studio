@@ -1,0 +1,24 @@
+{
+  "action": "walk",
+  "anchor": {
+    "x": 113,
+    "y": 361
+  },
+  "cells": [
+    0.0,
+    1.0,
+    2.0,
+    3.0
+  ],
+  "character": "hana",
+  "contentHeight": 358,
+  "facing": "right",
+  "file": "hana.walk.strip.png",
+  "fps": 8,
+  "frameHeight": 361,
+  "frameWidth": 226,
+  "frames": 4,
+  "loop": true,
+  "seam": 0.998,
+  "source": "assets-raw/walk-hana.png"
+}

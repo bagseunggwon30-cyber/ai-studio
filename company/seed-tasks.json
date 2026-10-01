@@ -1,0 +1,33 @@
+[
+  {
+    "title": "RunState 핵심 규칙 구현",
+    "kind": "build",
+    "role": "builder",
+    "project": "core-courier",
+    "status": "ready",
+    "brief": "src/core/run_state.gd의 TODO를 docs/INTERFACES.md 계약대로 구현한다. 노드에 의존하지 않는 순수 로직이다. 이동(방향 정규화·영역 제한), 제한 시간, 코어 획득, 피격과 무적 시간, 승리·패배, 재시작, 일시정지 규칙을 모두 포함한다.",
+    "acceptance": [
+      "신뢰 수용 테스트 8개(감독 프로그램이 실행)가 모두 통과한다",
+      "docs/INTERFACES.md의 메서드 이름·인자·상수 값을 바꾸지 않는다",
+      "run_state.gd는 Node나 씬에 의존하지 않는다"
+    ],
+    "allowed_paths": ["src/core/**"],
+    "depends_on": []
+  },
+  {
+    "title": "Steam AI 생성 콘텐츠 공개 규정 1쪽 요약",
+    "kind": "research",
+    "role": "analyst",
+    "project": "studio-docs",
+    "status": "ready",
+    "brief": "Steam에 게임을 낼 때 AI로 만든 아트·사운드·텍스트와 실시간 생성 콘텐츠를 어떻게 신고해야 하는지 Steamworks 공식 문서 기준으로 1쪽 보고서를 쓴다. 우리 게임(Core Courier)을 만들면서 무엇을 기록해 둬야 하는지도 '우리에게 적용'에 정리한다.",
+    "acceptance": [
+      "reports/ 아래 보고서 1개, templates/research-report.md 형식을 따른다",
+      "핵심 주장마다 출처 번호, 출처 3개 이상(URL·확인일)",
+      "Steamworks 공식 문서를 1차 출처로 쓴다",
+      "확인하지 못한 내용은 '미확인·한계'에 분리한다"
+    ],
+    "allowed_paths": ["reports/**"],
+    "depends_on": []
+  }
+]

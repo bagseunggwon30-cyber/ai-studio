@@ -1,0 +1,21 @@
+{
+  "action": "work",
+  "anchor": {
+    "x": 90,
+    "y": 289
+  },
+  "cells": [
+    0.0,
+    1.0
+  ],
+  "character": "sol",
+  "contentHeight": 285,
+  "facing": "left",
+  "file": "sol.work.strip.png",
+  "fps": 3,
+  "frameHeight": 289,
+  "frameWidth": 180,
+  "frames": 2,
+  "loop": true,
+  "source": "assets-raw/char-sol.png"
+}

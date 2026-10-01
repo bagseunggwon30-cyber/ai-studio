@@ -1,0 +1,20 @@
+{
+  "action": "worried",
+  "anchor": {
+    "x": 128,
+    "y": 371
+  },
+  "cells": [
+    6.0
+  ],
+  "character": "hana",
+  "contentHeight": 367,
+  "facing": "right",
+  "file": "hana.worried.strip.png",
+  "fps": 1,
+  "frameHeight": 371,
+  "frameWidth": 256,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/char-hana.png"
+}

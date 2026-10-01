@@ -1,0 +1,20 @@
+{
+  "action": "step",
+  "anchor": {
+    "x": 120,
+    "y": 362
+  },
+  "cells": [
+    7.0
+  ],
+  "character": "hana@summer",
+  "contentHeight": 358,
+  "facing": "right",
+  "file": "hana@summer.step.strip.png",
+  "fps": 1,
+  "frameHeight": 362,
+  "frameWidth": 240,
+  "frames": 1,
+  "loop": false,
+  "source": "assets-raw/looks/summer/char-hana.png"
+}

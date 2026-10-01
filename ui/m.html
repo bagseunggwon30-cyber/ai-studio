@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2e2b3d">
+  <meta name="referrer" content="no-referrer">
+  <title>AI 스튜디오 리모컨</title>
+  <link rel="icon" href="/favicon.svg">
+  <link rel="stylesheet" href="/m.css">
+  <script src="/m.js" defer></script>
+</head>
+<body>
+  <!-- 휴대폰 리모컨: 결재·지시·긴급 정지. 데이터는 m.js가 /m/api에서 읽어 textContent로만 넣는다 -->
+  <header class="top">
+    <b class="name" id="name">AI 스튜디오</b>
+    <span class="energy" id="energy"></span>
+    <button class="stop" id="stop" type="button" hidden>긴급 정지</button>
+  </header>
+  <div class="banner" id="banner" role="status" hidden></div>
+  <main class="app" id="app"></main>
+  <nav class="tabs" id="tabs" aria-label="화면" hidden>
+    <button type="button" data-tab="inbox">결재함<span class="badge" id="badge" hidden></span></button>
+    <button type="button" data-tab="work">진행</button>
+    <button type="button" data-tab="order">지시</button>
+    <button type="button" data-tab="alerts">알림</button>
+  </nav>
+</body>
+</html>
