@@ -8,6 +8,8 @@
 - 설치된 Codex app-server의 실제 MCP 클라이언트가 도구 6개를 등록하고 임시 회사에 왕복 호출했다. Codex 모델 호출은 0회. 이 검사는 소윤이의 도구 등록을 증명하지 않는다.
 - 사용자가 이 PC의 접근 허용을 확인했고, 2026-10-03에 아래 로컬 MCP·토큰·프로젝트 범위 적용을 승인했다. 로컬 MCP 등록과 실제 회사 API 왕복은 완료했다. **소윤이 클라우드에서 직접 도구를 호출했는지는 아직 확인하지 않았다.**
 - 이후 소윤이의 새 `AI Studio 도구 목록 확인` 작업에서도 `ai_studio`가 세션 도구 목록에 없었다. 해당 작업은 클라우드가 조정하면서 연결된 PC를 사용하는 형태다. PC의 설정 등록과 이 세션의 도구 노출은 별개이며, 새 작업을 만드는 것만으로 해결된다고 안내한 부분을 정정한다. 인증·연결 오류가 없다는 사실만으로 서버 접속이나 인증 성공을 판단하지 않는다.
+- 사용자 전달로 **소윤이의 연결 PC 조회 성공**을 확인했다: `ai-studio-supervisor`, 도구 6개, `mode=connection-only`, `workers=0`, `model_generation_calls=0`. 이는 PC 명령 실행 경로의 목록/health 성공이며 세션 도구 목록에 직접 등록된 것은 아니다.
+- 다음 단계인 인증된 조회 명령을 추가했다. 이 PC의 실제 Codex MCP 클라이언트에서 기존 확인 카드의 상태·이벤트·결과 조회가 성공했다. 새 제출·취소·모델 호출은 0회다. **소윤이 측 인증된 조회는 아직 미확인**이다. [조회 근거](verification/soyun-authenticated-readonly.json).
 
 ## 1. 이 PC를 소윤이에 연결
 
@@ -67,7 +69,7 @@ default_tools_approval_mode = "writes"
 
 ### 연결된 Windows PC에서 할 무인증 확인
 
-아래 명령은 연결된 PC에서 실행한다. 클라우드 컴퓨터의 localhost에는 실행하지 않는다. 토큰·사용자 설정을 읽지 않고 `tools/call`도 보내지 않는다. `-B`로 Python 캐시 쓰기도 막는다. 이 PC에서 아래 조회는 성공했지만 소윤이 측 실행은 아직 확인하지 않았다.
+아래 명령은 연결된 PC에서 실행한다. 클라우드 컴퓨터의 localhost에는 실행하지 않는다. 토큰·사용자 설정을 읽지 않고 `tools/call`도 보내지 않는다. `-B`로 Python 캐시 쓰기도 막는다. 이 PC의 직접 조회와 사용자가 전달한 소윤이 측 조회 모두 성공했다. 다음 단계는 아래 인증된 조회이며 같은 무인증 목록 확인을 반복하지 않는다.
 
 ```powershell
 Set-Location -LiteralPath 'S:\AI\ai studio'
@@ -86,6 +88,21 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:8765/supervisor/health' -TimeoutSec 5 |
 
 예상: 서버 이름 `ai-studio-supervisor`, 도구 6개, health의 `mode=connection-only`, `workers=0`, `model_generation_calls=0`. 실패하면 어느 명령을 어느 실행 환경에서 실행했는지와 비밀값 없는 오류만 보고한다. 등록되지 않은 도구의 목록을 계속 재확인하는 것으로 이 단계를 대체하지 않는다.
 
+### 연결된 Windows PC에서 할 인증된 읽기 전용 확인
+
+```powershell
+Set-Location -LiteralPath 'S:\AI\ai studio'
+python -X utf8 -B tools/dev/supervisor_connection_check.py --read-only
+```
+
+새 승인이나 토큰 생성 없이 이미 승인된 `soyun` 연결과 `studio-docs` 범위를 사용한다. 검사 프로그램은 등록 설정을 확인하고, 로컬 MCP 하위 프로세스만 기존 DPAPI 연결 파일을 내부적으로 복호화한다. 토큰을 부모 검사 프로그램·명령줄·모델·출력에 전달하지 않는다. 현재 Windows 사용자가 다르거나 설정이 바뀌면 실패로 멈춘다.
+
+기존 요청 키의 **취소된 확인 카드**를 찾아 `task_status`, `task_events`, `task_result`만 호출한다. 카드가 없거나 상태가 바뀌거나 중복되면 새 카드를 만들지 않고 멈춘다. 제출·취소·결과 파일 생성·모델 turn·CEO 결재·병합은 수행하지 않는다. 클라이언트의 비공개 임시 설정은 종료 시 정리하며 서버는 정상 감사 기록을 추가한다. 제품·회사 설정은 수정하지 않는다. 이전 제출/취소 검사의 `--owner-approved` 명령과 혼동하지 않는다.
+
+출력은 비밀값 없는 집계 JSON이다. 성공 기준은 `status=pass`, `mode=authenticated-read-only`, `existing_probe_reused=true`, `task_status=cancelled`, `authenticated_reads` 3개, `new_tasks_submitted=0`, `cancellation_calls=0`, `model_generation_calls=0`, `client_model_turns=0`이다. 실제 작업 ID·작업 내용·토큰·개인 경로는 출력하지 않는다. 실패하면 `status=blocked`와 오류 종류만 보여 주며 자동 복구·재제출하지 않는다.
+
+이 PC에서 실제 등록된 Codex MCP 클라이언트의 인증된 조회는 성공했다. 소윤이가 이 명령으로 같은 결과를 받으면 **PC 명령 실행을 통한 인증된 MCP 조회**가 확인된 것이다. 소윤이 세션에 직접 MCP 도구가 등록된 것, 직원 실행·QA·결재·결과 파일 생성이 성공한 것과는 구분한다.
+
 연결 전용 서버 재실행: `python -X utf8 -B tools/supervisor-host.py --port 8765`.
 승인된 연결 재확인(모델 없음, 자신의 확인 카드만 제출·취소): `python -X utf8 -B tools/dev/supervisor_connection_check.py --owner-approved`.
 연결 해제는 서버의 `soyun.enabled=false`와 로컬 `mcp_servers.ai_studio.enabled=false`로 할 수 있다. 토큰을 다른 PC에 복사하거나 채팅으로 전달하지 않는다.
@@ -94,15 +111,15 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:8765/supervisor/health' -TimeoutSec 5 |
 
 ```text
 소윤이, 너를 AI Studio의 메인 감독으로 사용하려고 해.
-세션 목록에 ai_studio가 없다는 확인은 받았어. 같은 목록 확인을 반복하지 마.
+PC에서 도구 6개와 connection-only 상태를 확인한 결과는 받았어. 목록 확인은 반복하지 마.
 연결한 내 Windows PC의 S:\AI\ai studio\docs\SOYUN_CONNECT.md를 읽고,
-'연결된 Windows PC에서 할 무인증 확인'의 명령 두 가지만 그 PC에서 실행해 줘.
-stdio의 initialize/tools/list와 연결 전용 서버의 GET health 조회만 허용해.
-토큰·인증 파일·사용자 설정 내용을 읽거나 파일을 수정하지 마.
-작업 제출·취소·tools/call·모델 실행·새 구독·API 키·터널 생성은 하지 마.
-클라우드 컴퓨터의 localhost로 시도하지 말고, PC 명령 실행이 불가능하면 그 단계가 막혔다고 알려 줘.
-서버 이름, 도구 이름 6개, health의 mode/workers/model_generation_calls만 보고해 줘.
-이 조회 성공과 네 세션의 MCP 등록·인증된 왕복 성공은 구분해서 보고해 줘.
+'연결된 Windows PC에서 할 인증된 읽기 전용 확인'의 --read-only 명령만 1회 실행해 줘.
+기존 로컬 MCP 프로세스가 암호화 연결 파일을 내부적으로 사용하는 것은 허용해.
+너는 토큰·인증 파일·사용자 설정 내용을 직접 읽거나 출력하지 마.
+기존 취소된 카드의 상태·이벤트·결과 조회만 하고, 새 제출·취소·모델 실행·제품 파일 생성·수정·결재·병합은 하지 마.
+--owner-approved 검사, 새 API 키·구독·터널 생성, 서버 공개, 권한 확대도 하지 마.
+반환된 집계 JSON만 보고하고 실패하면 자동 재시도·재제출 없이 막힌 단계와 오류 종류를 알려 줘.
+PC 경유 인증된 조회 성공과 네 세션의 직접 MCP 등록·실제 직원 작업 실행은 구분해서 보고해 줘.
 ```
 
 위 요청문은 아직 소윤이에 전송하지 않았다. 사용자 직접 전달용이며 실행 요청과 권한 승인을 구분한다.
