@@ -1,0 +1,78 @@
+{
+  "status": "pass",
+  "company": "temporary",
+  "models": "fake",
+  "model_calls": 0,
+  "stdio_tools": [
+    "cancel_task",
+    "submit_task",
+    "task_artifact",
+    "task_events",
+    "task_result",
+    "task_status"
+  ],
+  "request_replay_same_task": true,
+  "qa_receipt_reused_after_restart": true,
+  "artifact_sha256": "9e4c59bb9e5ca6ca840eb57555c3f45692474ff6c1379d3579eec60e18667cbe",
+  "candidate_sha": "129a70c2df7b9922429ac5a34679bb13bc1ec4e5",
+  "evidence_verified": true,
+  "tamper_blocks_approval": true,
+  "cancel_cleans_worktree_and_reservations": true,
+  "event_count": 15,
+  "production_company_connected": false,
+  "external_client": "stdio",
+  "client_model_turns": 0,
+  "client_version": null,
+  "executions": [
+    {
+      "stage": "build1",
+      "requested_provider": "codex",
+      "requested_model": null,
+      "actual_runtime": "fake",
+      "runtime_version": "fake",
+      "provider_model": null,
+      "model_identity": "확인 불가",
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "duration_s": 0.0,
+      "fallback": false,
+      "error_kind": null
+    },
+    {
+      "stage": "review",
+      "requested_provider": "codex",
+      "requested_model": null,
+      "actual_runtime": "fake",
+      "runtime_version": "fake",
+      "provider_model": null,
+      "model_identity": "확인 불가",
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "duration_s": 0.0,
+      "fallback": false,
+      "error_kind": null
+    }
+  ],
+  "planning_executions": [
+    {
+      "stage": "plan",
+      "requested_provider": "codex",
+      "requested_model": null,
+      "actual_runtime": "fake",
+      "runtime_version": "fake",
+      "provider_model": null,
+      "model_identity": "확인 불가",
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "duration_s": 0.0,
+      "fallback": false,
+      "error_kind": null
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "status": "pass",
+  "mode": "unauthenticated-preflight",
+  "stage": "preflight_complete",
+  "checks": [
+    "local_paths",
+    "config_load",
+    "config_match",
+    "server_health",
+    "existing_probe"
+  ],
+  "mcp_started": false,
+  "credential_read": false,
+  "authenticated_reads": 0,
+  "new_tasks_submitted": 0,
+  "cancellation_calls": 0,
+  "model_generation_calls": 0
+}

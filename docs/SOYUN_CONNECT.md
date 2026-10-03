@@ -10,6 +10,7 @@
 - 이후 소윤이의 새 `AI Studio 도구 목록 확인` 작업에서도 `ai_studio`가 세션 도구 목록에 없었다. 해당 작업은 클라우드가 조정하면서 연결된 PC를 사용하는 형태다. PC의 설정 등록과 이 세션의 도구 노출은 별개이며, 새 작업을 만드는 것만으로 해결된다고 안내한 부분을 정정한다. 인증·연결 오류가 없다는 사실만으로 서버 접속이나 인증 성공을 판단하지 않는다.
 - 사용자 전달로 **소윤이의 연결 PC 조회 성공**을 확인했다: `ai-studio-supervisor`, 도구 6개, `mode=connection-only`, `workers=0`, `model_generation_calls=0`. 이는 PC 명령 실행 경로의 목록/health 성공이며 세션 도구 목록에 직접 등록된 것은 아니다.
 - 다음 단계인 인증된 조회 명령을 추가했다. 이 PC의 실제 Codex MCP 클라이언트에서 기존 확인 카드의 상태·이벤트·결과 조회가 성공했다. 새 제출·취소·모델 호출은 0회다. **소윤이 측 인증된 조회는 아직 미확인**이다. [조회 근거](verification/soyun-authenticated-readonly.json).
+- 소윤이가 `--read-only`를 1회 실행했지만 `blocked / ValueError`를 반환했다. 당시 집계 오류에 실패 단계가 없어 정확한 원인은 미확정이다. 이 PC에서는 설정 일치·기존 카드·서버 상태가 정상이다. 이제 `--diagnose`로 인증 없이 단계와 다른 설정 항목 이름만 확인한다. 토큰·설정 값·개인 경로는 출력하지 않는다.
 
 ## 1. 이 PC를 소윤이에 연결
 
@@ -99,9 +100,24 @@ python -X utf8 -B tools/dev/supervisor_connection_check.py --read-only
 
 기존 요청 키의 **취소된 확인 카드**를 찾아 `task_status`, `task_events`, `task_result`만 호출한다. 카드가 없거나 상태가 바뀌거나 중복되면 새 카드를 만들지 않고 멈춘다. 제출·취소·결과 파일 생성·모델 turn·CEO 결재·병합은 수행하지 않는다. 클라이언트의 비공개 임시 설정은 종료 시 정리하며 서버는 정상 감사 기록을 추가한다. 제품·회사 설정은 수정하지 않는다. 이전 제출/취소 검사의 `--owner-approved` 명령과 혼동하지 않는다.
 
-출력은 비밀값 없는 집계 JSON이다. 성공 기준은 `status=pass`, `mode=authenticated-read-only`, `existing_probe_reused=true`, `task_status=cancelled`, `authenticated_reads` 3개, `new_tasks_submitted=0`, `cancellation_calls=0`, `model_generation_calls=0`, `client_model_turns=0`이다. 실제 작업 ID·작업 내용·토큰·개인 경로는 출력하지 않는다. 실패하면 `status=blocked`와 오류 종류만 보여 주며 자동 복구·재제출하지 않는다.
+출력은 비밀값 없는 집계 JSON이다. 성공 기준은 `status=pass`, `mode=authenticated-read-only`, `existing_probe_reused=true`, `task_status=cancelled`, `authenticated_reads` 3개, `new_tasks_submitted=0`, `cancellation_calls=0`, `model_generation_calls=0`, `client_model_turns=0`이다. 실제 작업 ID·작업 내용·토큰·개인 경로는 출력하지 않는다. 실패하면 `status=blocked`, `stage`, 오류 종류와 고정된 설명을 보여 주며 자동 복구·재제출하지 않는다.
 
 이 PC에서 실제 등록된 Codex MCP 클라이언트의 인증된 조회는 성공했다. 소윤이가 이 명령으로 같은 결과를 받으면 **PC 명령 실행을 통한 인증된 MCP 조회**가 확인된 것이다. 소윤이 세션에 직접 MCP 도구가 등록된 것, 직원 실행·QA·결재·결과 파일 생성이 성공한 것과는 구분한다.
+
+### 인증 조회가 막혔을 때: 인증 없는 단계 진단
+
+소윤이 측 인증 조회는 실패한 상태다. 같은 인증 명령을 그대로 반복하거나 토큰을 새로 만들지 않는다. 연결된 Windows PC에서 아래 명령만 1회 실행한다.
+
+```powershell
+Set-Location -LiteralPath 'S:\AI\ai studio'
+python -X utf8 -B tools/dev/supervisor_connection_check.py --diagnose
+```
+
+진단은 현재 실행 환경의 사용자 설정에 등록된 블록과 예상 블록을 비교하고, localhost의 GET health와 기존 확인 카드만 읽는다. **MCP 프로세스를 시작하지 않고 인증 파일·토큰을 읽지 않으며 인증된 도구도 호출하지 않는다.** `--owner-approved`를 함께 주어도 진단만 실행한다. 성공 출력은 `mode=unauthenticated-preflight`, `stage=preflight_complete`, `mcp_started=false`, `credential_read=false`, `authenticated_reads=0`이다. 인증 성공이나 연결 완료를 뜻하지 않는다.
+
+실패 시 `stage`가 `local_paths`, `config_load`, `config_match`, `server_health`, `existing_probe` 중 하나다. `config_match`이면 `different_fields`에 알려진 항목 이름만, `additional_fields_present`에 알 수 없는 추가 항목 존재 여부만 표시한다. 현재 Python 버전과 CODEX_HOME 재정의 여부도 값·경로 없이 표시한다. 어떤 설정 값이나 알 수 없는 항목 이름도 출력하지 않는다. 예를 들어 `command`가 다르면 검사 실행기의 Python과 등록한 Python이 다른지 확인할 단서지만, 실제 소윤이 결과를 받기 전에는 그 원인으로 확정하지 않는다.
+
+인증된 검사에는 추가로 `mcp_start`, `task_status`, `task_events`, `task_result`, `probe_state` 단계가 표시된다. 제어 흐름에 예상하지 못한 오류는 `unexpected`로 표시한다. 출력 집계만 전달하고, 설정·계정·권한을 바꾸거나 다른 실행기로 자동 재시도하지 않는다.
 
 연결 전용 서버 재실행: `python -X utf8 -B tools/supervisor-host.py --port 8765`.
 승인된 연결 재확인(모델 없음, 자신의 확인 카드만 제출·취소): `python -X utf8 -B tools/dev/supervisor_connection_check.py --owner-approved`.
@@ -111,15 +127,15 @@ python -X utf8 -B tools/dev/supervisor_connection_check.py --read-only
 
 ```text
 소윤이, 너를 AI Studio의 메인 감독으로 사용하려고 해.
-PC에서 도구 6개와 connection-only 상태를 확인한 결과는 받았어. 목록 확인은 반복하지 마.
-연결한 내 Windows PC의 S:\AI\ai studio\docs\SOYUN_CONNECT.md를 읽고,
-'연결된 Windows PC에서 할 인증된 읽기 전용 확인'의 --read-only 명령만 1회 실행해 줘.
-기존 로컬 MCP 프로세스가 암호화 연결 파일을 내부적으로 사용하는 것은 허용해.
-너는 토큰·인증 파일·사용자 설정 내용을 직접 읽거나 출력하지 마.
-기존 취소된 카드의 상태·이벤트·결과 조회만 하고, 새 제출·취소·모델 실행·제품 파일 생성·수정·결재·병합은 하지 마.
---owner-approved 검사, 새 API 키·구독·터널 생성, 서버 공개, 권한 확대도 하지 마.
-반환된 집계 JSON만 보고하고 실패하면 자동 재시도·재제출 없이 막힌 단계와 오류 종류를 알려 줘.
-PC 경유 인증된 조회 성공과 네 세션의 직접 MCP 등록·실제 직원 작업 실행은 구분해서 보고해 줘.
+인증 조회가 blocked / ValueError로 끝난 결과는 받았어. 같은 인증 호출은 반복하지 마.
+연결한 내 Windows PC에서 다음 명령만 1회 실행해 줘.
+Set-Location -LiteralPath 'S:\AI\ai studio'
+python -X utf8 -B tools/dev/supervisor_connection_check.py --diagnose
+이 프로그램의 내부 설정 비교·서버 GET health·기존 카드 확인만 허용해.
+토큰·인증 파일을 읽거나 설정 내용을 직접 출력하지 마.
+MCP 시작·인증된 도구 호출·모델 실행·새 작업 제출·취소·파일 수정은 하지 마.
+반환된 집계 JSON만 보고하고, 실패하면 자동 재시도 없이 종료해 줘.
+진단 성공을 인증 성공·직접 MCP 등록·실제 직원 작업 실행 성공으로 표시하지 마.
 ```
 
 위 요청문은 아직 소윤이에 전송하지 않았다. 사용자 직접 전달용이며 실행 요청과 권한 승인을 구분한다.
