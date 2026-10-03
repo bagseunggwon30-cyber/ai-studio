@@ -1,12 +1,24 @@
 """공용 도우미: 원자적 쓰기가 다른 스레드의 읽기와 겹쳐도 실패하지 않아야 한다 (Windows)."""
 
 import tempfile
+import os
 import threading
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tests.helpers import ROOT  # noqa: F401  (sys.path 준비)
-from studio.util import atomic_write_json, read_json
+from studio.util import atomic_write_json, clean_child_env, read_json
+
+
+class WorkerEnvironment(unittest.TestCase):
+    def test_worker_never_inherits_external_supervisor_authority(self):
+        with mock.patch.dict(os.environ,{"STUDIO_SUPERVISOR_TOKEN":"fixture-supervisor",
+                                        "OPENAI_API_KEY":"fixture-model-key"}):
+            env=clean_child_env()
+            self.assertNotIn("STUDIO_SUPERVISOR_TOKEN",env)
+            self.assertNotIn("OPENAI_API_KEY",env)
+            self.assertEqual(env["PYTHONUTF8"],"1")
 
 
 class AtomicWrite(unittest.TestCase):

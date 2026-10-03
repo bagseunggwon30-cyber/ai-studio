@@ -199,10 +199,10 @@ def pid_alive(pid: int) -> bool:
 
 
 def clean_child_env(extra: dict[str, str] | None = None) -> dict[str, str]:
-    """에이전트 하위 프로세스용 환경변수. API 키 경로는 절대 물려주지 않는다."""
+    """Do not inherit model keys or the external supervisor's authority into workers."""
     env = dict(os.environ)
     for key in list(env):
-        if key.upper() in API_KEY_VARS:
+        if key.upper() in API_KEY_VARS or key.upper() == "STUDIO_SUPERVISOR_TOKEN":
             env.pop(key)
     env["NO_COLOR"] = "1"
     env["PYTHONUTF8"] = "1"
