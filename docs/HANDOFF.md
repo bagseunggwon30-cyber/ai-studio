@@ -6,6 +6,8 @@
 
 ## 외부 감독 MVP 작업 (2026-10-03)
 
+**소윤이 도구 미노출 후속 진단:** 새 `AI Studio 도구 목록 확인` 작업은 클라우드 조정 + 연결 PC 실행 형태이며 세션 MCP 목록에 `ai_studio`가 없었다. PC의 사용자 설정 등록과 연결 전용 health는 정상이고, 무인증 stdio initialize/tools/list도 6개 도구를 반환한다. 작업 호출·토큰 읽기·추가 모델 호출은 하지 않았다. 클라우드 세션에 로컬 설정이 전달되지 않은 것이 유력하며 정확한 내부 원인은 미확정이다. '새 로컬 작업이면 보일 것' 안내를 정정했다. 소윤이 직접 MCP 연결은 **미완료**다. [SOYUN_CONNECT.md](SOYUN_CONNECT.md)의 무인증 PC 진단 요청문으로 연결 PC 실행 경로를 확인한다. 새 API 키·터널·공개 서버·권한 확대를 하지 않는다. 이번에는 문서만 수정했으며 아래 기존 전체 검사와 별개의 목록/health 조회다.
+
 **소윤이 로컬 연결 승인·적용 (후속):** CEO가 `studio-docs` 진행 조회와 `reports/connection-check/**` 제출·자신의 작업 취소, 로컬 MCP·토큰 설정을 승인했다. 사용자 Codex 설정에 `ai_studio` 6도구를 추가하고 토큰은 Windows DPAPI CurrentUser + owner-only ACL로 저장했다. 서버는 해시만 보관한다. 실제 회사 API 왕복·중복/충돌/경로/다른 프로젝트 차단을 실제 Codex MCP 클라이언트로 확인했다(모델 turn 0). 확인 카드만 만들고 취소했으며 제품 파일·기존 카드·직원 MCP 설정은 보존했다. [실제 연결 근거](verification/soyun-production-connection.json), [현재 연결 방법](SOYUN_CONNECT.md).
 
 현재 `tools/supervisor-host.py --port 8765`가 127.0.0.1의 연결 전용 서버다. 직원/스케줄러·기존 작업 복구·모델 실행·CEO 쓰기 API가 없다. 실제 모델 실행을 승인한 뒤 이 서버를 종료하고 일반 serve로 전환한다. 소윤이 클라우드의 직접 도구 호출은 아직 미검증이다. 소윤이에 메시지를 보내거나 모델을 추가 호출하지 않았다. 아래 과거의 승인 대기·미등록 설명보다 이 상태를 우선한다.

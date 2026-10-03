@@ -7,6 +7,7 @@
 - Grok CLI 1.0.41로 기존 로그인 기반 텍스트 리뷰 1회 성공. 요청 모델은 `grok-4.7`; 응답의 정확한 모델 ID는 확인 불가.
 - 설치된 Codex app-server의 실제 MCP 클라이언트가 도구 6개를 등록하고 임시 회사에 왕복 호출했다. Codex 모델 호출은 0회. 이 검사는 소윤이의 도구 등록을 증명하지 않는다.
 - 사용자가 이 PC의 접근 허용을 확인했고, 2026-10-03에 아래 로컬 MCP·토큰·프로젝트 범위 적용을 승인했다. 로컬 MCP 등록과 실제 회사 API 왕복은 완료했다. **소윤이 클라우드에서 직접 도구를 호출했는지는 아직 확인하지 않았다.**
+- 이후 소윤이의 새 `AI Studio 도구 목록 확인` 작업에서도 `ai_studio`가 세션 도구 목록에 없었다. 해당 작업은 클라우드가 조정하면서 연결된 PC를 사용하는 형태다. PC의 설정 등록과 이 세션의 도구 노출은 별개이며, 새 작업을 만드는 것만으로 해결된다고 안내한 부분을 정정한다. 인증·연결 오류가 없다는 사실만으로 서버 접속이나 인증 성공을 판단하지 않는다.
 
 ## 1. 이 PC를 소윤이에 연결
 
@@ -21,7 +22,7 @@
 | 항목 | 적용 범위 |
 |---|---|
 | 메인 감독 | GPT dots 소윤이 |
-| 로컬 실행 경로 | 소윤이가 위 PC의 로컬 Work/Codex 작업을 통해 등록된 감독 MCP를 호출 |
+| 로컬 실행 경로 | 이 PC의 Codex MCP 등록·API 왕복 확인 완료; 소윤이 세션의 도구 노출은 미연결 |
 | 허용 프로젝트 | 기존 `studio-docs` 하나 |
 | 허용 결과 경로 | `reports/connection-check/**` |
 | 읽기 | `studio-docs` 프로젝트의 작업 상태·이벤트·검사 근거, 위 경로의 결과 파일 |
@@ -54,7 +55,36 @@ default_tools_approval_mode = "writes"
 
 공식 [MCP 안내](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)의 로컬 클라이언트 설정이 소윤이 클라우드에 자동 상속된다는 보장은 없다. 연결된 로컬 작업에서 도구를 확인하고 왕복 호출한 뒤에만 소윤이 연결 완료라고 보고한다. 로컬 작업에서 등록이 불가능하면 그 단계가 미완료다. API 키가 필요한 터널이나 서버 공개로 우회하지 않는다.
 
-소윤이가 이미 열어 둔 작업에는 새 도구가 바로 반영되지 않을 수 있다. **이 PC를 사용하는 새 로컬 Codex 작업에서 `ai_studio`를 확인**한다. 소윤이가 클라우드에서 로컬 stdio를 직접 호출한다고 가정하지 않는다. 새 모델을 실행하거나 소윤이에 메시지를 보내는 검사는 이번에 수행하지 않았다.
+**2026-10-03 후속 진단:** 소윤이의 확인 작업은 현재 세션의 도구 메타데이터만 확인했고 PC의 MCP 설정·서버 접속·인증 검사는 수행하지 않았다. 이 PC에서는 등록이 활성 상태이고 연결 전용 서버도 응답한다. 토큰 없이 별도 stdio 프로세스의 `initialize`와 `tools/list`만 실행해 6개 도구가 광고되는 것도 확인했다. 이 검사는 도구 호출·작업 제출·취소·인증 검사가 아니며, 소윤이의 세션에서 도구가 보였다는 증거도 아니다.
+
+공식 [dots 컴퓨터 안내](https://learn.chatgpt.com/docs/dots/computers-and-apps)는 PC를 사용하는 작업도 클라우드에서 관리될 수 있다고 설명한다. 공식 [MCP 안내](https://learn.chatgpt.com/docs/extend/mcp?surface=app)는 호스팅된 Work의 플러그인 도구와 로컬 Codex 설정을 구분하고 ChatGPT web은 로컬 설정 파일을 읽지 않는다고 명시한다. **설정이 해당 클라우드 세션까지 전달되지 않은 것이 유력한 설명**이다. 계정 정책·등록 전달 경로의 정확한 내부 원인은 시작 로그가 없어 확정하지 않는다. 토큰 재발급·권한 확대·서버 공개로 해결하려고 하지 않는다.
+
+현재 가능한 경로는 다음처럼 구분한다.
+
+- 로컬에서 조정·실행하는 Codex: 기존 `ai_studio` 설정을 사용한 실제 클라이언트 검증 완료.
+- 소윤이/클라우드 세션의 도구 목록에 직접 등록: 미완료. 공식 [개발용 MCP 연결](https://developers.openai.com/plugins/deploy/connect-chatgpt)은 공개 HTTPS 또는 Secure MCP Tunnel을 안내한다. [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)은 runtime API key와 별도 터널 권한이 필요하므로 기존 로그인만 재사용하는 승인 범위에서 설치·생성·등록하지 않았다. 로컬 플러그인을 설치하는 것만으로 dots 클라우드에서 사용할 수 있는지도 확인되지 않았다.
+- 이미 연결한 PC의 명령 실행으로 stdio MCP 사용: 서버를 공개하지 않는 별도 접근 경로다. 우선 아래 토큰 없는 목록·서버 상태 조회만 소윤이 측에서 확인한다. 이후 인증된 호출을 하려면 로컬 실행기가 비공개 연결 파일을 내부적으로 처리해야 하며, 토큰 값을 모델에 전달하지 않는다. 이 경로를 세션 MCP 등록 완료로 표시하면 안 된다.
+
+### 연결된 Windows PC에서 할 무인증 확인
+
+아래 명령은 연결된 PC에서 실행한다. 클라우드 컴퓨터의 localhost에는 실행하지 않는다. 토큰·사용자 설정을 읽지 않고 `tools/call`도 보내지 않는다. `-B`로 Python 캐시 쓰기도 막는다. 이 PC에서 아래 조회는 성공했지만 소윤이 측 실행은 아직 확인하지 않았다.
+
+```powershell
+Set-Location -LiteralPath 'S:\AI\ai studio'
+@'
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"soyun-discovery-only","version":"1"}}}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":2,"method":"tools/list"}
+'@ | python -X utf8 -B -c "from studio.supervisor_mcp import build; build(8765, '').serve()" | ForEach-Object {
+    $studioDiscovery = $_ | ConvertFrom-Json
+    if ($studioDiscovery.id -eq 1) { $studioDiscovery.result.serverInfo | ConvertTo-Json -Compress }
+    if ($studioDiscovery.id -eq 2) { @($studioDiscovery.result.tools | Select-Object name, annotations) | ConvertTo-Json -Depth 4 -Compress }
+}
+Invoke-RestMethod -Uri 'http://127.0.0.1:8765/supervisor/health' -TimeoutSec 5 |
+    Select-Object schema, mode, workers, model_generation_calls | ConvertTo-Json -Compress
+```
+
+예상: 서버 이름 `ai-studio-supervisor`, 도구 6개, health의 `mode=connection-only`, `workers=0`, `model_generation_calls=0`. 실패하면 어느 명령을 어느 실행 환경에서 실행했는지와 비밀값 없는 오류만 보고한다. 등록되지 않은 도구의 목록을 계속 재확인하는 것으로 이 단계를 대체하지 않는다.
 
 연결 전용 서버 재실행: `python -X utf8 -B tools/supervisor-host.py --port 8765`.
 승인된 연결 재확인(모델 없음, 자신의 확인 카드만 제출·취소): `python -X utf8 -B tools/dev/supervisor_connection_check.py --owner-approved`.
@@ -64,16 +94,15 @@ default_tools_approval_mode = "writes"
 
 ```text
 소윤이, 너를 AI Studio의 메인 감독으로 사용하려고 해.
-연결한 내 PC의 S:\AI\ai studio에 있는 docs/SOYUN_CONNECT.md와 docs/SUPERVISOR_MVP.md를 먼저 읽어 줘.
-로컬 작업에서 ai_studio MCP 도구 6개가 실제로 보이는지 확인하고, 없으면 연결되지 않았다고 알려 줘.
-클라우드의 localhost로 접근하거나 새 API 키·구독·터널을 만들지 마.
-실제 회사에 대한 제한된 접근 권한과 로컬 ai_studio MCP 등록은 승인받아 적용됐어.
-토큰은 Windows 사용자 암호화 파일에 있으니 값이나 파일 내용을 읽어 대화·프롬프트에 넣지 마.
-로컬 작업에서 도구를 확인한 다음 허용된 studio-docs의 reports/connection-check/** 범위에서만
-작업 제출·상태·이벤트·결과·파일·취소를 확인해 줘. 같은 요청 키는 재사용해 중복 제출을 막아 줘.
-실행, 기획 결재, 최종 병합은 사람의 승인을 유지하고 차단 사유와 필요한 조치를 알려 줘.
-실제 모델 호출이나 구독 사용량이 발생하기 전 목적·횟수·경로를 설명하고 승인을 받아 줘.
-현재 서버는 연결 전용이므로 작업을 실행하거나 결과 파일이 생성됐다고 주장하지 마.
+세션 목록에 ai_studio가 없다는 확인은 받았어. 같은 목록 확인을 반복하지 마.
+연결한 내 Windows PC의 S:\AI\ai studio\docs\SOYUN_CONNECT.md를 읽고,
+'연결된 Windows PC에서 할 무인증 확인'의 명령 두 가지만 그 PC에서 실행해 줘.
+stdio의 initialize/tools/list와 연결 전용 서버의 GET health 조회만 허용해.
+토큰·인증 파일·사용자 설정 내용을 읽거나 파일을 수정하지 마.
+작업 제출·취소·tools/call·모델 실행·새 구독·API 키·터널 생성은 하지 마.
+클라우드 컴퓨터의 localhost로 시도하지 말고, PC 명령 실행이 불가능하면 그 단계가 막혔다고 알려 줘.
+서버 이름, 도구 이름 6개, health의 mode/workers/model_generation_calls만 보고해 줘.
+이 조회 성공과 네 세션의 MCP 등록·인증된 왕복 성공은 구분해서 보고해 줘.
 ```
 
 위 요청문은 아직 소윤이에 전송하지 않았다. 사용자 직접 전달용이며 실행 요청과 권한 승인을 구분한다.
