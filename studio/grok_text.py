@@ -233,7 +233,8 @@ def run_text(runtime, spec, should_stop):
     elif unsafe: result.error_kind, result.error = "policy", "예상하지 않은 도구가 노출되어 결과를 차단했습니다."
     elif malformed: result.error_kind, result.error = "schema", "Grok 출력 형식 오류"
     elif not result.ok:
-        result.error_kind = classify_error(" ".join(errors)) or "error"
+        stderr = (spec.run_dir / "stderr.txt").read_text(encoding="utf-8", errors="replace")[-5000:]
+        result.error_kind = classify_error(" ".join(errors) + " " + stderr) or "error"
         result.error = "Grok 텍스트 호출 실패 (로컬 실행 기록 확인)"
     elif spec.output_schema and result.structured is None:
         result.ok, result.error_kind, result.error = False, "schema", "구조화된 Grok 응답을 확인하지 못했습니다."

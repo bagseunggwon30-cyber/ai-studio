@@ -30,6 +30,9 @@ else:
         'api_key_present':bool(os.environ.get('XAI_API_KEY')),'auth_link':(home/'auth.json').exists(),
         'supervisor_token_present':bool(os.environ.get('STUDIO_SUPERVISOR_TOKEN'))}),encoding='utf-8')
     mode=os.environ.get('FAKE_TEXT_GROK_MODE','')
+    if mode=='login':
+        print('not logged in; fixture-private-detail',file=sys.stderr)
+        sys.exit(5)
     if mode=='delay':time.sleep(30)
     text=json.dumps({'verdict':'approve','summary':'checked','findings':[],'skills_used':[]})
     if mode=='tool':print(json.dumps({'type':'tool_call','toolName':'run_terminal_cmd'}))
@@ -95,6 +98,14 @@ class GrokText(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertEqual(result.error_kind,"policy")
         self.assertFalse(self.log.exists())
+
+    def test_login_failure_is_classified_without_exposing_cli_details(self):
+        os.environ["FAKE_TEXT_GROK_MODE"]="login"
+        result=self.runtime.run(self.spec,lambda:False)
+        self.assertEqual(result.error_kind,"login")
+        self.assertNotIn("fixture-private-detail",result.error)
+        self.assertIsNone(result.provider_model)
+        self.assertIsNone(result.usage["input_tokens"])
 
     def test_tool_exposure_or_malformed_output_is_not_accepted(self):
         for mode in ("tool","catalog","malformed"):

@@ -741,7 +741,9 @@ class Engine:
             return RunResult(False,kwargs.get("runtime_name") or self.cfg.roles[role].runtime,kwargs.get("model") or self.cfg.roles[role].model,None,0,error_kind="stopped",error="중단됨")
         requested = kwargs.get("runtime_name") or self.cfg.roles[role].runtime
         requested_model = kwargs.get("model", self.cfg.roles[role].model)
-        fallback = None
+        reported_provider = kwargs.pop("requested_provider", requested)
+        reported_model = kwargs.pop("requested_model", requested_model)
+        fallback = kwargs.pop("fallback_reason", None)
         if requested == "claude" and not self.cfg.runtime_cfg("claude").get("enabled",False):
             kwargs["runtime_name"] = "codex"
             kwargs["model"] = self.cfg.roles[role].fallback_model if self.cfg.roles[role].fallback_runtime == "codex" else ""
@@ -784,8 +786,8 @@ class Engine:
             self._reservations[reservation] = reserved_minutes
         run_id = f"R{stamp()}-{uuid4().hex[:8]}-{task.id}-{stage}"
         kwargs["run_id"] = run_id
-        kwargs["requested_provider"] = "grok" if requested == "grok_text" else requested
-        kwargs["requested_model"] = requested_model
+        kwargs["requested_provider"] = "grok" if reported_provider == "grok_text" else reported_provider
+        kwargs["requested_model"] = reported_model
         kwargs["fallback_reason"] = fallback
         kwargs["timeout_s"] = max(1,int(reserved_minutes*60))
         try:
@@ -1352,9 +1354,12 @@ class Engine:
         prompt = tool_review_prompt(self.cfg, task, proposal, flags, reviewer)
         chain = [(rcfg.runtime, rcfg.model, rcfg.effort)] + ([(rcfg.fallback_runtime, rcfg.fallback_model, "")] if rcfg.fallback_runtime else [])
         errors = []
-        for runtime_name, model, effort in chain:
+        failure = None
+        for index, (runtime_name, model, effort) in enumerate(chain):
             run = self._agent_run(task, reviewer, prompt, cwd, sandbox="read-only", stage="review", schema=REVIEW_SCHEMA,
-                                  runtime_name=runtime_name, model=model, effort=effort, skills_kind="review")
+                                  runtime_name=runtime_name, model=model, effort=effort, skills_kind="review",
+                                  requested_provider=rcfg.runtime, requested_model=rcfg.model,
+                                  fallback_reason=failure if index else None)
             if run.error_kind == "stopped":
                 return {"verdict": "stopped", "summary": "중단됨", "findings": [], "runtime": runtime_name}
             s = run.structured or {}
@@ -1362,8 +1367,12 @@ class Engine:
                 findings = [f for f in s.get("findings", []) if isinstance(f, dict)][:30]
                 blocking = any(f.get("severity") == "blocking" for f in findings)
                 return {"verdict": "changes_requested" if blocking else s["verdict"], "by": reviewer, "summary": str(s.get("summary", ""))[:3000],
-                        "findings": findings, "runtime": runtime_name, "model": run.model, "at": now_iso()}
+                        "findings": findings,
+                        "runtime": "codex" if runtime_name == "claude" and not self.cfg.runtime_cfg("claude").get("enabled",False) else runtime_name,
+                        "actual_runtime": run.runtime, "model": run.provider_model,
+                        "model_identity": "확인됨" if run.provider_model else "확인 불가", "at": now_iso()}
             errors.append(f"{run.runtime}: {run.error or '응답 형식 오류'}"[:300])
+            failure = f"{runtime_name}:{run.error_kind or 'schema'}"
         return {"verdict": "unavailable", "summary": "리뷰 실행기를 쓸 수 없어 도구를 올리지 않았어요 (리뷰 없이 이 PC에서 돌릴 수 없음). " + " / ".join(errors),
                 "findings": [], "runtime": None, "at": now_iso()}
 
@@ -1979,10 +1988,13 @@ class Engine:
         if rcfg.runtime == "claude" and not self.cfg.runtime_cfg("claude").get("enabled",False):
             chain = [("claude",rcfg.model,rcfg.effort)]
         errors = []
-        for runtime_name, model, effort in chain:
+        failure = None
+        for index, (runtime_name, model, effort) in enumerate(chain):
             run = self._agent_run(
                 task, reviewer, prompt, cwd, sandbox="read-only", stage="review", schema=REVIEW_SCHEMA,
                 runtime_name=runtime_name, model=model, effort=effort, skills_kind="review",
+                requested_provider=rcfg.runtime, requested_model=rcfg.model,
+                fallback_reason=failure if index else None,
             )
             if run.error_kind == "stopped":
                 return {"verdict": "stopped", "summary": "중단됨", "findings": [], "runtime": runtime_name}
@@ -2008,6 +2020,7 @@ class Engine:
                     "at": now_iso(),
                 }
             errors.append(f"{run.runtime}: {run.error or '응답 형식 오류'}"[:300])
+            failure = f"{runtime_name}:{run.error_kind or 'schema'}"
             if run.error_kind == "quota" and runtime_name == "codex":
                 break
         return {

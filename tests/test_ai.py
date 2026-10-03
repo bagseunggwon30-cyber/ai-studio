@@ -122,6 +122,23 @@ class AILoading(unittest.TestCase):
         self.assertFalse(run["fallback"])
         self.assertEqual(run["actual_runtime"],"fake")
 
+    def test_failed_grok_review_keeps_request_and_fallback_cause(self):
+        def behavior(spec, runtime=None):
+            if runtime == "grok_text":
+                return {"error_kind":"login","error":"fixture login failure"}
+            return default_behavior(spec)
+        self.s.behavior=behavior
+        self.e.set_ai("reviewer",{"runtime":"grok_text","model":"grok-4.7"})
+        task=self.e.create_task({"project":"demo","kind":"build","title":"42","brief":"42","allowed_paths":["docs/**"]})
+        self.e._run_build(self.store.get(task.id))
+        reviews=[run for run in self.store.runs(task.id) if run["stage"] == "review"]
+        self.assertEqual(len(reviews),2)
+        self.assertTrue(reviews[1]["fallback"])
+        self.assertEqual(reviews[1]["fallback_reason"],"grok_text:login")
+        self.assertEqual(reviews[1]["requested_provider"],"grok")
+        self.assertEqual(reviews[1]["requested_model"],"grok-4.7")
+        self.assertEqual(reviews[1]["actual_runtime"],"fake")
+
 
 if __name__ == "__main__":
     unittest.main()
