@@ -144,7 +144,7 @@ const Popups = (() => {
   // 효과가 도는 창(hold)은 그리지 않고 표시만 해 두었다가, 잠금을 풀 때 한 번 그린다.
   function refresh() {
     const top = stack[stack.length - 1];
-    if (!top || top.keep) return;
+    if (!top || (top.keep && !top.st.loadingAIOptions)) return;
     if (top.hold) { top.dirty = true; return; }
     draw();
   }
@@ -892,6 +892,7 @@ const Popups = (() => {
     open((st) => {
       const p = Data.BY_ID[id];
       const opts = Data.aiOptions();
+      st.loadingAIOptions = !opts;
       if (!opts) return loadingPop('AI 탑재');
       if (opts.error) return failPop('AI 탑재', opts.error);
       if (!st.sel) st.sel = { ...p.ai };
