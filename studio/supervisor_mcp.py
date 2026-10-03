@@ -12,7 +12,6 @@ from .mcp_builtin.base import Server, ToolError, setup_stdio, MAX_TEXT
 
 
 def build(port, token):
-    srv = Server("ai-studio-supervisor", "1.0", "작업 제출·조회·취소만 가능. 승인과 병합은 CEO가 수행합니다.")
     def call(operation, **args):
         if not token: raise ToolError("STUDIO_SUPERVISOR_TOKEN 설정 및 CEO의 연결 권한 등록이 필요합니다.")
         conn = http.client.HTTPConnection("127.0.0.1",port,timeout=15)
@@ -34,6 +33,17 @@ def build(port, token):
         except (OSError, ValueError) as e:
             raise ToolError("외부 감독 연결 실패: 로컬 서버·권한을 확인하세요.") from e
         finally:conn.close()
+    return tools_server(call)
+
+
+def tools_server(call):
+    """One tool catalog for stdio and HTTP; all actions use the supervisor gate."""
+    srv = Server("ai-studio-supervisor", "1.1",
+        "AI Studio 감독 MCP: 작업 제출·상태·이벤트·결과·검증 파일·본인 작업 취소만 제공합니다. "
+        "작업 제출의 project/key/payload를 사용하고 같은 요청은 같은 key로 재전송하세요. "
+        "프로젝트·경로 권한과 모델 사용 승인·기획 결재·최종 병합은 기존 CEO 경계를 따릅니다. "
+        "직원에게 장착하는 MCP와 별개의 외부 감독 연결입니다. "
+        "도구 등록·요청 접수·실제 모델 실행·검증 통과·사람 승인 상태를 각각 구분하세요.")
     string = {"type":"string"}
     @srv.tool("submit_task","요청 키로 중복 없이 작업 제출. 실행과 승인 경계는 기존 회사 설정을 따릅니다.",{"project":string,"key":string,"payload":{"type":"object"}},["project","key","payload"],read_only=False)
     def submit_task(project,key,payload):return call("submit",project=project,key=key,payload=payload)
@@ -50,19 +60,53 @@ def build(port, token):
     return srv
 
 
-def main():
-    parser=argparse.ArgumentParser()
-    parser.add_argument("--port",type=int,default=8765)
+def add_arguments(parser):
+    parser.add_argument("--port","--api-port",type=int,default=8765)
     parser.add_argument("--credential",type=Path,help="현재 Windows 사용자로 암호화한 로컬 연결 토큰 파일")
-    args=parser.parse_args()
+    parser.add_argument("--user-credential",action="store_true",
+        help="현재 Windows 사용자의 기존 소윤 연결 토큰을 내부적으로 사용; 발급·변경 없음")
+    parser.add_argument("--config",choices=("json","codex"),help="비밀값 없는 클라이언트 설정 출력")
+
+
+def client_config(root, port):
+    import sys
+    return {"command":sys.executable,
+        "args":["-X","utf8","-B",str(root.resolve() / "studio.py"),"mcp","--port",str(port),"--user-credential"]}
+
+
+def run(args, root, parser):
     if not 1<=args.port<=65535:parser.error("잘못된 포트")
+    if args.credential and args.user_credential:parser.error("연결 파일 선택은 한 방식만 사용하세요.")
+    if args.config:
+        config=client_config(root,args.port)
+        if args.config == "json":
+            print(json.dumps({"mcpServers":{"ai_studio":config}},ensure_ascii=False,indent=2))
+        else:
+            from .supervisor_setup import TOOLS
+            config.update(enabled=True,enabled_tools=TOOLS,default_tools_approval_mode="writes",
+                          startup_timeout_sec=20,tool_timeout_sec=20)
+            print("[mcp_servers.ai_studio]")
+            for key,value in config.items():print(key+" = "+json.dumps(value,ensure_ascii=False))
+        return 0
     setup_stdio()
     token = os.environ.get("STUDIO_SUPERVISOR_TOKEN","")
-    if args.credential:
+    credential = args.credential
+    if args.user_credential:
+        local = os.environ.get("LOCALAPPDATA")
+        if not local:parser.exit(2,"현재 Windows 사용자 저장 위치를 확인하지 못했습니다.\n")
+        credential = Path(local) / "AIStudio/supervisors/soyun.credential"
+    if credential:
         from .supervisor_credentials import load, CredentialError
-        try: token = load(args.credential)
+        try: token = load(credential)
         except CredentialError as exc: parser.exit(2,str(exc)+"\n")
     build(args.port,token).serve()
+    return 0
+
+
+def main(argv=None):
+    parser=argparse.ArgumentParser()
+    add_arguments(parser)
+    return run(parser.parse_args(argv),Path(__file__).resolve().parents[1],parser)
 
 
 if __name__ == "__main__":main()

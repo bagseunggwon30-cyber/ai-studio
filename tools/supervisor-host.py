@@ -28,6 +28,9 @@ class NoExecution:
 
 class ConnectionHandler(StudioHandler):
     def do_GET(self):
+        if urlparse(self.path).path == "/mcp":
+            from studio.supervisor_mcp_http import reject_stream
+            return reject_stream(self)
         if not self._host_kind():
             return self._error(403, "허용되지 않은 Host")
         if urlparse(self.path).path != "/supervisor/health":
@@ -37,7 +40,7 @@ class ConnectionHandler(StudioHandler):
                     "workers":0, "model_generation_calls":0})
 
     def do_POST(self):
-        if urlparse(self.path).path != "/supervisor/v1":
+        if urlparse(self.path).path not in ("/supervisor/v1","/mcp"):
             self.close_connection = True
             return self._error(403, "연결 전용 서버는 감독 API만 제공합니다.")
         super().do_POST()

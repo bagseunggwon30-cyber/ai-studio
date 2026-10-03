@@ -8,6 +8,8 @@
 
 [시작하기](#시작하기) · [일의 흐름](#일의-흐름) · [기능](#주요-기능) · [검증](#테스트와-검증-범위) · [문서](#더-살펴보기)
 
+외부 AI 감독 연결은 [AI Studio MCP 서버](docs/MCP_SERVER.md)를 사용합니다. stdio 실행은 `python studio.py mcp --user-credential`, 로컬 HTTP 연결은 `http://127.0.0.1:8765/mcp`이며 작업 제출·조회·본인 작업 취소 도구 6개를 제공합니다.
+
 <p align="center">
   <img src="docs/design/captures/k2real-board.png" alt="AI Studio의 진행판과 결재 대기·완료 카드" width="900">
 </p>
