@@ -11,12 +11,13 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 from typing import Any
 
 from .config import Config
 from .runtimes import find_codex, find_grok, grok_login
 from .store import Store
-from .util import clean_child_env
+from .util import clean_child_env, no_window_flags
 
 EFFORT_LABELS = {"low": "얕게", "medium": "보통", "high": "깊게", "xhigh": "아주 깊게", "max": "최대", "ultra": "끝까지"}
 CLAUDE_EFFORTS = ["low", "medium", "high", "xhigh", "max"]  # claude --help: --effort (low, medium, high, xhigh, max)
@@ -98,11 +99,37 @@ def draw_options(cfg: Config) -> list[dict[str, Any]]:
     return out
 
 
+_grok_text_catalog = {}
+
+
+def grok_text_models(cfg: Config) -> list[dict[str, Any]]:
+    """Only model IDs returned by this installed CLI, not a hard-coded catalog."""
+    info = find_grok(str(cfg.runtime_cfg("grok").get("path", "") or ""))
+    if not info.get("found"):return []
+    key = tuple(info["cmd"])
+    cached = _grok_text_catalog.get(key)
+    if cached and time.monotonic()-cached[0] < 300:return cached[1]
+    try:
+        import re
+        result = subprocess.run([*info["cmd"],"models"],capture_output=True,timeout=20,
+                                env=clean_child_env(),creationflags=no_window_flags())
+        text = result.stdout.decode("utf-8","replace")
+        ids = sorted({line.strip()[2:].split()[0] for line in text.splitlines()
+                      if line.strip().startswith(("- ","* ")) and len(line.strip())>2})
+        rows = [{"slug":name,"name":name,"desc":"기존 Grok 로그인 · 도구 없는 텍스트",
+                 "efforts":[],"default_effort":""} for name in ids if re.fullmatch(r"[a-z0-9_-]{1,80}",name)] if result.returncode == 0 else []
+    except (OSError,subprocess.SubprocessError):rows=[]
+    _grok_text_catalog[key] = (time.monotonic(),rows)
+    return rows
+
+
 def options(cfg: Config) -> dict[str, Any]:
+    grok = grok_text_models(cfg)
     return {
         "codex": codex_models(cfg),
+        "grok_text": grok,
         "claude": [{**m, "efforts": CLAUDE_EFFORTS, "default_effort": ""} for m in CLAUDE_MODELS] if cfg.runtime_cfg("claude").get("enabled",False) else [],
-        "unavailable": {**({"claude":"현재 사용 불가 · 기본 흐름은 Codex로 진행"} if not cfg.runtime_cfg("claude").get("enabled",False) else {}), "grok_text":"정책 승인 및 도구 차단 확인 전에는 호출하지 않음"},
+        "unavailable": {**({"claude":"현재 사용 불가 · 기본 흐름은 Codex로 진행"} if not cfg.runtime_cfg("claude").get("enabled",False) else {}), **({"grok_text":"설치·로그인·모델 목록 확인 필요"} if not grok else {})},
         "effort_labels": EFFORT_LABELS,
         "writes": {key: writes_files(cfg, key) for key in cfg.roles},
         "draw": [{k: v for k, v in d.items() if k != "at"} for d in draw_options(cfg)],
@@ -122,6 +149,12 @@ def clean(cfg: Config, role: str, data: Any) -> dict[str, str]:
         if model and model not in catalog:
             raise AIError(f"Codex 목록에 없는 모델입니다: {model}")
         efforts = catalog[model]["efforts"] if model else list(EFFORT_LABELS)
+    elif runtime == "grok_text":
+        if writes_files(cfg,role):
+            raise AIError("Grok 텍스트는 기획·리뷰 같은 읽기 전용 역할에만 사용할 수 있습니다.")
+        if model not in {m["slug"] for m in grok_text_models(cfg)}:
+            raise AIError("설치된 Grok CLI에서 확인하지 못한 모델입니다.")
+        efforts = []
     elif runtime == "claude":
         if writes_files(cfg, role):
             raise AIError(f"{cfg.roles[role].name}의 일은 파일을 고쳐야 해서 Codex만 끼울 수 있어요 (Claude는 읽기 전용).")
@@ -131,7 +164,7 @@ def clean(cfg: Config, role: str, data: Any) -> dict[str, str]:
             raise AIError(f"Claude 목록에 없는 모델입니다: {model}")
         efforts = CLAUDE_EFFORTS
     else:
-        raise AIError("AI는 codex 또는 claude만 끼울 수 있어요.")
+        raise AIError("AI는 codex, grok_text 또는 사용 가능한 claude만 끼울 수 있어요.")
     if effort and effort not in efforts:
         raise AIError(f"이 모델은 생각 깊이 '{EFFORT_LABELS.get(effort, effort)}'를 쓸 수 없어요.")
     return {"runtime": runtime, "model": model, "effort": effort}

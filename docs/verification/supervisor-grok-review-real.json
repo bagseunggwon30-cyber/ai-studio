@@ -1,0 +1,83 @@
+{
+  "status": "pass",
+  "company": "temporary",
+  "models": "real Grok review; fake planning/build",
+  "model_calls": 1,
+  "stdio_tools": [
+    "cancel_task",
+    "submit_task",
+    "task_artifact",
+    "task_events",
+    "task_result",
+    "task_status"
+  ],
+  "request_replay_same_task": true,
+  "qa_receipt_reused_after_restart": true,
+  "artifact_sha256": "9e4c59bb9e5ca6ca840eb57555c3f45692474ff6c1379d3579eec60e18667cbe",
+  "candidate_sha": "612817002889a24486a5821b83a549171c27eee4",
+  "evidence_verified": true,
+  "tamper_blocks_approval": true,
+  "cancel_cleans_worktree_and_reservations": true,
+  "event_count": 15,
+  "production_company_connected": false,
+  "external_client": "codex",
+  "client_model_turns": 0,
+  "client_version": "codex-cli 0.160.0",
+  "executions": [
+    {
+      "stage": "build1",
+      "requested_provider": "codex",
+      "requested_model": null,
+      "actual_runtime": "fake",
+      "runtime_version": "fake",
+      "provider_model": null,
+      "model_identity": "확인 불가",
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "duration_s": 0.0,
+      "fallback": false,
+      "error_kind": null
+    },
+    {
+      "stage": "review",
+      "requested_provider": "grok",
+      "requested_model": "grok-4.7",
+      "actual_runtime": "grok_text",
+      "runtime_version": "grok 1.0.41 (4220f3b224a6) [stable]",
+      "provider_model": null,
+      "model_identity": "확인 불가",
+      "usage": {
+        "input_tokens": 5070,
+        "output_tokens": 556,
+        "cache_read_input_tokens": 1536,
+        "cache_creation_input_tokens": 0
+      },
+      "duration_s": 47.2,
+      "fallback": true,
+      "error_kind": null
+    }
+  ],
+  "planning_executions": [
+    {
+      "stage": "plan",
+      "requested_provider": "codex",
+      "requested_model": null,
+      "actual_runtime": "fake",
+      "runtime_version": "fake",
+      "provider_model": null,
+      "model_identity": "확인 불가",
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "duration_s": 0.0,
+      "fallback": false,
+      "error_kind": null
+    }
+  ],
+  "adapter_sha256": "58bdc5e6dccb29016e19bfe80672c76703797d79cbfb24a309d759ef537bfa0a",
+  "code_state": "uncommitted follow-up on 4458906; before provider alias bookkeeping correction",
+  "recording_note": "fallback=true in the Grok row was a provider/executor alias bookkeeping bug (grok vs grok_text), not a substitute call. Corrected in final code and verified by a fake planning integration test. Original observed field is preserved; no additional model call."
+}

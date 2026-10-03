@@ -1,6 +1,7 @@
 """AI 탑재: 직원마다 끼울 AI(실행기·모델·생각 깊이)를 CEO가 고른다. 목록 밖 값·규칙 위반은 거절한다."""
 
 import unittest
+from unittest import mock
 
 from tests.helpers import TempStudio, default_behavior
 from studio import ai
@@ -15,6 +16,10 @@ CATALOG = [
 class AILoading(unittest.TestCase):
     def setUp(self):
         ai._cache["codex"] = [dict(m) for m in CATALOG]  # 테스트에서는 CLI를 부르지 않는다
+        self.catalog = mock.patch("studio.ai.grok_text_models", return_value=[
+            {"slug":"grok-4.7","name":"grok-4.7","efforts":[],"default_effort":""}])
+        self.catalog.start()
+        self.addCleanup(self.catalog.stop)
         self.s = TempStudio()
         self.cfg, self.store, self.e = self.s.cfg, self.s.store, self.s.engine
 
@@ -75,6 +80,32 @@ class AILoading(unittest.TestCase):
         self.assertEqual(opts["claude"], [])
         self.assertIn("claude",opts["unavailable"])
         self.assertEqual(opts["writes"], {"producer": False, "builder": True, "reviewer": False, "analyst": True})
+
+    def test_grok_is_read_only_and_uses_confirmed_catalog(self):
+        self.e.set_ai("producer", {"runtime":"grok_text","model":"grok-4.7"})
+        self.assertEqual(self.cfg.roles["producer"].sandbox,"read-only")
+        for role in ("builder","analyst"):
+            with self.assertRaises(EngineError):
+                self.e.set_ai(role,{"runtime":"grok_text","model":"grok-4.7"})
+        with self.assertRaises(EngineError):
+            self.e.set_ai("reviewer",{"runtime":"grok_text","model":"grok-made-up"})
+
+    def test_grok_planning_never_inherits_mcp_and_is_not_a_fallback(self):
+        from studio import mcp
+        mcp.set_equipped(self.cfg,"team-memory","producer",True)
+        seen=[]
+        def behavior(spec, runtime=None):
+            seen.append((spec.role,spec.mcp,spec.web_search,spec.sandbox))
+            return default_behavior(spec)
+        self.s.behavior=behavior
+        self.e.set_ai("producer",{"runtime":"grok_text","model":"grok-4.7"})
+        task=self.e.submit_directive("42","demo")
+        self.e._run_plan(self.store.get(task.id))
+        self.assertEqual(seen[0],("producer",[],False,"read-only"))
+        run=self.store.runs(task.id)[0]
+        self.assertEqual(run["requested_provider"],"grok")
+        self.assertFalse(run["fallback"])
+        self.assertEqual(run["actual_runtime"],"fake")
 
 
 if __name__ == "__main__":

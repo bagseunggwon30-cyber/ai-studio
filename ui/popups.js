@@ -468,8 +468,8 @@ const Popups = (() => {
       // 리뷰: 다른 회사 모델(클로 = Claude)이 봤으면 교차 검증, Codex가 대신 봤으면 대리 검토 (SPEC 6.5)
       const rv = t.review || {};
       const reviewer = Data.BY_ROLE.reviewer || { id: 'clo', name: '클로' };
-      const cross = rv.runtime === 'claude';
-      const reviewText = cross ? `리뷰: ${reviewer.name} 승인` : rv.runtime ? '리뷰: 대리 검토 (교차 검증 아님)' : '리뷰 없음 · 직접 확인';
+      const cross = rv.cross_model === true;
+      const reviewText = rv.actual_runtime === 'fake' ? '리뷰: 가짜 실행기 검증' : cross ? `리뷰: ${reviewer.name} 승인` : rv.runtime ? '리뷰: 대리 검토 (교차 검증 아님)' : '리뷰 없음 · 직접 확인';
       const files = t.files ?? '?';
       const sheet = h('div', { class: `pop ap ${st.flip ? 'flipped' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': `결재 · ${t.title}` },
         h('span', { class: 'ap-peek' }, face(p.id, st.stamped ? 'happy' : 'worried')),
@@ -868,7 +868,7 @@ const Popups = (() => {
   // ---------------------------------------------------------------- AI 탑재
   // 직원마다 어떤 AI(Codex·Claude, 모델, 생각 깊이)를 끼울지. 목록은 서버가 설치된 CLI에서 읽어 온다 (지어내지 않음).
   // 파일을 고치는 일에는 Codex만 (Claude는 읽기 전용). 권한은 일이 정하고 AI를 바꿔도 그대로다.
-  const RUNTIME_LABEL = { codex: 'Codex', claude: 'Claude' };
+  const RUNTIME_LABEL = { codex: 'Codex', claude: 'Claude', grok_text: 'Grok 텍스트' };
 
   function modelName(ai) {
     const opts = Data.aiOptions();
@@ -902,7 +902,7 @@ const Popups = (() => {
       const efforts = chosen ? chosen.efforts || [] : Object.keys(labels);
       if (st.sel.effort && !efforts.includes(st.sel.effort)) st.sel.effort = '';
       const card = (runtime, m) => {
-        const locked = runtime === 'claude' && writes;
+        const locked = ['claude','grok_text'].includes(runtime) && writes;
         const on = st.sel.runtime === runtime && (st.sel.model || '') === m.slug;
         return h('button', { type: 'button', class: `ai-card ${runtime}`, role: 'radio', 'aria-checked': String(on), disabled: locked,
           title: locked ? '파일을 고치는 일에는 Codex만 끼울 수 있어요' : null,
@@ -920,6 +920,9 @@ const Popups = (() => {
         h('h3', { text: 'Codex (ChatGPT 구독)' }),
         h('div', { class: 'ai-grid', role: 'radiogroup', 'aria-label': 'Codex 모델' },
           [{ slug: '', name: '기본', desc: 'Codex가 정한 기본 모델' }, ...(opts.codex || [])].map((m) => card('codex', m))),
+        h('h3', { text: 'Grok 텍스트 (기존 Grok 로그인)' }),
+        h('p', { class: 'aiw-note', text: writes ? 'Grok 텍스트는 파일을 고치는 직원에게 장착할 수 없어요.' : '기획·읽기 전용 리뷰만 가능하며 매 호출 전 도구 차단을 확인해요.' }),
+        h('div', { class: 'ai-grid', role: 'radiogroup', 'aria-label': 'Grok 텍스트 모델' }, (opts.grok_text || []).map((m) => card('grok_text', m))),
         h('h3', { text: 'Claude (Claude 구독)' }),
         opts.unavailable?.claude ? h('p', { class: 'aiw-note', text: opts.unavailable.claude }) : null,
         writes ? h('p', { class: 'aiw-note', text: `${p.name}의 일은 파일을 고쳐야 해서 Codex만 끼울 수 있어요. Claude는 읽기만 하는 일(기획·리뷰)에 끼울 수 있어요.` }) : null,

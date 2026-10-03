@@ -122,7 +122,7 @@ class Task:
             }
             if qa
             else None,
-            "review": {"verdict": review.get("verdict"), "runtime": review.get("runtime"), "cross_model": review.get("cross_model")}
+            "review": {"verdict": review.get("verdict"), "runtime": review.get("runtime"), "actual_runtime":review.get("actual_runtime"), "cross_model": review.get("cross_model")}
             if review
             else None,
             "has_proposal": bool(self.proposal),

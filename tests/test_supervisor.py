@@ -309,6 +309,16 @@ class ParallelTests(unittest.TestCase):
         self.s.store.transition(a,"running");self.e.request_run(b.id)
         self.assertIsNone(self.e._next_job())
 
+    def test_grok_text_does_not_reserve_an_unusable_employee_mcp(self):
+        from studio import mcp
+        mcp.set_equipped(self.s.cfg,"team-memory","producer",True)
+        self.s.cfg.roles["producer"].runtime="grok_text"
+        task=self.e.submit_directive("supplied-text planning","demo")
+        scoped=self.e._resource_tasks([task])[0]
+        self.assertNotIn("mcp:team-memory",scoped.extra["resources"])
+        task.extra["resources"]=["explicit-shared-resource"]
+        self.assertIn("explicit-shared-resource",self.e._resource_tasks([task])[0].extra["resources"])
+
     def test_filename_glob_conflict_is_conservative(self):
         from studio.scheduler import overlaps
         self.assertTrue(overlaps("docs/a*.py","docs/answer.py"))
@@ -346,7 +356,7 @@ class ModelIdentityTests(unittest.TestCase):
         from studio.runtimes import GrokTextRuntime, RunSpec
         with mock.patch("studio.runtimes.find_grok",return_value={"found":True,"version":"test"}):
             rt=GrokTextRuntime({})
-        spec=RunSpec("R-test","reviewer","review",Path.cwd(),Path.cwd(),model="requested-only")
+        spec=RunSpec("R-test","reviewer","review",Path.cwd(),Path.cwd(),model="requested-only",sandbox="workspace-write")
         with mock.patch("studio.runtimes.run_process") as call:
             out=rt.run(spec,lambda:False)
         self.assertEqual(out.error_kind,"policy");self.assertIsNone(out.provider_model);call.assert_not_called()

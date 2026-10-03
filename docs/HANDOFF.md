@@ -6,9 +6,13 @@
 
 ## 외부 감독 MVP 작업 (2026-10-03)
 
+후속 작업: Grok 텍스트 제한 어댑터를 실제 CLI+기존 grok.com 로그인으로 구현했고, 승인된 **리뷰 1회**를 임시 회사에서 실행했다. 기획·구현은 가짜 모델이며 실제 Codex 모델 호출은 추가하지 않았다. 응답에 모델 ID가 없어 `확인 불가`다. 설치된 Codex app-server의 실제 MCP 클라이언트로 도구 6개 왕복도 확인했다(모델 호출 0회). **메인 감독은 GPT dots 소윤이**로 정했다. 소윤이 PC·도구 등록과 실제 회사 권한은 아직 미연결이다. [소윤이 연결 안내](SOYUN_CONNECT.md). 실제 회사·접근 권한·장착한 team-memory 설정은 보존한다. AGENTS.md 8번은 이번 CEO 요청에 따라 제한된 텍스트 범위를 명시했다.
+
+최종 후속 전체 검사는 마지막 코드 수정 후 `python -X utf8 -B tools/dev/regression.py`로 실행하고, 별도의 [후속 검사 JSON](verification/followup-regression.json)에 커밋·코드 해시·통과/생략/실패 수를 남긴다. 아래 기존 MVP 결과와 합산하지 않는다. GitHub Actions는 가짜 모델만 사용하며 실제 로그인 검사는 승인된 수동 실행으로 분리한다.
+
 검증: 전체 255개(1 생략)와 최종 자원/수명주기 39개(1 생략), 진행판 12개 통과. 실제 Codex 읽기 전용 1회 성공. Grok CLI 로그인·grok-4.7 목록 확인, 생성 호출 없음. [검증 보고](verification/mvp-report.md).
 
-`codex/external-supervisor-mvp`에서 GitHub 최신 `23da5a2`를 로컬 S 드라이브에 먼저 반영하고 구현했다. 상세 계약·실행·제한은 [SUPERVISOR_MVP.md](SUPERVISOR_MVP.md). 외부 API/stdio MCP는 직원용 MCP와 별개이며 기본 꺼짐이다. 실제 연결 토큰·권한은 생성하지 않았다. 단계 영수증과 제한된 병렬화, 근거 검사를 추가했다. Claude는 기본 비활성 상태에서 Codex로 대체한다. Grok 텍스트는 정책 및 도구 차단 확인 전에는 호출하지 않는다. 아래 과거의 'Claude 필수'·단일 작업 루프 설명보다 이 문서의 최신 규약을 따른다. 회사 설정과 기존 Grok 이미지 전용 규칙은 변경하지 않았다.
+초기 MVP는 `codex/external-supervisor-mvp`에서 GitHub 최신 `23da5a2`를 로컬 S 드라이브에 먼저 반영하고 구현했다. 상세 계약·실행·제한은 [SUPERVISOR_MVP.md](SUPERVISOR_MVP.md). 외부 API/stdio MCP는 직원용 MCP와 별개이며 기본 꺼짐이다. 실제 연결 토큰·권한은 생성하지 않았다. 단계 영수증과 제한된 병렬화, 근거 검사를 추가했다. Claude는 기본 비활성 상태에서 Codex로 대체한다. 아래 과거의 'Claude 필수'·단일 작업 루프 설명보다 최신 규약을 따른다. 회사 설정은 변경하지 않았다.
 
 ## 0. 새 세션은 여기부터 (일곱 번째 세션 끝, 2026-09-29 밤)
 

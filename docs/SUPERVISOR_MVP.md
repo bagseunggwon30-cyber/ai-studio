@@ -98,9 +98,15 @@ Claude는 기본 사용 불가로 취급하고, 설치나 로그인 응답을 �
 
 실제 확인(2026-10-03): Codex CLI 0.160.0, ChatGPT 로그인 확인. CEO가 승인한 1회의 읽기 전용 연결 시험 성공(9초, 입력 17002·출력 15토큰). 응답의 정확한 모델 ID는 없어 확인 불가. `verification/codex-connection.json` 참조. 이 시험은 실제 모델의 구현·QA·리뷰 전체 흐름을 증명하지 않는다.
 
-Grok CLI 1.0.41의 설치 경로와 `--help`를 확인했다. 처음 `grok models`는 25초 제한에서 응답하지 않았으나 마지막 doctor 점검과 직접 모델 목록 조회에서는 응답했다. grok.com 로그인 및 목록의 `grok-4.7`, `grok-4.7-build-fast`를 확인했다. 현재 CLI 기본 모델은 `grok-build`다. 이 목록은 실제 모델 호출이나 API 가용성의 증명이 아니며, Grok 텍스트/이미지 생성 호출은 실행하지 않았다. 유료 API 전환과 새 구독은 없다.
+후속 작업에서 Grok CLI 1.0.41의 실제 도움말·설정 검사·모델 목록·기존 grok.com 로그인을 확인했다. CEO가 승인한 총 1회는 `grok-4.7`을 요청한 읽기 전용 텍스트 리뷰로 사용했다. 응답 성공, 47.2초, 입력 5070·출력 556토큰이며 응답에 정확한 모델 ID가 없어 확인 불가다. 기획·구현은 가짜 모델, Git·QA·MCP 클라이언트는 실제 실행이다. [실행 근거](verification/supervisor-grok-review-real.json). 유료 API 전환과 새 구독은 없다. Grok 이미지 생성은 이번에 실행하지 않았다.
 
-`GrokTextRuntime`은 연결 경계와 실패 상태를 마련했지만 **실제 텍스트 호출을 차단하는 준비 어댑터**다. AGENTS.md 8번의 이미지 전용 규칙을 몰래 우회하지 않는다. 확장 제안은 '조사/기획 보조/리뷰의 입력 텍스트만 전달, 코드 수정·셸·파일 쓰기·직원 MCP 없음'이다. 실제 활성화에는 CEO의 규칙 변경 승인과 CLI의 상속 MCP·도구 실행을 확실히 차단할 수 있다는 확인이 필요하다. 현재 CLI 도움말만으로 Windows의 그런 격리를 증명할 수 없어 실행 코드를 켜지 않았다. 브라우저 채팅 자동화는 실행기 경로로 쓰지 않는다.
+`GrokTextRuntime`은 실제 호출 어댑터다. CEO의 이번 제한적 확장 요청에 따라 AGENTS.md 8번을 함께 정리했다. 매 실행에서 비공개 임시 GROK_HOME·작업 입력 폴더를 사용하고 기존 로그인 파일의 임시 하드 링크만 연결한다(내용을 직접 읽거나 복사하지 않음). MCP 허용 목록을 빈 native 정책으로 고정하고 managed MCP·호환 MCP·훅·플러그인·LSP·프로젝트 지침·개인 스킬이 없다는 실제 `inspect --json` 결과를 확인한다. 발견한 개인 스킬은 이름만 확인해 모두 비활성화한다. 도구 allowlist만으로 남는 MCP 메타 도구도 명시적으로 차단하고 `--deny * --permission-mode dontAsk --no-subagents --disable-web-search --max-turns 1`을 적용한다. API 키 인증과 상속 모델 API 키 환경변수를 차단한다. 검사 형식이 바뀌거나 차단을 확인하지 못하면 생성 호출 전에 중단한다.
+
+코드·셸·임의 파일 쓰기·직원 MCP·서브에이전트 권한은 없다. 입력에 포함된 텍스트만 분석하므로 Grok 자체의 실시간 웹 조사·파일 검색은 제공하지 않는다. 필요한 출처는 별도로 수집·검증해 입력에 넣는다. Windows의 OS 파일 샌드박스를 보장한다는 뜻은 아니며, CLI 도구 없음과 상속 실행 표면 없음이 경계다. 정상 종료·취소·시간 초과 시 로그인 링크와 임시 설정을 지운다. 감독 프로세스가 강제 종료되면 원래 로그인 파일의 ACL을 유지한 임시 링크가 남을 수 있어 해당 임시 폴더 확인이 필요하다. 브라우저 채팅 자동화와 새 API 키는 쓰지 않는다.
+
+설정 화면에서 설치된 CLI가 반환한 모델만 선택하고 Grok 텍스트는 읽기 전용 기획·리뷰 역할에만 끼울 수 있다. 파일을 쓰는 리서치·개발 역할에는 끼울 수 없다. 이 경로에는 장착한 team-memory도 붙지 않으므로 그 도구의 공유 쓰기 잠금을 예약하지 않는다. 명시적으로 요청한 공유 자원 잠금은 유지한다.
+
+공식 근거: [headless 호출](https://docs.x.ai/build/cli/headless-scripting), [설정](https://docs.x.ai/build/settings/reference), [권한](https://docs.x.ai/build/features/permissions), [샌드박스](https://docs.x.ai/build/features/sandbox), [MCP](https://docs.x.ai/build/features/mcp-servers). 설치된 CLI의 번들 설명서와 도움말·검사 응답을 우선 확인했다.
 
 ## 완료 근거
 
@@ -115,7 +121,7 @@ Grok CLI 1.0.41의 설치 경로와 `--help`를 확인했다. 처음 `grok model
 - API/stdio 왕복, 중복·충돌·응답 직전 중단, 기획 승인 경계, 읽기 권한, 취소 소유권, 결과 파일 접근을 임시 회사에서 검사한다.
 - 실제 Git·QA 명령과 가짜 모델로 재시작, 단계 재사용, 변경된 suite, 근거 누락, 병렬 실행, 충돌 대기, 예외 정리를 검사한다.
 - 모바일·기존 주요 흐름은 기존 회귀 테스트에 포함한다. 실제 휴대폰/LAN/Tailscale 시험은 실행 안 함.
-- 모델 실제 확인은 승인된 Codex 읽기 전용 1회뿐이다. Grok 실제 응답의 모델 정체성과 텍스트 호출, 실제 비서 도구 등록·호출은 미확인이다. '소윤이 연결 완료' 상태가 아니다.
+- 초기 Codex 읽기 전용 1회와 이번 Grok 읽기 전용 리뷰 1회는 별도 기록이다. 이번에 실제 Codex 모델 기획·구현은 실행하지 않았다. 모델 ID는 응답에서 확인되지 않았다. Codex의 실제 MCP 클라이언트 왕복은 성공했지만 임시 회사이며, 메인 비서 GPT dots 소윤이·실제 회사는 미연결이다. [소윤이 연결 단계](SOYUN_CONNECT.md).
 - 현재 클라이언트가 stdio MCP를 등록할 수 있는지 먼저 확인하고, CEO가 프로젝트 권한·토큰 등록을 승인한 뒤 등록된 도구로 왕복 시험해야 한다. 이 저장소 업로드는 서비스 배포나 접속 권한 부여가 아니다.
 
 `supervisor-harness.json`은 외부 어댑터 경계의 상태·위험·예산 계약이다. 브라우저/데스크톱 입력과 일반 외부 부작용을 제공하지 않으므로 해당 영수증/격리 규칙은 향후 기능을 열 때의 금지 경계이며, 현재 그런 연결이 구현됐다는 주장이 아니다. 실제 태스크의 done 전이는 기존 Engine.approve가 담당한다.
@@ -135,7 +141,7 @@ HTTP 응답은 `schema: studio.supervisor-result/v1`, `status`, `data`, `errors`
 
 새 기능의 자동 검사는 tests/test_supervisor.py에 있다. 기존 tests/test_ai.py·test_engine.py·test_server.py는 Claude 비활성 기본값과 미확인 사용량 표기를 반영했다. board_sim.js의 완료 카드 기대값은 기존 제품 코드의 '최근 5개'와 어긋나 있던 8개를 5개로 바로잡았다. 제품의 카드 수는 바꾸지 않았다.
 
-전체 검사는 `python -m unittest discover -s tests -t .`, 진행판 계산은 `node tools/dev/board_sim.js`, 읽기 전용 설치 점검은 `python studio.py doctor`로 실행한다. 최종 실행 결과는 [검증 보고](verification/mvp-report.md)에 기록한다. raw 로그는 로컬에만 남긴다.
+전체 검사는 `python -m unittest discover -s tests -t .`, 진행판 계산은 `node tools/dev/board_sim.js`, 읽기 전용 설치 점검은 `python studio.py doctor`로 실행한다. 후속 작업은 `python -X utf8 -B tools/dev/regression.py`가 전체 unittest·진행판·JS 문법을 실행하고 커밋·코드 해시·개별 생략/실패 ID만 [최종 후속 검사](verification/followup-regression.json)에 남긴다. [초기 MVP 보고](verification/mvp-report.md)는 과거 결과다. raw 로그는 로컬에만 남긴다. GitHub Actions는 실제 모델·로그인·비밀정보 없이 같은 회귀 검사와 가짜 모델 stdio 왕복을 실행한다. Godot이 없는 CI 환경의 검사는 생략으로 기록하며 통과로 세지 않는다.
 
 ## 실제 상태와 설계 문서의 대응
 

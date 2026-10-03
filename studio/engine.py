@@ -138,7 +138,7 @@ class Engine:
             "current": self.current(),
             "active": list(self._currents.values()),
             "max_parallel": max(1,min(3,self.cfg.limit("max_parallel"))),
-            "runtime_status": {"claude":"사용 불가 · Codex로 대체" if not self.cfg.runtime_cfg("claude").get("enabled",False) else "사용 설정됨", "grok_text":"정책 승인 및 연결 확인 필요"},
+            "runtime_status": {"claude":"사용 불가 · Codex로 대체" if not self.cfg.runtime_cfg("claude").get("enabled",False) else "사용 설정됨", "grok_text":"읽기 전용 텍스트 · 매 실행 전 격리 점검"},
             "today": usage,
             "limits": {
                 "max_runs_per_day": self.cfg.limit("max_runs_per_day"),
@@ -698,7 +698,7 @@ class Engine:
         result = []
         for original in tasks:
             t = Task.from_dict(original.to_dict())
-            specs = mcp.for_role(self.cfg,t.role)
+            specs = [] if self.cfg.roles.get(t.role) and self.cfg.roles[t.role].runtime == "grok_text" else mcp.for_role(self.cfg,t.role)
             # A completed worker no longer owns tools or external execution resources.
             # Awaiting candidates still reserve overlapping file paths via scheduler.blocker.
             resources = set() if t.status == "awaiting_approval" else set(t.extra.get("resources",[]))
@@ -749,7 +749,9 @@ class Engine:
             fallback = "claude_disabled"
         if kwargs.get("sandbox") != "read-only" and (kwargs.get("runtime_name") or requested) not in ("codex","fake"):
             return RunResult(False,requested,requested_model,None,0,error_kind="policy",error="파일 변경 권한이 확인된 Codex 실행기만 사용할 수 있습니다.")
-        attached = [] if kwargs.get("want_image") or stage.startswith("review") else mcp.for_role(self.cfg,role)
+        text_runtime = (kwargs.get("runtime_name") or requested) == "grok_text"
+        attached = [] if kwargs.get("want_image") or stage.startswith("review") or text_runtime else mcp.for_role(self.cfg,role)
+        if text_runtime:kwargs["web_search"] = False
         effect = "external_effect" if kwargs.get("want_image") or any(m.get("source") != "builtin" or m.get("name") == "team-memory" for m in attached) else "read_only" if kwargs.get("sandbox") == "read-only" else "reversible"
         observation = None
         if kwargs.get("sandbox") == "read-only" and not kwargs.get("want_image"):
@@ -782,7 +784,7 @@ class Engine:
             self._reservations[reservation] = reserved_minutes
         run_id = f"R{stamp()}-{uuid4().hex[:8]}-{task.id}-{stage}"
         kwargs["run_id"] = run_id
-        kwargs["requested_provider"] = requested
+        kwargs["requested_provider"] = "grok" if requested == "grok_text" else requested
         kwargs["requested_model"] = requested_model
         kwargs["fallback_reason"] = fallback
         kwargs["timeout_s"] = max(1,int(reserved_minutes*60))
@@ -848,7 +850,7 @@ class Engine:
         offered_full, offered_brief = ([], []) if skills_kind is None else skills.select(
             self.cfg, role, **skill_context(skills_task or task, skills_kind))
         # 장착한 MCP (MCP 보관소): 그림 그리기·리뷰에는 붙이지 않는다. 리뷰 담당은 mcp.for_role이 늘 빈 목록
-        mcp_specs = [] if want_image or stage.startswith("review") else mcp.for_role(self.cfg, role)
+        mcp_specs = [] if want_image or stage.startswith("review") or runtime_name == "grok_text" else mcp.for_role(self.cfg, role)
         if mcp_specs:
             prompt = f"{prompt}\n\n{mcp.prompt_block(mcp_specs)}"
         used_skills = [f"{sk.slug}@{sk.version}" for sk in offered_full]  # 프롬프트에 본문이 붙은 스킬
@@ -899,7 +901,7 @@ class Engine:
             "runtime_version": (getattr(runtime,"info",{}).get("version") or None) if isinstance(getattr(runtime,"info",None),dict) else None,
             "provider_model": result.provider_model,
             "model_identity": "확인됨" if result.provider_model else "확인 불가",
-            "fallback": runtime_name != (requested_provider or runtime_name),
+            "fallback": bool(fallback_reason) or runtime_name != ({"grok": "grok_text"}.get(requested_provider, requested_provider) or runtime_name),
             "fallback_reason": fallback_reason,
             "cost": None,
             "sandbox": sandbox,
@@ -933,7 +935,7 @@ class Engine:
     def _fail_run(self, task: Task, run: RunResult, role: str) -> None:
         kind = run.error_kind or "error"
         who = self.cfg.roles[role].title
-        cli = "codex login" if run.runtime == "codex" else "claude auth login"
+        cli = "codex login" if run.runtime == "codex" else "grok login" if run.runtime in ("grok","grok_text") else "claude auth login"
         reasons = {
             "login": f"{who}: 로그인이 필요합니다. 터미널에서 `{cli}`로 본인이 로그인한 뒤 재시도하세요.",
             "quota": f"{who}: 구독 사용 한도에 도달했습니다. 한도가 풀린 뒤 재개·재시도하세요. (API로 우회하지 않습니다)",
@@ -1996,9 +1998,10 @@ class Engine:
                     "summary": str(s.get("summary", ""))[:3000],
                     "findings": findings,
                     "runtime": "codex" if runtime_name == "claude" and not self.cfg.runtime_cfg("claude").get("enabled",False) else runtime_name,
+                    "actual_runtime": run.runtime,
                     "model": run.provider_model,
                     "model_identity": "확인됨" if run.provider_model else "확인 불가",
-                    "cross_model": ("codex" if runtime_name == "claude" and not self.cfg.runtime_cfg("claude").get("enabled",False) else runtime_name) != builder_runtime,
+                    "cross_model": run.runtime != "fake" and ("codex" if runtime_name == "claude" and not self.cfg.runtime_cfg("claude").get("enabled",False) else runtime_name) != builder_runtime,
                     "diff_stats": stats,
                     "diff_truncated": truncated,
                     "candidate_sha": task.candidate_sha,

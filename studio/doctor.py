@@ -113,13 +113,18 @@ def run_doctor(cfg: Config) -> dict[str, Any]:
         else:
             add("claude", "Claude Code CLI", "warn", "찾을 수 없음", "리뷰는 Codex 별도 세션으로 대신합니다 (교차 모델 검증 아님).")
 
-    # Grok (선택: 꾸미기 공방·새 직원 그림을 Grok으로 그릴 때만)
+    # Grok: existing subscription login, optional image and text adapters.
     info = find_grok(str(cfg.runtime_cfg("grok").get("path", "") or ""))
     if info["found"]:
         if grok_login(info):
-            add("grok", "Grok CLI (그림, 선택)", "ok", f"{info['version']} · grok.com 로그인")
+            add("grok", "Grok CLI (그림·텍스트, 선택)", "ok", f"{info['version']} · grok.com 로그인")
         else:
-            add("grok", "Grok CLI (그림, 선택)", "warn", f"{info['version']} · 로그인 확인 불가", "미로그인 또는 연결 지연일 수 있습니다. `grok models` 응답을 먼저 확인하고, 로그인이 필요하다고 나올 때 본인이 `grok login`을 실행하세요.")
+            add("grok", "Grok CLI (그림·텍스트, 선택)", "warn", f"{info['version']} · 로그인 확인 불가", "미로그인 또는 연결 지연일 수 있습니다. `grok models` 응답을 먼저 확인하고, 로그인이 필요하다고 나올 때 본인이 `grok login`을 실행하세요.")
+        from .grok_text import preflight
+        text_boundary = preflight(info)
+        add("grok_text", "Grok 텍스트 도구 차단", "ok" if text_boundary.get("ready") else "warn",
+            "MCP·훅·플러그인·상속 지침·스킬 없음" if text_boundary.get("ready") else text_boundary.get("reason", "확인 불가"),
+            "생성 호출 없음. 입력 텍스트만 사용하며 Windows OS 샌드박스는 아닙니다.")
     else:
         add("grok", "Grok CLI (그림, 선택)", "ok", "없음 (Codex로 그림)")
 

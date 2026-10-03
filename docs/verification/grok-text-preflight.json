@@ -1,0 +1,20 @@
+{
+  "ready": true,
+  "version": "grok 1.0.41 (4220f3b224a6) [stable]",
+  "active_surfaces": {
+    "mcpServers": 0,
+    "hooks": 0,
+    "plugins": 0,
+    "lspServers": 0,
+    "projectInstructions": 0,
+    "skills": 0
+  },
+  "profile_sha256": "af6ea4a3d4d85ae31f94c67ec66f3de0a57bd3a08917bacdadf8124a25f0ac2e",
+  "mcp_lockdown": true,
+  "api_key_auth_disabled": true,
+  "permission": "deny all; dontAsk",
+  "os_filesystem_sandbox": false,
+  "model_input": "supplied text only",
+  "credential_values_read": false,
+  "model_calls": 0
+}

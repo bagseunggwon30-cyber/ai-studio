@@ -3,8 +3,7 @@
 - Codex: `codex exec --json`, 본인 ChatGPT 구독 로그인. 사용자 전역 설정(MCP·플러그인·
   full-access 기본값)은 무시하고, 역할마다 샌드박스를 명시한다.
 - Claude Code: `claude -p --output-format json`, 본인 구독 로그인. 읽기 도구만 허용한다.
-- Grok: `grok --prompt-file … --output-format json`, 본인 grok.com 로그인 (CEO 요청 E, 2026-09-29). 지금은 그림 그리기
-  (꾸미기 공방·캐릭터 제조실)에만 쓴다. 그림 도구와 파일 읽기만 허용하고, 승인 우회 플래그는 쓰지 않는다.
+- Grok: `grok --prompt-file … --output-format json`, 본인 grok.com 로그인 (CEO 요청 E, 2026-09-29). 그림 및 제한된 읽기 전용 텍스트에 쓴다. 그림 도구와 파일 읽기만 허용하고, 승인 우회 플래그는 쓰지 않는다.
 - Fake: 테스트·화면 확인용. 사용량을 쓰지 않는다.
 
 API 키나 OAuth 토큰은 읽지도, 전달하지도 않는다. 하위 프로세스 환경에서도 지운다.
@@ -745,24 +744,22 @@ Behavior = Callable[[RunSpec], dict]
 
 
 class GrokTextRuntime:
-    """Proposed read-only text boundary, disabled until policy and isolation are verified.
-
-    The installed CLI advertises tool allowlists, but Windows filesystem sandbox
-    enforcement and disabling inherited MCP servers have not been verified. Do not
-    turn this into a prompt-only read-only promise or silently use the paid API.
-    """
+    """Grok text over the installed CLI and existing subscription login."""
     name = "grok_text"
 
     def __init__(self, rcfg):
         self.rcfg = rcfg
         self.info = find_grok(str(rcfg.get("path", "") or ""))
 
+    def preflight(self):
+        from .grok_text import preflight
+        return preflight(self.info)
+
     def run(self, spec, should_stop):
         if not self.info.get("found"):
-            return RunResult(False,self.name,spec.model,None,0,error_kind="not_found",error="Grok CLI 연결을 찾을 수 없습니다.")
-        if spec.sandbox != "read-only" or spec.want_image or spec.mcp:
-            return RunResult(False,self.name,spec.model,None,0,error_kind="policy",error="Grok 텍스트 어댑터는 도구 없는 읽기 전용 입력만 허용하는 설계입니다.")
-        return RunResult(False,self.name,spec.model,None,0,error_kind="policy",error="Grok 이미지 전용 규칙의 텍스트 확장 승인과 CLI 도구·MCP 차단 확인이 필요합니다. 모델 정체성: 확인 불가. 실제 모델을 호출하지 않았습니다.")
+            return RunResult(False,self.name,spec.model,None,0,error_kind="not_found",error="Grok CLI 연결을 찾을 수 없습니다.",side_effects="none")
+        from .grok_text import run_text
+        return run_text(self,spec,should_stop)
 
 
 class FakeRuntime:
