@@ -1,0 +1,10 @@
+{
+  "run_id": 37132330592,
+  "url": "https://github.com/bagseunggwon30-cyber/ai-studio/actions/runs/37132330592",
+  "code_commit": "b999f5960822688a9d5e4837eea061a64fe46230",
+  "ci_checkout_commit": "5885523288ad469cec20e7a6aeb7248664fb7676",
+  "checkout_tree_matches_code_commit": true,
+  "source_sha_matches_worktree": true,
+  "model_generation_calls": 0,
+  "raw_logs_published": false
+}

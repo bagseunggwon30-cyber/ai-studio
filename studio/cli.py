@@ -36,9 +36,15 @@ def main(argv: list[str] | None = None) -> int:
     p_self = sub.add_parser("selftest", help="신뢰 테스트가 결함 구현을 잡아내는지 확인한다")
     p_self.add_argument("project")
     sub.add_parser("status", help="작업 목록을 출력한다")
+    from .supervisor_mcp import add_arguments
+    p_mcp=sub.add_parser("mcp",help="외부 감독 MCP stdio 실행 또는 클라이언트 설정 출력")
+    add_arguments(p_mcp)
 
     args = parser.parse_args(argv)
     root = Path(args.root)
+    if args.cmd == "mcp":
+        from .supervisor_mcp import run
+        return run(args,root,parser)
     if args.cmd == "serve":
         from .server import serve
 

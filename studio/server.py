@@ -228,6 +228,9 @@ class StudioHandler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         path = url.path
         query = {k: v[0] for k, v in parse_qs(url.query).items()}
+        if path == "/mcp":
+            from .supervisor_mcp_http import reject_stream
+            return reject_stream(self)
         if kind != "local" or path in self.MOBILE_PAGES or path.startswith("/m/api/"):
             try:
                 return self._mobile_get(path, kind)
@@ -329,6 +332,12 @@ class StudioHandler(BaseHTTPRequestHandler):
             return self._error(HTTPStatus.NOT_FOUND, "없는 파일")
         self._send(200, target.read_bytes(), ctype)
 
+    def do_DELETE(self) -> None:  # noqa: N802
+        if urlparse(self.path).path == "/mcp":
+            from .supervisor_mcp_http import reject_stream
+            return reject_stream(self)
+        return self._error(HTTPStatus.METHOD_NOT_ALLOWED,"허용되지 않은 방법")
+
     # ---- POST ----
     def _read_body(self) -> bytes | None:
         """요청 본문을 먼저 다 읽는다. 거절할 때도 읽어 두어야 윈도우가 답을 보내기 전에 연결을 끊지(RST) 않는다
@@ -343,6 +352,9 @@ class StudioHandler(BaseHTTPRequestHandler):
         return self.rfile.read(length) if length > 0 else b""
 
     def do_POST(self) -> None:  # noqa: N802
+        if urlparse(self.path).path == "/mcp":
+            from .supervisor_mcp_http import post
+            return post(self)
         raw = self._read_body()
         if raw is None:
             return self._error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "요청이 너무 큽니다.")

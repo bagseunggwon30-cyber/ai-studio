@@ -1,0 +1,42 @@
+{
+  "status": "pass",
+  "company": "production",
+  "client": "installed Codex app-server",
+  "transports": [
+    {
+      "transport": "stdio",
+      "status": "pass",
+      "tool_count": 6,
+      "client_version": "codex-cli 0.160.0",
+      "authenticated_reads": [
+        "task_status",
+        "task_events",
+        "task_result"
+      ],
+      "existing_probe_reused": true,
+      "model_generation_calls": 0,
+      "client_model_turns": 0
+    },
+    {
+      "transport": "Streamable HTTP",
+      "status": "pass",
+      "tool_count": 6,
+      "client_version": "codex-cli 0.160.0",
+      "authenticated_reads": [
+        "task_status",
+        "task_events",
+        "task_result"
+      ],
+      "existing_probe_reused": true,
+      "model_generation_calls": 0,
+      "client_model_turns": 0
+    }
+  ],
+  "existing_task_files_and_settings_unchanged": true,
+  "new_tasks_submitted": 0,
+  "cancellation_calls": 0,
+  "model_generation_calls": 0,
+  "token_values_published": false,
+  "task_ids_published": false,
+  "dot_native_connection_verified": false
+}
