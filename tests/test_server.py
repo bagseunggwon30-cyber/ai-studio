@@ -105,8 +105,8 @@ class ServerSecurity(unittest.TestCase):
         runs = [{"task": "T1", "duration_s": 90, "usage": {"input_tokens": 1000, "output_tokens": 200}},
                 {"task": "T1", "duration_s": 30, "usage": {"input_tokens": None, "output_tokens": "x"}},
                 {"task": "T2", "duration_s": 6}]
-        self.assertEqual(task_usage(runs), {"T1": {"runs": 2, "tokens": 1200, "minutes": 2.0, "skills": [], "applied": [], "told": False},
-                                            "T2": {"runs": 1, "tokens": 0, "minutes": 0.1, "skills": [], "applied": [], "told": False}})
+        self.assertEqual(task_usage(runs), {"T1": {"runs": 2, "tokens": None, "minutes": 2.0, "skills": [], "applied": [], "told": False},
+                                            "T2": {"runs": 1, "tokens": None, "minutes": 0.1, "skills": [], "applied": [], "told": False}})
         # 배운 스킬: 본문이 붙은 것·따랐다고 알린 것 (알림이 없는 실행만 있으면 told는 거짓)
         skilled = task_usage([{"task": "T3", "skills": ["tidy@2", "memo@1"], "skills_applied": ["tidy"]},
                               {"task": "T3", "skills": ["tidy@2"], "skills_applied": None},
@@ -115,7 +115,7 @@ class ServerSecurity(unittest.TestCase):
         self.assertEqual((skilled["T4"]["applied"], skilled["T4"]["told"]), ([], False))
         self.s.engine.create_task({"project": "demo", "kind": "build", "title": "t", "brief": "b", "acceptance": ["a"]})
         task = json.loads(self.req("GET", "/api/state")[1])["tasks"][0]
-        self.assertEqual(task["usage"], {"runs": 0, "minutes": 0.0, "tokens": 0, "skills": [], "applied": [], "told": False})
+        self.assertEqual(task["usage"], {"runs": 0, "minutes": 0.0, "tokens": None, "skills": [], "applied": [], "told": False})
 
     def test_skill_api(self):
         res, raw = self.post("/api/skills", {"title": "시그널", "name": "signals", "description": "이벤트를 만들 때", "body": "connect로 잇는다", "learned_by": ["builder"]})

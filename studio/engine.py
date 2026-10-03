@@ -1,6 +1,6 @@
 """작업 흐름 엔진: 지시 → 기획 → 구현 → 신뢰 검증 → 리뷰 → 결재 → 병합.
 
-- 에이전트는 한 번에 하나만 실행한다 (Phase 0).
+- 독립 작업은 제한된 수만 병렬 실행하고 충돌 자원은 직렬화한다.
 - 작업자는 작업별 git worktree 안에서만 쓴다. 허용 경로 밖 변경은 되돌린다.
 - '완료'는 CEO 승인으로만 생긴다. 병합은 검증을 통과한 정확한 후보 커밋만 한다.
 - 한도·로그인 문제는 추측해서 우회하지 않고 멈춘 뒤 사람에게 알린다.
@@ -15,16 +15,18 @@ import traceback
 from pathlib import Path
 from typing import Any, Callable
 
-from . import ai, company, floors, gitops, login, mcp, schedules, skills, wardrobe
+from . import ai, company, evidence, floors, gitops, login, mcp, schedules, scheduler, skills, wardrobe
+from .checkpoints import Journal, digest, files_digest, worktree_digest
+from uuid import uuid4
 from .config import JOBS, Config, ProjectConfig, staff_role
 from .model import ACTIVE, FINAL, KIND_ROLE, NO_BRANCH, OPEN_BRANCH, Task, TransitionError
 from .prompts import (PLAN_SCHEMA, REVIEW_SCHEMA, TOOL_SCHEMA, build_prompt, plan_prompt, reflect_prompt, review_prompt, skill_context,
                       tool_prompt, tool_review_prompt,
                       skill_prompt)
-from .qa import run_qa
+from .qa import run_qa, suite_hash
 from .runtimes import ERROR_LABELS, RunResult, RunSpec, make_runtime, read_jsonl, summarize_codex_events
 from .store import Store
-from .util import atomic_write_json, now_iso, read_json, stamp, today_str
+from .util import atomic_write_json, atomic_write_text, now_iso, read_json, stamp, today_str
 
 
 class EngineError(ValueError):
@@ -43,7 +45,11 @@ class Engine:
         self._shutdown = threading.Event()
         self._stop = threading.Event()
         self._wake = threading.Event()
-        self._current: dict[str, Any] | None = None
+        self._currents: dict[int, dict] = {}
+        self._workers: dict[str, threading.Thread] = {}
+        self._reservations: dict[str, float] = {}
+        self._git_locks: dict[str, threading.RLock] = {}
+        self.journal = Journal(store)
         self._cancel_task: str | None = None
         self.last_error: str | None = None
         self._tick_at = 0.0  # 업무 자동 시작을 마지막으로 본 때 (30초마다)
@@ -63,16 +69,56 @@ class Engine:
     def shutdown(self, timeout: float | None = 10) -> bool:
         self._shutdown.set()
         self._wake.set()
+        deadline = None if timeout is None else time.monotonic() + timeout
         if self._thread:
             self._thread.join(timeout)
-            return not self._thread.is_alive()
-        return True
+        with self.store.lock:
+            workers = list(self._workers.values())
+        for worker in workers:
+            worker.join(None if deadline is None else max(0, deadline-time.monotonic()))
+        return not (self._thread and self._thread.is_alive()) and not any(w.is_alive() for w in workers)
+
+    @property
+    def _current(self):
+        with self.store.lock:
+            return self._currents.get(threading.get_ident())
+
+    @_current.setter
+    def _current(self, value):
+        with self.store.lock:
+            if value is None:
+                self._currents.pop(threading.get_ident(), None)
+            else:
+                self._currents[threading.get_ident()] = value
+
+    def _git_lock(self, project):
+        with self.store.lock:
+            return self._git_locks.setdefault(project, threading.RLock())
 
     def recover(self) -> None:
-        """비정상 종료로 '작업 중'에 남은 카드는 다시 부르지 않고 막힘으로 돌린다."""
+        # Keep fail-closed status. A person requests resume after inspecting the saved boundary.
         for t in self.store.list():
-            if t.status in ACTIVE:
-                self.store.block(t, "감독 프로그램이 재시작돼 중단됐습니다. 결과를 확인하고 재시도하세요.")
+            if t.status not in ACTIVE:
+                continue
+            doc = self.journal.read(t.id)
+            pending = [(k,v) for k,v in doc.items() if v.get("status") == "running"]
+            uncertain = False
+            for stage, saved in pending:
+                receipt = read_json(self.store.runs_dir / saved.get("run_id", "missing") / "receipt.json", {}) or {}
+                completed = receipt.get("input_digest") == saved.get("input_digest") and receipt.get("result",{}).get("ok") is True
+                if completed:
+                    self.journal.write(t.id,stage,**{k:v for k,v in receipt.items() if k != "updated_at"},status="complete")
+                elif saved.get("effect") != "read_only":
+                    uncertain = True
+                    self.journal.write(t.id,stage,status="unknown_outcome",reason="server_restart",next_action="실행 여부 불확실: 작업 폴더와 외부 결과를 사람이 확인해야 합니다. 자동 재실행하지 않습니다.")
+                else:
+                    self.journal.write(t.id,stage,status="interrupted",reason="server_restart",next_action="재개하면 끝난 단계는 재사용하고 읽기 전용 단계부터 진행합니다.")
+            pipe = doc.get("pipeline",{})
+            if pipe.get("status") == "committing":
+                # A commit without its durable SHA receipt is ambiguous, even with a clean tree.
+                uncertain = True
+                self.journal.write(t.id,"pipeline",status="unknown_outcome",reason="server_restart",next_action="후보 커밋 저장 도중 중단됨: Git 결과를 사람이 확인해야 합니다.")
+            self.store.block(t, "실행 여부 불확실 — 결과 확인 전 재실행 금지" if uncertain else "서버 재시작으로 중단됐습니다. 저장된 단계에서 재개할 수 있습니다.")
 
     def wake(self) -> None:
         self._wake.set()
@@ -90,6 +136,9 @@ class Engine:
             "needs_login": state.get("needs_login") or None,  # 한도·로그인 만료로 멈춤: 화면이 '다른 아이디로 로그인' 창을 연다
             "auto_run": self.auto_run(),
             "current": self.current(),
+            "active": list(self._currents.values()),
+            "max_parallel": max(1,min(3,self.cfg.limit("max_parallel"))),
+            "runtime_status": {"claude":"사용 불가 · Codex로 대체" if not self.cfg.runtime_cfg("claude").get("enabled",False) else "사용 설정됨", "grok_text":"정책 승인 및 연결 확인 필요"},
             "today": usage,
             "limits": {
                 "max_runs_per_day": self.cfg.limit("max_runs_per_day"),
@@ -101,7 +150,8 @@ class Engine:
         }
 
     def current(self) -> dict[str, Any] | None:
-        cur = dict(self._current) if self._current else None
+        with self.store.lock:
+            cur = next((dict(c) for c in self._currents.values()), None)
         if not cur:
             return None
         run_dir = self.store.runs_dir / cur["run_id"]
@@ -120,9 +170,11 @@ class Engine:
                 return f"선행 작업 {d}이(가) 없거나 취소됨"
             if dep.status != "done":
                 return f"선행 작업 {d} 완료 대기"
-        for t in tasks:
-            if t.id != task.id and t.project == task.project and t.kind != "plan" and t.status in OPEN_BRANCH:
-                return f"같은 프로젝트의 {t.id} 처리 대기"
+        resource_tasks = self._resource_tasks(tasks)
+        resource_task = next((t for t in resource_tasks if t.id == task.id),task)
+        blocked = scheduler.blocker(resource_task,resource_tasks,self._workers)
+        if blocked:
+            return f"같은 프로젝트의 {blocked} 처리 대기"
         if self._stop.is_set():
             return "회사가 정지 상태"
         if not (self.auto_run() or task.run_requested):
@@ -142,7 +194,7 @@ class Engine:
             raise EngineError(f"작업 {task_id}을(를) 찾을 수 없습니다.")
         return task
 
-    def submit_directive(self, text: str, project_key: str) -> Task:
+    def submit_directive(self, text: str, project_key: str, *, created_by="ceo", extra=None) -> Task:
         text = (text or "").strip()
         if not text:
             raise EngineError("지시 내용을 입력하세요.")
@@ -152,7 +204,7 @@ class Engine:
         first = text.splitlines()[0].strip()
         title = first if len(first) <= 60 else first[:57] + "…"
         task = self.store.create_task(
-            title=title, kind="plan", role=self._pick("producer"), project=project_key, status="queued", brief=text, note="CEO 지시"
+            title=title, kind="plan", role=self._pick("producer"), project=project_key, status="queued", brief=text, note="작업 지시", created_by=created_by, extra=extra or {}
         )
         self.wake()
         return task
@@ -281,7 +333,7 @@ class Engine:
             raise EngineError(str(e)) from e
         self.store.event("skill.removed", f"스킬 지움: {skill.title}", skill=slug)
 
-    def create_task(self, data: dict[str, Any]) -> Task:
+    def create_task(self, data: dict[str, Any], *, created_by="ceo", extra=None) -> Task:
         kind = str(data.get("kind", "build"))
         if kind not in ("build", "research"):
             raise EngineError("작업 종류는 build 또는 research 입니다.")
@@ -304,15 +356,38 @@ class Engine:
             acceptance=acceptance,
             allowed_paths=allowed,
             depends_on=depends,
-            note="CEO가 직접 만든 작업",
+            note="직접 만든 작업", created_by=created_by, extra=extra or {},
         )
         self.wake()
         return task
 
+    def capture_source(self, task_id, source_id, url):
+        import hashlib
+        import re
+        from .mcp_builtin.web import fetch
+        if not isinstance(source_id,str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}",source_id):
+            raise EngineError("출처 ID 오류")
+        self._task(task_id)
+        if not isinstance(url,str) or not 1 <= len(url) <= 2000:
+            raise EngineError("출처 주소 오류")
+        from .mcp_builtin.base import ToolError
+        root = self.store.dir / "sources" / task_id
+        try:
+            text = fetch(url,50000)
+        except ToolError as exc:
+            atomic_write_json(root / (source_id+".json"),{"id":source_id,"url":url,"captured_at":now_iso(),"ok":False})
+            self.store.event("source.failed","출처에 접근하지 못했습니다.",task=task_id,source=source_id)
+            raise EngineError(str(exc)) from exc
+        atomic_write_text(root / (source_id+".txt"),text)
+        receipt = {"id":source_id,"url":url,"captured_at":now_iso(),"sha256":hashlib.sha256(text.encode()).hexdigest(),"ok":True}
+        atomic_write_json(root / (source_id+".json"),receipt)
+        self.store.event("source.captured","출처를 실제로 읽어 보관했습니다.",task=task_id,source=source_id)
+        return receipt
+
     def request_run(self, task_id: str) -> Task:
         with self.store.lock:
             task = self._task(task_id)
-            if task.status != "ready":
+            if task.status != "ready" and not (task.status == "queued" and task.created_by.startswith("supervisor:")):
                 raise EngineError("준비 상태의 작업만 실행할 수 있습니다.")
             task.run_requested = True
             self.store.save(task)
@@ -348,6 +423,7 @@ class Engine:
                 raise EngineError("결재 대기 중인 작업만 반려할 수 있습니다.")
             task.feedback.append({"at": now_iso(), "by": by, "text": note})
             task.attempts = 0
+            self.journal.clear(task.id)
             task.run_requested = True
             if task.kind in NO_BRANCH:
                 task.proposal = None
@@ -401,7 +477,16 @@ class Engine:
                 raise EngineError("막힘 상태의 작업만 재시도할 수 있습니다.")
             if task.kind != "skill":
                 self._trouble(task, "blocked", task.blocked_reason or "")
-            task.attempts = 0
+            checkpoints = self.journal.read(task.id)
+            if any(v.get("status") in ("unknown_outcome", "running") and v.get("effect") != "read_only" for v in checkpoints.values()):
+                raise EngineError("실행 여부 불확실: 결과 확인 전 재실행할 수 없습니다. 작업 폴더와 외부 결과를 확인하세요.")
+            resume_candidate = task.candidate_sha and checkpoints.get("pipeline",{}).get("candidate_sha") == task.candidate_sha
+            finished_write = checkpoints.get(f"build{task.attempts}",{}).get("status") == "complete"
+            if not resume_candidate and not finished_write:
+                task.attempts = 0
+                if task.kind not in NO_BRANCH: self.journal.clear(task.id)
+            elif finished_write and not resume_candidate:
+                task.attempts = max(0,task.attempts-1)
             task.run_requested = True
             if task.kind in NO_BRANCH:
                 task.proposal = None
@@ -412,7 +497,12 @@ class Engine:
                 if task.base_sha and gitops.is_repo(project.repo):
                     main_head = gitops.head(project.repo, project.main_branch)
                     if main_head != task.base_sha:
+                        pipe = checkpoints.get("pipeline",{})
+                        if checkpoints and (not task.worktree or not gitops.is_clean(Path(task.worktree)) or pipe.get("files_digest") != worktree_digest(Path(task.worktree))):
+                            raise EngineError("기준 커밋과 작업 폴더가 바뀌었습니다. 결과를 보존했습니다. 새 작업으로 검토하세요.")
                         self._discard_branch(task, project)
+                        self.journal.clear(task.id)
+                        task.attempts = 0
                 self.store.save(task)
                 self.store.transition(task, "ready", by=by, note="재시도")
         self.wake()
@@ -423,9 +513,9 @@ class Engine:
             task = self._task(task_id)
             if task.status in FINAL:
                 raise EngineError("이미 끝난 작업입니다.")
-            running = bool(self._current and self._current.get("task") == task_id)
+            running = task_id in self._workers or any(c.get("task") == task_id for c in list(self._currents.values()))
             if running:
-                self._cancel_task = task_id
+                self.journal.write(task_id,"stop",status="cancelled",reason="cancelled",effect="read_only",next_action="취소된 작업은 다시 실행하지 않습니다.")
             self.store.transition(task, "cancelled", by=by, note="취소")
             if not running and task.kind not in NO_BRANCH:
                 self._cleanup_worktree(task)
@@ -567,83 +657,154 @@ class Engine:
     # ------------------------------------------------------------ 작업자 루프
     def _loop(self) -> None:
         while not self._shutdown.is_set():
-            if self._stop.is_set():
-                self._wake.wait(1.0)
-                self._wake.clear()
-                continue
-            if time.monotonic() - self._tick_at > 30:
-                self._tick_at = time.monotonic()
-                try:
-                    self.schedule_tick()
-                except Exception as e:  # 자동 업무 하나가 잘못돼도 회사는 계속 돈다
-                    self.last_error = f"자동 업무 확인 실패: {e}"
+            if not self._stop.is_set():
+                if time.monotonic()-self._tick_at > 30:
+                    self._tick_at = time.monotonic()
+                    try:
+                        self.schedule_tick()
+                    except Exception as e:
+                        self.last_error = f"자동 업무 확인 실패: {e}"
+                with self.store.lock:
+                    if len(self._workers) < max(1,min(3,self.cfg.limit("max_parallel"))):
+                        task = self._next_job()
+                        if task:
+                            worker = threading.Thread(target=self._work,args=(task,),name=f"studio-{task.id}",daemon=True)
+                            self._workers[task.id] = worker
+                            worker.start()
+                            continue
+            self._wake.wait(.2)
+            self._wake.clear()
+
+    def _work(self, task):
+        try:
+            run = {"plan": self._run_plan,"skill":self._run_skill,"look":self._run_look,"hire":self._run_hire,"tool":self._run_tool}.get(task.kind,self._run_build)
+            run(task)
+        except Exception as e:
+            self.last_error = f"{task.id}: {e}"
+            atomic_write_text(self.store.dir / "last_error.txt",traceback.format_exc())
+            self.store.block(task,f"시스템 오류: {e}")
+        finally:
             try:
-                task = self._next_job()
-            except Exception as e:  # 저장소 읽기 오류 등
-                self.last_error = f"다음 작업 선택 실패: {e}"
-                task = None
-            if task is None:
-                self._wake.wait(2.0)
-                self._wake.clear()
-                continue
-            try:
-                if task.kind == "plan":
-                    self._run_plan(task)
-                elif task.kind == "skill":
-                    self._run_skill(task)
-                elif task.kind == "look":
-                    self._run_look(task)
-                elif task.kind == "hire":
-                    self._run_hire(task)
-                elif task.kind == "tool":
-                    self._run_tool(task)
-                else:
-                    self._run_build(task)
-                self.last_error = None
-            except Exception as e:
-                self.last_error = f"{task.id}: {e}"
-                (self.store.dir / "last_error.txt").write_text(traceback.format_exc(), encoding="utf-8")
-                try:
-                    self.store.block(task, f"시스템 오류: {e}")
-                except Exception:
-                    pass
+                if self._cancelled(task.id) and task.kind not in NO_BRANCH:
+                    fresh = self.store.get(task.id)
+                    if fresh: self._cleanup_worktree(fresh)
             finally:
-                self._current = None
-                self._cancel_task = None
+                with self.store.lock:
+                    self._current = None
+                    self._workers.pop(task.id,None)
+                self.wake()
+
+    def _resource_tasks(self, tasks):
+        result = []
+        for original in tasks:
+            t = Task.from_dict(original.to_dict())
+            specs = mcp.for_role(self.cfg,t.role)
+            # A completed worker no longer owns tools or external execution resources.
+            # Awaiting candidates still reserve overlapping file paths via scheduler.blocker.
+            resources = set() if t.status == "awaiting_approval" else set(t.extra.get("resources",[]))
+            for spec in specs:
+                if t.status != "awaiting_approval" and (spec.get("source") != "builtin" or spec.get("name") == "team-memory"):
+                    resources.add("mcp:"+spec["name"])
+            t.extra["resources"] = sorted(resources)
+            t.extra["uncertain"] = t.status == "blocked" and any(v.get("status") == "unknown_outcome" for v in self.journal.read(t.id).values())
+            result.append(t)
+        return result
 
     def _next_job(self) -> Task | None:
         usage = self.store.today_usage()
-        if usage["runs"] >= self.cfg.limit("max_runs_per_day") or usage["minutes"] >= self.cfg.limit("max_agent_minutes_per_day"):
+        if usage["runs"] + len(self._reservations) >= self.cfg.limit("max_runs_per_day") or usage["minutes"] >= self.cfg.limit("max_agent_minutes_per_day"):
             return None
-        tasks = self.store.list()
-        for t in tasks:
-            if t.status == "queued" and t.kind in NO_BRANCH and not t.origin:  # 기획·스킬 공부는 CEO가 시킨 즉시
-                return t
-        auto = self.auto_run()
-        by_id = {t.id: t for t in tasks}
-        busy = {t.project for t in tasks if t.kind not in NO_BRANCH and t.status in OPEN_BRANCH}
-        for t in tasks:
-            if t.status != "ready" or t.kind in NO_BRANCH:
+        tasks = self._resource_tasks(self.store.list())
+        by_id = {t.id:t for t in tasks}
+        for t in sorted(tasks,key=lambda x: bool(x.origin)):
+            if t.id in self._workers or scheduler.blocker(t,tasks,self._workers):
                 continue
-            if not (auto or t.run_requested) or t.project in busy:
-                continue
-            if any(by_id.get(d) is None or by_id[d].status != "done" for d in t.depends_on):
-                continue
-            return t
-        for t in tasks:  # 스스로 돌아보기(회고)는 할 일이 없을 때
-            if t.status == "queued" and t.origin:
-                return t
+            if t.status == "queued" and t.kind in NO_BRANCH:
+                if t.created_by.startswith("supervisor:") and not (t.run_requested or self.auto_run()):continue
+                return self._task(t.id)
+            if t.status != "ready" or t.kind in NO_BRANCH or not (self.auto_run() or t.run_requested):continue
+            if any(d not in by_id or by_id[d].status != "done" for d in t.depends_on):continue
+            return self._task(t.id)
         return None
 
     def _should_stop(self, task_id: str) -> bool:
-        return self._shutdown.is_set() or self._stop.is_set() or self._cancel_task == task_id or self._cancelled(task_id)
+        return self._shutdown.is_set() or self._stop.is_set() or self._cancelled(task_id)
 
     def _cancelled(self, task_id: str) -> bool:
         fresh = self.store.get(task_id)
         return fresh is None or fresh.status == "cancelled"
 
     # ------------------------------------------------------------ 에이전트 1회 실행
-    def _agent_run(
+    def _agent_run(self, task, role, prompt, cwd, **kwargs):
+        stage = kwargs["stage"]
+        if self._should_stop(task.id):
+            return RunResult(False,kwargs.get("runtime_name") or self.cfg.roles[role].runtime,kwargs.get("model") or self.cfg.roles[role].model,None,0,error_kind="stopped",error="중단됨")
+        requested = kwargs.get("runtime_name") or self.cfg.roles[role].runtime
+        requested_model = kwargs.get("model", self.cfg.roles[role].model)
+        fallback = None
+        if requested == "claude" and not self.cfg.runtime_cfg("claude").get("enabled",False):
+            kwargs["runtime_name"] = "codex"
+            kwargs["model"] = self.cfg.roles[role].fallback_model if self.cfg.roles[role].fallback_runtime == "codex" else ""
+            kwargs["effort"] = ""
+            fallback = "claude_disabled"
+        if kwargs.get("sandbox") != "read-only" and (kwargs.get("runtime_name") or requested) not in ("codex","fake"):
+            return RunResult(False,requested,requested_model,None,0,error_kind="policy",error="파일 변경 권한이 확인된 Codex 실행기만 사용할 수 있습니다.")
+        attached = [] if kwargs.get("want_image") or stage.startswith("review") else mcp.for_role(self.cfg,role)
+        effect = "external_effect" if kwargs.get("want_image") or any(m.get("source") != "builtin" or m.get("name") == "team-memory" for m in attached) else "read_only" if kwargs.get("sandbox") == "read-only" else "reversible"
+        observation = None
+        if kwargs.get("sandbox") == "read-only" and not kwargs.get("want_image"):
+            observation = worktree_digest(Path(cwd)) if gitops.is_repo(Path(cwd)) else files_digest(Path(cwd))
+        runtime = self.runtime_factory(kwargs.get("runtime_name") or requested)
+        info = getattr(runtime,"info",{}) or {}
+        if not isinstance(info,dict):info = {}
+        runtime_id = getattr(runtime,"name",None)
+        if not isinstance(runtime_id,str):runtime_id = kwargs.get("runtime_name") or requested
+        identity = [type(runtime).__module__,type(runtime).__qualname__,runtime_id,info.get("cmd"),info.get("version"),self.cfg.fake_runtimes]
+        image_inputs = [(str(p),digest(Path(p).read_bytes().hex())) for p in kwargs.get("images",[]) or []]
+        key = digest([identity,image_inputs,kwargs.pop("resume_context",None),kwargs.get("effort"),kwargs.get("web_search"),attached,observation,prompt,str(Path(cwd).resolve()),kwargs.get("runtime_name",requested),kwargs.get("model",requested_model),kwargs.get("sandbox"),kwargs.get("schema"),task.base_sha,task.candidate_sha,task.attempts])
+        saved = self.journal.read(task.id).get(stage,{})
+        if saved.get("status") == "unknown_outcome":
+            return RunResult(False,requested,requested_model,None,0,error_kind="unknown_outcome",error="실행 여부 불확실: 자동 재실행 금지")
+        if saved.get("input_digest") == key and saved.get("status") == "complete":
+            if saved.get("files_digest") is None or saved.get("files_digest") == worktree_digest(Path(cwd)):
+                return RunResult(**saved["result"])
+            raise EngineError("저장된 산출물이 변경돼 단계를 재사용할 수 없습니다.")
+        kwargs["runtime_instance"] = runtime
+        before = worktree_digest(Path(cwd)) if kwargs.get("sandbox") != "read-only" else None
+        reservation = uuid4().hex
+        with self.store.lock:
+            usage = self.store.today_usage()
+            budget = sum(self._reservations.values())
+            if usage["runs"]+len(self._reservations) >= self.cfg.limit("max_runs_per_day") or usage["minutes"]+budget >= self.cfg.limit("max_agent_minutes_per_day"):
+                return RunResult(False,requested,requested_model,None,0,error_kind="cap",error="실행 상한에 도달했습니다.")
+            remaining = self.cfg.limit("max_agent_minutes_per_day")-usage["minutes"]-budget
+            reserved_minutes = min(self.cfg.limit("task_timeout_min"),remaining)
+            self._reservations[reservation] = reserved_minutes
+        run_id = f"R{stamp()}-{uuid4().hex[:8]}-{task.id}-{stage}"
+        kwargs["run_id"] = run_id
+        kwargs["requested_provider"] = requested
+        kwargs["requested_model"] = requested_model
+        kwargs["fallback_reason"] = fallback
+        kwargs["timeout_s"] = max(1,int(reserved_minutes*60))
+        try:
+            self.journal.write(task.id,stage,status="running",input_digest=key,run_id=run_id,effect=effect,candidate_sha=task.candidate_sha,reason=None,next_action=None)
+            result = self._agent_run_once(task,role,prompt,cwd,**kwargs)
+            after = worktree_digest(Path(cwd)) if kwargs.get("sandbox") != "read-only" else None
+            uncertain = not result.ok and ((effect != "read_only" and result.side_effects != "none") or after != before)
+            reason = ("cancelled" if self._cancelled(task.id) else "server_shutdown" if self._shutdown.is_set() else "emergency_stop" if self._stop.is_set() else result.error_kind)
+            receipt = dict(input_digest=key,run_id=run_id,effect=effect,candidate_sha=task.candidate_sha,result=result.to_dict(),files_digest=after,
+                           reason=reason,next_action="실행 여부 불확실: 결과 확인 필요" if uncertain else "저장된 다음 단계에서 재개" if not result.ok else None)
+            atomic_write_json(self.store.runs_dir / run_id / "receipt.json",receipt)
+            self.journal.write(task.id,stage,**receipt,status="complete" if result.ok else "unknown_outcome" if uncertain else "failed")
+            return result
+        except Exception:
+            self.journal.write(task.id,stage,status="interrupted" if effect == "read_only" else "unknown_outcome",reason="process_error",next_action="실제 결과를 확인한 뒤 재개")
+            raise
+        finally:
+            with self.store.lock:
+                self._reservations.pop(reservation,None)
+
+    def _agent_run_once(
         self,
         task: Task,
         role: str,
@@ -661,6 +822,12 @@ class Engine:
         want_image: bool = False,
         skills_kind: str | None = None,
         skills_task: Task | None = None,
+        run_id: str | None = None,
+        runtime_instance=None,
+        requested_provider: str | None = None,
+        requested_model: str | None = None,
+        fallback_reason: str | None = None,
+        timeout_s: int | None = None,
     ) -> RunResult:
         """skills_kind: 이 실행이 배운 스킬을 '쓰는' 일이면 그 종류 (plan·build·research·review·study). 프롬프트가 고른 것과 같은
         스킬을 다시 골라 실행 기록에 남긴다 (skills = 본문까지 붙음, skills_brief = 설명만, skills_applied = 따랐다고 알린 것).
@@ -675,9 +842,9 @@ class Engine:
         usage = self.store.today_usage()
         if usage["runs"] >= self.cfg.limit("max_runs_per_day") or usage["minutes"] >= self.cfg.limit("max_agent_minutes_per_day"):
             return RunResult(False, runtime_name, model, None, 0.0, error_kind="cap", error="하루 실행 상한에 도달했습니다.")
-        run_id = f"R{stamp()}-{task.id}-{stage}"
+        run_id = run_id or f"R{stamp()}-{uuid4().hex[:8]}-{task.id}-{stage}"
         run_dir = self.store.runs_dir / run_id
-        runtime = self.runtime_factory(runtime_name)
+        runtime = runtime_instance if runtime_instance is not None else self.runtime_factory(runtime_name)
         offered_full, offered_brief = ([], []) if skills_kind is None else skills.select(
             self.cfg, role, **skill_context(skills_task or task, skills_kind))
         # 장착한 MCP (MCP 보관소): 그림 그리기·리뷰에는 붙이지 않는다. 리뷰 담당은 mcp.for_role이 늘 빈 목록
@@ -707,7 +874,7 @@ class Engine:
             sandbox=sandbox,
             model=model,
             effort=effort,
-            timeout_s=self.cfg.limit("task_timeout_min") * 60,
+            timeout_s=timeout_s if timeout_s is not None else self.cfg.limit("task_timeout_min") * 60,
             output_schema=schema,
             web_search=web_search,
             skip_git_check=not gitops.is_repo(Path(cwd)),
@@ -726,6 +893,15 @@ class Engine:
             "stage": stage,
             "runtime": runtime_name,
             "model": model or "기본",
+            "requested_provider": requested_provider or runtime_name,
+            "requested_model": requested_model or None,
+            "actual_runtime": result.runtime,
+            "runtime_version": (getattr(runtime,"info",{}).get("version") or None) if isinstance(getattr(runtime,"info",None),dict) else None,
+            "provider_model": result.provider_model,
+            "model_identity": "확인됨" if result.provider_model else "확인 불가",
+            "fallback": runtime_name != (requested_provider or runtime_name),
+            "fallback_reason": fallback_reason,
+            "cost": None,
             "sandbox": sandbox,
             "started_at": started,
             "ended_at": now_iso(),
@@ -871,6 +1047,18 @@ class Engine:
             edit = edits.get(str(i)) or {}
             title = str(edit.get("title") or item["title"]).strip()[:80]
             kind = item.get("kind", "build")
+            allowed = _clean_paths(item.get("allowed_paths", []),project)
+            child_extra = {}
+            if task.created_by.startswith("supervisor:"):
+                from .supervisor import path_scope
+                allowed = [p for p in allowed if path_scope(p,task.extra.get("scope_paths",[]))]
+                if not allowed: raise EngineError("외부 지시의 허용 경로를 벗어난 기획안입니다.")
+                child_extra = {"requirements":task.extra.get("requirements",[]),"resources":task.extra.get("resources",[]),"scope_paths":task.extra.get("scope_paths",[])}
+            child_extra["plan_item"] = i
+            prior = next((t for t in self.store.list() if t.parent == task.id and t.extra.get("plan_item") == i),None)
+            if prior:
+                index_to_id[i] = prior.id
+                continue
             child = self.store.create_task(
                 title=title,
                 kind=kind,
@@ -879,11 +1067,12 @@ class Engine:
                 status="ready",
                 brief=str(edit.get("brief") or item.get("brief", "")),
                 acceptance=list(item.get("acceptance", [])),
-                allowed_paths=_clean_paths(item.get("allowed_paths", []), project),
+                allowed_paths=allowed,
+                extra=child_extra,
                 depends_on=[index_to_id[d] for d in item.get("depends_on", []) if d in index_to_id],
                 difficulty=int(item.get("difficulty", 1)),
                 parent=task.id,
-                created_by="producer",
+                created_by=task.created_by if task.created_by.startswith("supervisor:") else "producer",
                 note=f"{task.id} 기획안에서 생성",
             )
             index_to_id[i] = child.id
@@ -1172,7 +1361,7 @@ class Engine:
                 blocking = any(f.get("severity") == "blocking" for f in findings)
                 return {"verdict": "changes_requested" if blocking else s["verdict"], "by": reviewer, "summary": str(s.get("summary", ""))[:3000],
                         "findings": findings, "runtime": runtime_name, "model": run.model, "at": now_iso()}
-            errors.append(f"{runtime_name}: {run.error or '응답 형식 오류'}"[:300])
+            errors.append(f"{run.runtime}: {run.error or '응답 형식 오류'}"[:300])
         return {"verdict": "unavailable", "summary": "리뷰 실행기를 쓸 수 없어 도구를 올리지 않았어요 (리뷰 없이 이 PC에서 돌릴 수 없음). " + " / ".join(errors),
                 "findings": [], "runtime": None, "at": now_iso()}
 
@@ -1283,7 +1472,7 @@ class Engine:
         for stage, prompt, images, target in steps:
             run = self._agent_run(task, role, prompt, self.cfg.root, sandbox="read-only", stage=f"{prefix}-{stage}",
                                   runtime_name=ai_name, model=wardrobe.IMAGE_MODEL if codex else "",
-                                  effort=wardrobe.IMAGE_EFFORT if codex else "", images=images, want_image=True)
+                                  effort=wardrobe.IMAGE_EFFORT if codex else "", images=images, want_image=True,resume_context=str(target.resolve()))
             if self._cancelled(task.id):
                 return False
             task = self._task(task.id)
@@ -1615,6 +1804,15 @@ class Engine:
         task = self._ensure_worktree(task, project)
         wt = Path(task.worktree or "")
         feedback = self._latest_feedback(task)
+        pipe = self.journal.read(task.id).get("pipeline",{})
+        if task.candidate_sha and pipe.get("candidate_sha") == task.candidate_sha and pipe.get("status") in ("candidate","qa","review"):
+            if gitops.head(wt) != task.candidate_sha or not gitops.is_clean(wt) or worktree_digest(wt) != pipe.get("files_digest"):
+                raise EngineError("후보 작업 폴더가 바뀌었습니다. 확인 전에는 재개하지 않습니다.")
+            if task.status == "ready": task = self.store.transition(task,"running",note="완료된 구현을 재사용")
+            if self._verify_candidate(task,project,pipe.get("violations",[])):
+                return
+            task = self._task(task.id)
+            feedback = self._latest_feedback(task)
 
         while task.attempts < max_attempts:
             if self._should_stop(task.id):
@@ -1639,6 +1837,10 @@ class Engine:
                 return
             task = self._task(task.id)
             if not run.ok:
+                cp = self.journal.read(task.id).get(f"build{task.attempts}",{})
+                if cp.get("status") == "unknown_outcome":
+                    self.store.block(task,"실행 여부 불확실 — 변경을 보존했습니다. 결과 확인 전 재실행 금지")
+                    return
                 if run.error_kind in ("error", "schema") and task.attempts < max_attempts:
                     feedback = f"이전 실행이 오류로 끝났습니다: {run.error[:500]}"
                     self._trouble(task, "error", feedback)
@@ -1661,6 +1863,7 @@ class Engine:
                 )
             remaining = gitops.staged_changes(wt, expected)
             if remaining:
+                self.journal.write(task.id,"pipeline",status="committing",effect="reversible",files_digest=worktree_digest(wt),candidate_sha=None)
                 sha = gitops.commit_staged(wt, f"{task.id}: {task.title} (시도 {task.attempts})")
             elif task.candidate_sha:
                 # 수정 시도에서 바꾼 게 없으면 이전 후보를 그대로 다시 검증한다 (리뷰가 틀렸을 수도 있다)
@@ -1684,56 +1887,66 @@ class Engine:
                 fresh.report = task.report
                 fresh.candidate_sha = sha
                 self.store.save(fresh)
+                self.journal.write(task.id,"pipeline",status="candidate",effect="reversible",candidate_sha=sha,files_digest=worktree_digest(wt),violations=violations)
                 task = fresh
                 if self._should_stop(task.id):
                     self.store.block(task, "감독 프로그램 정지로 중단됐습니다.")
                     return
                 task = self.store.transition(task, "checking", note="신뢰 테스트 실행")
-            qa_dir = self.store.qa_dir / f"Q{stamp()}-{task.id}-{task.attempts}"
-            qa = run_qa(self.cfg, project, sha or "", qa_dir, lambda: self._should_stop(task.id),
-                        base=task.base_sha)
-            qa["violations"] = violations
-            if self._cancelled(task.id):
-                self._cleanup_worktree(self._task(task.id))
+            if self._verify_candidate(task,project,violations):
                 return
             task = self._task(task.id)
-            task.qa = qa
-            task.review = None
-            self.store.save(task)
-            self.store.event("qa.finished", f"{task.id} 검증 {qa['verdict']} · {qa['reason']}", task=task.id, verdict=qa["verdict"])
-            if qa["verdict"] == "stopped" or self._should_stop(task.id):
-                self.store.block(task, "긴급 정지로 검증이 중단됐습니다.")
-                return
-            if qa["verdict"] == "fail":
-                feedback = _qa_feedback(qa, violations)
-                self._trouble(task, "qa", feedback)
-                if task.attempts < max_attempts:
-                    continue
-                self.store.block(task, f"고쳐 봐도 검증 실패 — 검사를 통과하지 못했어요 ({qa['reason']}). "
-                                       "재시도하거나 목표를 고쳐 다시 맡겨 주세요.")
-                return
+            feedback = self._latest_feedback(task)
 
-            review = self._review(task, project, qa, qa_dir / "snapshot")
-            if self._cancelled(task.id):
-                self._cleanup_worktree(self._task(task.id))
-                return
-            task = self._task(task.id)
-            task.review = review
-            self.store.save(task)
-            if review["verdict"] == "stopped" or self._should_stop(task.id):
-                self.store.block(task, "긴급 정지로 리뷰가 중단됐습니다.")
-                return
-            if review["verdict"] in ("approve", "unavailable"):
-                note = f"검증 {qa.get('passed')}/{qa.get('total')} · " if qa["verdict"] == "pass" else "자동 검증 없음 · "
-                note += "리뷰 승인" if review["verdict"] == "approve" else "리뷰 실행 불가 — 직접 확인 필요"
-                self.store.transition(task, "awaiting_approval", note=note)
-                return
-            feedback = _review_feedback(review)
-            self._trouble(task, "review", feedback)
-            if task.attempts < max_attempts:
-                continue
-            self.store.block(task, "리뷰의 수정 요청이 남아 있습니다. 내용을 보고 재시도하거나 직접 결정하세요.")
-            return
+    def _verify_candidate(self, task, project, violations):
+        if task.status == "running": task = self.store.transition(task,"checking",note="후보 검증")
+        saved = self.journal.read(task.id).get("verification",{})
+        current_suite = suite_hash(self.cfg,project)
+        qa = saved.get("result",{})
+        qa_dir = self.store.qa_dir / qa.get("qa_id","missing")
+        valid = (saved.get("status") == "complete" and qa.get("candidate_sha") == task.candidate_sha
+                 and qa.get("suite_hash") == current_suite and (qa_dir/"evidence.json").is_file()
+                 and saved.get("snapshot_digest") == files_digest(qa_dir/"snapshot"))
+        if not valid:
+            qa_dir = self.store.qa_dir / f"Q{stamp()}-{task.id}-{uuid4().hex[:8]}"
+            self.journal.write(task.id,"verification",status="running",effect="read_only",candidate_sha=task.candidate_sha,run_id=qa_dir.name,input_digest=digest([task.candidate_sha,current_suite]))
+            qa = run_qa(self.cfg,project,task.candidate_sha,qa_dir,lambda:self._should_stop(task.id),base=task.base_sha)
+            qa["violations"] = violations
+            qa["snapshot_digest"] = files_digest(qa_dir/"snapshot")
+            receipt = read_json(qa_dir/"evidence.json",{}) or {}
+            if receipt:
+                atomic_write_json(qa_dir/"evidence.json",{**receipt,"snapshot_digest":qa["snapshot_digest"]})
+            self.journal.write(task.id,"verification",status="complete" if qa.get("verdict") in ("pass","none") else "failed",result=qa,snapshot_digest=files_digest(qa_dir/"snapshot"),reason="timeout" if "시간" in qa.get("reason","") else qa.get("verdict"))
+        if self._cancelled(task.id):
+            self._cleanup_worktree(self._task(task.id)); return True
+        task = self._task(task.id); task.qa = qa; self.store.save(task)
+        self.journal.write(task.id,"pipeline",status="qa")
+        self.store.event("qa.finished",f"{task.id} 검증 {qa['verdict']} · {qa['reason']}",task=task.id,verdict=qa["verdict"])
+        if qa["verdict"] == "stopped" or self._should_stop(task.id):
+            self.store.block(task,"감독 프로그램 정지로 검증이 중단됐습니다."); return True
+        if qa["verdict"] == "fail":
+            self._trouble(task,"qa",_qa_feedback(qa,violations))
+            self.journal.write(task.id,"pipeline",status="needs_changes")
+            if task.attempts < self.cfg.limit("max_attempts"): return False
+            self.store.block(task,f"고쳐 봐도 검증 실패 — {qa['reason']}"); return True
+        review = self._review(task,project,qa,qa_dir/"snapshot")
+        if self._cancelled(task.id):
+            self._cleanup_worktree(self._task(task.id)); return True
+        task = self._task(task.id); task.review = review; self.store.save(task)
+        self.journal.write(task.id,"pipeline",status="review")
+        if review["verdict"] == "stopped" or self._should_stop(task.id):
+            self.store.block(task,"감독 프로그램 정지로 리뷰가 중단됐습니다."); return True
+        coverage = evidence.assess(self.cfg,self.store,task)
+        if coverage["strict"] and not coverage["complete"]:
+            self.store.block(task,"수용 기준의 검증 근거가 누락됐거나 접근할 수 없습니다."); return True
+        if review["verdict"] in ("approve","unavailable"):
+            if coverage["strict"] and review["verdict"] != "approve":
+                self.store.block(task,"리뷰 실행 불가 — 외부 제출 작업은 리뷰 통과 후 결재할 수 있습니다.");return True
+            self.store.transition(task,"awaiting_approval",note="검증·리뷰 결과 확인 및 CEO 결재 필요"); return True
+        self._trouble(task,"review",_review_feedback(review))
+        self.journal.write(task.id,"pipeline",status="needs_changes")
+        if task.attempts < self.cfg.limit("max_attempts"):return False
+        self.store.block(task,"리뷰의 수정 요청이 남아 있습니다.");return True
 
     def _ensure_worktree(self, task: Task, project: ProjectConfig) -> Task:
         if not gitops.is_repo(project.repo):
@@ -1743,7 +1956,8 @@ class Engine:
             return task
         branch = task.branch or f"studio/{task.id}"
         base = task.base_sha or gitops.head(project.repo, project.main_branch)
-        gitops.add_worktree(project.repo, wt, branch, base)
+        with self._git_lock(project.key):
+            gitops.add_worktree(project.repo, wt, branch, base)
         task.worktree, task.branch, task.base_sha = str(wt), branch, base
         self.store.save(task)
         return task
@@ -1760,6 +1974,8 @@ class Engine:
         chain = [(rcfg.runtime, rcfg.model, rcfg.effort)]
         if rcfg.fallback_runtime:
             chain.append((rcfg.fallback_runtime, rcfg.fallback_model, ""))
+        if rcfg.runtime == "claude" and not self.cfg.runtime_cfg("claude").get("enabled",False):
+            chain = [("claude",rcfg.model,rcfg.effort)]
         errors = []
         for runtime_name, model, effort in chain:
             run = self._agent_run(
@@ -1779,15 +1995,16 @@ class Engine:
                     "by": reviewer,
                     "summary": str(s.get("summary", ""))[:3000],
                     "findings": findings,
-                    "runtime": runtime_name,
-                    "model": run.model,
-                    "cross_model": runtime_name != builder_runtime,
+                    "runtime": "codex" if runtime_name == "claude" and not self.cfg.runtime_cfg("claude").get("enabled",False) else runtime_name,
+                    "model": run.provider_model,
+                    "model_identity": "확인됨" if run.provider_model else "확인 불가",
+                    "cross_model": ("codex" if runtime_name == "claude" and not self.cfg.runtime_cfg("claude").get("enabled",False) else runtime_name) != builder_runtime,
                     "diff_stats": stats,
                     "diff_truncated": truncated,
                     "candidate_sha": task.candidate_sha,
                     "at": now_iso(),
                 }
-            errors.append(f"{runtime_name}: {run.error or '응답 형식 오류'}"[:300])
+            errors.append(f"{run.runtime}: {run.error or '응답 형식 오류'}"[:300])
             if run.error_kind == "quota" and runtime_name == "codex":
                 break
         return {
@@ -1820,12 +2037,18 @@ class Engine:
             raise EngineError("병합할 후보 커밋이 없습니다.")
         if qa.get("candidate_sha") != task.candidate_sha or qa.get("verdict") not in ("pass", "none"):
             raise EngineError("검증 결과가 현재 후보 커밋과 맞지 않습니다. 재시도해서 다시 검증하세요.")
+        if qa.get("suite_hash") != suite_hash(self.cfg,project):
+            raise EngineError("신뢰 테스트가 변경됐습니다. 다시 검증하세요.")
+        coverage = evidence.assess(self.cfg,self.store,task)
+        if coverage["strict"] and (not coverage["complete"] or (task.review or {}).get("candidate_sha") != task.candidate_sha or (task.review or {}).get("verdict") != "approve"):
+            raise EngineError("수용 기준 근거 또는 현재 후보의 리뷰가 유효하지 않습니다.")
         main_head = gitops.head(project.repo, project.main_branch)
         if main_head != task.base_sha:
             self.store.block(task, "결재하는 사이 main이 바뀌었습니다. 재시도하면 최신 main에서 다시 만듭니다.", by=by)
             return self._task(task.id)
         try:
-            merged = gitops.fast_forward_main(project.repo, project.main_branch, task.candidate_sha)
+            with self._git_lock(project.key):
+                merged = gitops.fast_forward_main(project.repo, project.main_branch, task.candidate_sha)
         except gitops.GitError as e:
             raise EngineError(f"병합 실패: {e}") from e
         task.merged_sha = merged
@@ -1877,7 +2100,8 @@ class Engine:
             return
         project = self.cfg.projects.get(task.project)
         if project and gitops.is_repo(project.repo):
-            gitops.remove_worktree(project.repo, Path(task.worktree))
+            with self._git_lock(project.key):
+                gitops.remove_worktree(project.repo, Path(task.worktree))
         task.worktree = None
         self.store.save(task)
 

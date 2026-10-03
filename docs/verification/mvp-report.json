@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-03",
+  "base_sha": "23da5a25530ff4a85b7af678865fcb2c146a039d",
+  "branch": "codex/external-supervisor-mvp",
+  "checks": [
+    {
+      "name": "full_regression",
+      "loaded_cases": 255,
+      "passed": 254,
+      "skipped": 1,
+      "duration_seconds": 700.447,
+      "status": "pass",
+      "raw_log": "local-only: mvp-suite-passed.log"
+    },
+    {
+      "name": "final_resource_and_lifecycle",
+      "loaded_cases": 39,
+      "passed": 38,
+      "skipped": 1,
+      "duration_seconds": 109.188,
+      "status": "pass",
+      "raw_log": "local-only: mvp-resource-final.log"
+    }
+  ],
+  "verification_note": "The full suite loaded 255 cases before the last resource-release adjustment. That final adjustment and its new test were verified by the 39-case supervisor/lifecycle run. Counts overlap; they are not added together. The current suite contains 256 cases.",
+  "board_checks": 12,
+  "python_syntax_files": 18,
+  "javascript_syntax_files": 3,
+  "harness_spec_validation": "pass (design-format validation only)",
+  "ui": {
+    "scope": "temporary company, fake executors",
+    "plan_submit_wait_run_approval": "pass",
+    "evidence_and_runtime_details": "pass",
+    "browser_warnings_errors": 0,
+    "screenshots": [
+      "supervisor-plan-ui.png",
+      "supervisor-evidence-ui.png"
+    ]
+  },
+  "codex_real_generation_calls": 1,
+  "grok_real_generation_calls": 0,
+  "grok_cli_login_and_models": "verified",
+  "external_assistant_registered": false,
+  "production_credentials_created": false,
+  "production_permissions_expanded": false,
+  "main_merged": false,
+  "deployed": false,
+  "source_sha256": {
+    "studio/ai.py": "4925cf426d4ef47726f0d5897ca819f2121596dcc365506f983307c5582b6306",
+    "studio/checkpoints.py": "530299670ff3130de1b134fdcd29193edbed27afb2afacdf71653dec0bf93527",
+    "studio/config.py": "22e09b3d194290ea5cc1f935a64c94a40200ee7109b9b6e45a766da63ad308c8",
+    "studio/doctor.py": "34aca82fea9033656fb84159e641b3e4d877a00f4accc683c4ed1c70bbf5b353",
+    "studio/engine.py": "bf562468ea02efafccff27c350024611f6c78d1996ebf3351277f8f928227190",
+    "studio/evidence.py": "5d30ab761f51b60a1f00cf43cbb125c38fc42683467dfeb110ffe147bd173cb1",
+    "studio/mcp.py": "03c2282d38481eaa8494cc644d64e3ced9f274bc632299e24078230006ecec4f",
+    "studio/runtimes.py": "040d4e8355580b3b54bd66a51dd217fcb0301b3586139edb50d21fa833644ebb",
+    "studio/scheduler.py": "dcc8df252f9a4f95c95ee591b471df3b305562f390b36499665f5d74fb64f524",
+    "studio/server.py": "3c2cfbeb1e268759af5cd11449cb27c96f684368e2678994f0dcf5894fa2c8e0",
+    "studio/supervisor.py": "e22da236465be805ced621a14a07e89cafd8798388ab07825ce81779eee6bac3",
+    "studio/supervisor_mcp.py": "ba9f1a1866703909acea2a78bf2c166cab69159381105c948ebe5579d99934e4",
+    "tests/test_ai.py": "eed7d35907d5a399337e601dc9b345c2bfe4d1193d14acf55d33f0de7abdf7e0",
+    "tests/test_engine.py": "17c7f9069598791c9f5f07c69b6ca2126769ec39c3004c35d1a202ba74ef94ce",
+    "tests/test_server.py": "7390a86e95b966026328bc9aaf61a700437b62eee4ea7b3910b0fb19e91c3c6a",
+    "tests/test_supervisor.py": "7db2d3aeb36d5965284d7e9024d0a33e71c8cf53922f55afaac18a28f622267f",
+    "tools/dev/board_sim.js": "f1466fdfe603584f078bb51f392f0289032b081fe4611cb5fafd7b0137610c91",
+    "tools/dev/supervisor_demo.py": "f880afe0a51b52c1fde724dc6eaa4d339d02384475a953de9f22bfaf32d0364c",
+    "tools/supervisor-mcp.py": "c2544270b4c6782918977a7ef729e30546b4c66cf57877c28ab4f2d677645608",
+    "ui/board.js": "e10211951d0c4728ecdf0c9341ef836471a0c62a645febebdcb965cf67d40b0e",
+    "ui/m.js": "51158e2255f853f4ab8d0e38a725afd0aa2bedc7531a979a50ed8240232f59d1",
+    "ui/popups.js": "0225dbed50c0451b4aa1383b8ad93d5c160379fc60cf823092bea4bb92b43dd6"
+  }
+}

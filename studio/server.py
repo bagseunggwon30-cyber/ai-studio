@@ -20,7 +20,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
-from . import __version__, ai, company, floors, gitops, login, mcp, qr, remote, schedules, skills, wardrobe
+from . import __version__, ai, company, evidence, floors, gitops, login, mcp, qr, remote, schedules, skills, wardrobe
+from .supervisor import Supervisor, AccessError
 from .config import Config
 from .doctor import run_doctor
 from .engine import Engine, EngineError
@@ -66,7 +67,7 @@ def code_stamp(code_dir: Path = CODE_DIR) -> int:
     return max(stamps, default=0)
 
 
-EMPTY_USAGE = {"runs": 0, "minutes": 0.0, "tokens": 0, "skills": [], "applied": [], "told": False}
+EMPTY_USAGE = {"runs": 0, "minutes": 0.0, "tokens": None, "skills": [], "applied": [], "told": False}
 
 
 def task_usage(runs: list[dict]) -> dict[str, dict[str, Any]]:
@@ -74,7 +75,7 @@ def task_usage(runs: list[dict]) -> dict[str, dict[str, Any]]:
     applied = 직원이 따랐다고 알린 스킬, told = 따른 스킬을 한 번이라도 알렸는지. 실행 기록으로만 센다."""
     out: dict[str, dict[str, Any]] = {}
     for r in runs:
-        u = out.setdefault(str(r.get("task", "")), {"runs": 0, "seconds": 0.0, "tokens": 0, "skills": set(), "applied": set(), "told": False})
+        u = out.setdefault(str(r.get("task", "")), {"runs": 0, "seconds": 0.0, "tokens": 0, "tokens_known": True, "skills": set(), "applied": set(), "told": False})
         u["runs"] += 1
         u["skills"].update(str(x).split("@")[0] for x in r.get("skills") or [])
         if isinstance(r.get("skills_applied"), list):
@@ -84,10 +85,13 @@ def task_usage(runs: list[dict]) -> dict[str, dict[str, Any]]:
         usage = r.get("usage") or {}
         for key in ("input_tokens", "output_tokens"):
             try:
-                u["tokens"] += int(usage.get(key) or 0)
+                value = usage.get(key)
+                if value is None: u["tokens_known"] = False
+                else: u["tokens"] += int(value)
             except (TypeError, ValueError):
-                pass
+                u["tokens_known"] = False
     for u in out.values():
+        if not u.pop("tokens_known"): u["tokens"] = None
         u["minutes"] = round(u.pop("seconds") / 60, 1)
         u["skills"], u["applied"] = sorted(u["skills"]), sorted(u["applied"])
     return out
@@ -353,6 +357,22 @@ class StudioHandler(BaseHTTPRequestHandler):
         origin = self.headers.get("Origin")
         if origin and origin not in self.server.allowed_origins:
             return self._error(HTTPStatus.FORBIDDEN, "허용되지 않은 Origin")
+        if path == "/supervisor/v1":
+            started = time.monotonic()
+            def respond(data=None, error=None, status=200):
+                envelope = {"schema":"studio.supervisor-result/v1", "status":"error" if error else "ok",
+                            "data":data, "errors":[error] if error else [],
+                            "elapsed_ms":round((time.monotonic()-started)*1000)}
+                if len(json.dumps(envelope,ensure_ascii=False).encode("utf-8")) > 1_500_000:
+                    return respond(error="응답 크기 상한 초과",status=413)
+                return self._json(envelope,status)
+            try:
+                body = json.loads(raw.decode("utf-8") or "{}")
+                return respond(Supervisor(self.server.engine).call(self.headers.get("Authorization", ""), body))
+            except AccessError as e:
+                return respond(error=str(e),status=e.status)
+            except (ValueError, UnicodeDecodeError):
+                return respond(error="외부 감독 요청 형식 오류",status=400)
         if not secrets.compare_digest(self.headers.get("X-Studio-Token", ""), self.server.token):
             return self._error(HTTPStatus.FORBIDDEN, "세션이 만료됐습니다. 페이지를 새로고침하세요.")
         try:
@@ -375,6 +395,8 @@ class StudioHandler(BaseHTTPRequestHandler):
                 if len(parts) != 5:
                     return self._error(HTTPStatus.NOT_FOUND, "없는 경로")
                 task_id, action = parts[3], parts[4]
+                if action == "source":
+                    return self._json(engine.capture_source(task_id,body.get("id"),body.get("url")))
                 if action == "run":
                     engine.request_run(task_id)
                 elif action == "approve":
@@ -756,6 +778,10 @@ class StudioHandler(BaseHTTPRequestHandler):
         for t in tasks:
             item = t.summary()
             item["waiting"] = engine.waiting_reason(t, tasks)
+            item["progress"] = engine.journal.progress(t.id)
+            history = store.runs(t.id)
+            item["execution"] = {k:history[-1].get(k) for k in ("requested_provider","requested_model","actual_runtime","runtime_version","provider_model","model_identity","fallback","fallback_reason")} if history else None
+            item["evidence"] = evidence.assess(cfg,store,t) if t.kind in ("build","research") and t.qa else None
             item["usage"] = usage.get(t.id) or dict(EMPTY_USAGE)  # 작업별 사용량·배운 스킬 (작업 카드·진행판)
             summaries.append(item)
         status = engine.status()
@@ -769,14 +795,15 @@ class StudioHandler(BaseHTTPRequestHandler):
                 "title": role.title,
                 "avatar": role.avatar,
                 "description": role.description,
-                "runtime": role.runtime,
+                "runtime": "codex" if role.runtime == "claude" and not cfg.runtime_cfg("claude").get("enabled",False) else role.runtime,
+                "runtime_note": "Claude 사용 불가 · Codex 대체" if role.runtime == "claude" and not cfg.runtime_cfg("claude").get("enabled",False) else "",
                 "model": role.model or "기본",
                 "effort": role.effort,
                 "ai": ai.current(cfg, key),  # 화면의 AI 탑재 창이 고른 값을 보여 줄 때 ("기본"으로 바꾸지 않은 값)
                 "ai_custom": engine.ai_defaults.get(key) != ai.current(cfg, key),
                 "fallback": role.fallback_runtime,
                 "sandbox": role.sandbox,
-                "busy": current.get("role") == key,
+                "busy": any(c.get("role") == key for c in status.get("active", [])),
                 "task": current.get("task") if current.get("role") == key else None,
                 "task_title": current.get("title") if current.get("role") == key else None,
                 "runs_today": len(mine),
@@ -848,6 +875,8 @@ class StudioHandler(BaseHTTPRequestHandler):
         data = task.to_dict()
         data["status_label"] = STATUS_LABELS.get(task.status, task.status)
         data["waiting"] = self.server.engine.waiting_reason(task, store.list())
+        data["progress"] = self.server.engine.journal.progress(task_id)
+        data["evidence"] = evidence.assess(self.server.cfg,store,task) if task.kind in ("build","research") else None
         data["runs_detail"] = store.runs(task_id)
         data["events"] = store.recent_events(100, task_id)
         project = self.server.cfg.projects.get(task.project)

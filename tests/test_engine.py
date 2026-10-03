@@ -67,7 +67,7 @@ class EngineFlow(unittest.TestCase):
         self.assertEqual(c1.qa["passed"], 2)
         self.assertEqual(c1.qa["candidate_sha"], c1.candidate_sha)
         self.assertEqual(c1.review["verdict"], "approve")
-        self.assertTrue(c1.review["cross_model"])
+        self.assertFalse(c1.review["cross_model"], "Claude disabled: separate Codex review, not cross-provider")
         self.assertNotEqual(gitops.head(self.s.repo, "main"), c1.candidate_sha, "결재 전에는 main이 그대로")
         self.assertEqual(self.e.waiting_reason(self.store.get(c2.id), self.store.list()), f"선행 작업 {c1.id} 완료 대기")
 

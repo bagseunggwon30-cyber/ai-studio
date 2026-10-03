@@ -815,7 +815,7 @@ const Board = (() => {
       type: 'button', class: `bd-act ${cls}`, disabled: needsRun && stopped, title: needsRun && stopped ? '정지 중이에요' : null,
       onclick: (e) => { e.stopPropagation(); if (!DEMO) run(); },
     }, label);
-    if (t.status === 'ready') {
+    if ((t.status === 'ready' || (t.status === 'queued' && (t.created_by || '').startsWith('supervisor:')))) {
       return b('실행', 'go', () => Data.act(t.id, 'run').then(() => hooks.notify(Data.owner(t).name, `${t.title} 시작할게요!`)).catch(hooks.fail), true);
     }
     // 기획은 회의실에서 퀘스트를 고르는 결재라 이름을 그렇게

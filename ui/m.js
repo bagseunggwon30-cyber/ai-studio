@@ -198,7 +198,7 @@
       } }));
     }
     if (d.status === 'blocked') buttons.push(h('button', { class: 'btn primary', type: 'button', text: '재시도', onclick: (e) => doAct(e.currentTarget, 'retry', {}, '다시 해 볼게요!') }));
-    if (d.status === 'ready') buttons.push(h('button', { class: 'btn primary', type: 'button', text: '실행', onclick: (e) => doAct(e.currentTarget, 'run', {}, '시작할게요!') }));
+    if (d.status === 'ready' || (d.status === 'queued' && (d.created_by || '').startsWith('supervisor:'))) buttons.push(h('button', { class: 'btn primary', type: 'button', text: '실행', onclick: (e) => doAct(e.currentTarget, 'run', {}, '시작할게요!') }));
     if (!['done', 'cancelled', 'awaiting_approval'].includes(d.status)) {
       buttons.push(h('button', { class: 'btn danger', type: 'button', text: '취소', onclick: (e) => {
         if (window.confirm(`'${d.title}' 작업을 취소할까요?`)) doAct(e.currentTarget, 'cancel', {}, '취소했어요');

@@ -295,7 +295,7 @@ const Popups = (() => {
       const p = Data.owner(t);
       const actions = [];
       const act = (action, label) => Data.act(id, action).then(() => hooks.notify(p.name, label)).catch(fail);
-      if (t.status === 'ready') {
+      if ((t.status === 'ready' || (t.status === 'queued' && (t.created_by || '').startsWith('supervisor:')))) {
         actions.push(btn('실행', 'primary', () => act('run', `${t.title} 시작할게요!`), { needsRun: true }));
       }
       const onShelf = Data.get().trophies.some((x) => x.task === t.id);
@@ -328,12 +328,17 @@ const Popups = (() => {
               Data.projectTitle(t.project) ? h('span', { class: 'chip proj', text: Data.projectTitle(t.project) }) : null))),
         t.blocked_reason ? h('p', { class: 'tc-blocked' }, icon('warn'), t.blocked_reason) : null,
         t.waiting ? h('p', { class: 'tc-waiting', text: t.waiting }) : null,
+        t.progress && t.progress.last.stage ? h('p', { class: 'tc-waiting', text: `저장 단계: ${t.progress.last.label} · ${t.progress.last.status_label}${t.progress.last.reason ? ' · ' + t.progress.last.reason : ''}` }) : null,
+        t.execution ? h('p', { class: 'tc-waiting', text: `요청: ${t.execution.requested_provider || '미확인'} ${t.execution.requested_model || '계정 기본'} · 실제 실행: ${t.execution.actual_runtime === 'fake' ? '가짜 실행기' : t.execution.actual_runtime || '미확인'} ${t.execution.runtime_version || ''} · 응답 모델: ${t.execution.provider_model || '확인 불가'}${t.execution.fallback ? ' · 대체 실행' : ''}` }) : null,
+        t.progress && t.progress.steps.length ? h('ul', {}, ...t.progress.steps.map(step => h('li', { text: `${step.label}: ${step.status_label}${step.reason ? ' (' + step.reason + ')' : ''}` }))) : null,
+        t.progress && t.progress.last.next_action ? h('p', { class: 'tc-blocked', text: t.progress.last.next_action }) : null,
+        t.evidence ? h('div', {}, h('h3', { text: '수용 기준별 근거' }), ...(t.evidence.items || []).map(r => h('p', { text: `${r.id}: ${r.text} — ${r.status === 'verified' ? '근거 확인' : '근거 누락 또는 미확인'}` }))) : null,
         usageLine(t.usage),
         skillUseRow(t),
         assignRow(t),
         h('h3', { text: '목표' }), h('p', { class: 'tc-brief', text: t.brief || '—' }),
         t.acceptance && t.acceptance.length ? [h('h3', { text: '수용 기준' }),
-          h('ul', { class: 'tc-acc' }, t.acceptance.map((a) => h('li', {}, icon('check'), a)))] : null,
+          h('ul', { class: 'tc-acc' }, t.acceptance.map((a, i) => h('li', {}, icon(t.evidence?.items?.[i]?.status === 'verified' ? 'check' : 'doc'), a)))] : null,
         actions.length ? h('div', { class: 'row-btns' }, actions) : null);
     });
   }
@@ -344,7 +349,7 @@ const Popups = (() => {
   }
   function usageLine(u) {
     if (!u || !u.runs) return null;
-    return h('p', { class: 'tc-usage', text: `사용량: 실행 ${u.runs}번 · ${u.minutes}분${u.tokens ? ` · 토큰 ${tokenText(u.tokens)}` : ''}` });
+    return h('p', { class: 'tc-usage', text: `사용량: 실행 ${u.runs}번 · ${u.minutes}분${u.tokens == null ? ' · 토큰 확인 불가' : ` · 토큰 ${tokenText(u.tokens)}`}` });
   }
 
   // 이 일에 붙은 배운 스킬과 직원이 따랐다고 알린 것 (실행 기록으로 센 것, server.task_usage)
@@ -479,6 +484,7 @@ const Popups = (() => {
             icon('star', 'big'), h('span', { text: skillSummary(skillUse(t)) }), h('span', { class: 'more', text: '보기' })) : null,
             h('button', { type: 'button', class: 'ap-row link', onclick: () => flipPaper(st, true) },
               icon('doc', 'big'), h('span', { text: `바뀐 파일 ${files}개` }), h('span', { class: 'more', text: '보기' })),
+            btn('진행 단계·완료 근거', 'paper-btn', () => taskCard(id)),
             h('div', { class: 'ap-actions' },
               h('button', { type: 'button', class: `stamp-btn ${st.stamped ? 'stamped' : ''}`, disabled: stopped() || done || st.stamped,
                 title: stopped() ? '정지 중에는 승인할 수 없어요' : null,
@@ -701,7 +707,7 @@ const Popups = (() => {
         h('div', { class: 'tc-head' }, face(p.id, 'normal', 'tc-face'),
           h('div', {}, input, h('p', { class: 'tc-meta' }, `${p.title} · ${p.name}`, stars(c.difficulty || 1)))),
         h('h3', { text: '목표' }), h('p', { class: 'tc-brief', text: c.brief || '—' }),
-        c.acceptance && c.acceptance.length ? [h('h3', { text: '수용 기준' }), h('ul', { class: 'tc-acc' }, c.acceptance.map((a) => h('li', {}, icon('check'), a)))] : null,
+        c.acceptance && c.acceptance.length ? [h('h3', { text: '수용 기준' }), h('ul', { class: 'tc-acc' }, c.acceptance.map((a) => h('li', {}, icon('doc'), a)))] : null,
         h('div', { class: 'row-btns' },
           btn('닫기', '', () => close()),
           btn('제목 고치기', 'primary', () => {
@@ -872,6 +878,7 @@ const Popups = (() => {
     return ai.model || '기본';
   }
   function aiShort(ai) {
+    if (ai.runtime === 'claude' && Data.aiOptions()?.unavailable?.claude) return 'Claude 사용 불가 · Codex 대체';
     if (ai.runtime === 'claude') return `Claude ${ai.model ? modelName(ai) : ''}`.trim();
     return ai.model ? modelName(ai) : 'Codex 기본';
   }
@@ -914,6 +921,7 @@ const Popups = (() => {
         h('div', { class: 'ai-grid', role: 'radiogroup', 'aria-label': 'Codex 모델' },
           [{ slug: '', name: '기본', desc: 'Codex가 정한 기본 모델' }, ...(opts.codex || [])].map((m) => card('codex', m))),
         h('h3', { text: 'Claude (Claude 구독)' }),
+        opts.unavailable?.claude ? h('p', { class: 'aiw-note', text: opts.unavailable.claude }) : null,
         writes ? h('p', { class: 'aiw-note', text: `${p.name}의 일은 파일을 고쳐야 해서 Codex만 끼울 수 있어요. Claude는 읽기만 하는 일(기획·리뷰)에 끼울 수 있어요.` }) : null,
         h('div', { class: 'ai-grid', role: 'radiogroup', 'aria-label': 'Claude 모델' }, (opts.claude || []).map((m) => card('claude', m))),
         h('h3', { text: '생각 깊이' }),

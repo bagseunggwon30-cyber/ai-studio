@@ -82,33 +82,36 @@ def run_doctor(cfg: Config) -> dict[str, Any]:
     else:
         add("codex", "Codex CLI", "fail", "찾을 수 없음", "Codex 앱을 설치하거나 `npm i -g @openai/codex`로 설치하세요.")
 
-    # Claude Code
+    # Claude is optional and disabled under the current operating conditions.
     rc = cfg.runtime_cfg("claude")
-    info = find_claude(str(rc.get("path", "") or ""))
-    if info["found"]:
-        add("claude", "Claude Code CLI", "ok", info["version"])
-        code, out = _run([*info["cmd"], "auth", "status"])
-        try:
-            st = json.loads(out)
-        except json.JSONDecodeError:
-            st = {}
-        if st.get("loggedIn") and st.get("authMethod") in ("claude.ai", "oauth", "subscription"):
-            plan = st.get("subscriptionType") or "구독"
-            add("claude_auth", "Claude 로그인", "ok", f"claude.ai 구독 로그인 ({plan})", "Pro 플랜은 대화 사용량과 한도를 같이 씁니다. 리뷰는 짧게 유지합니다.")
-        elif st.get("loggedIn"):
-            add("claude_auth", "Claude 로그인", "fail", f"인증 방식: {st.get('authMethod')}", "API 키 대신 `claude auth login`으로 구독 로그인하세요.")
-        else:
-            add("claude_auth", "Claude 로그인", "warn", "로그인 안 됨", "리뷰는 Codex 별도 세션으로 대신합니다. 교차 리뷰를 쓰려면 `claude auth login`.")
-        gone = _flag_check(info["cmd"], CLAUDE_FLAGS)
-        if gone:
-            add("claude_flags", "Claude 옵션", "fail", "없는 옵션: " + ", ".join(gone),
-                "Claude Code가 업데이트되며 옵션이 바뀐 것 같아요. 진짜 실행 전에 studio/runtimes.py의 ClaudeRuntime을 고쳐야 해요.")
-        elif gone is None:
-            add("claude_flags", "Claude 옵션", "warn", "확인하지 못함", "`claude --help`가 읽히지 않았어요.")
-        else:
-            add("claude_flags", "Claude 옵션", "ok", f"{len(CLAUDE_FLAGS)}개 모두 있음")
+    if not rc.get("enabled",False):
+        add("claude", "Claude", "warn", "현재 사용 불가 · 기획/리뷰는 Codex로 진행합니다.")
     else:
-        add("claude", "Claude Code CLI", "warn", "찾을 수 없음", "리뷰는 Codex 별도 세션으로 대신합니다 (교차 모델 검증 아님).")
+        info = find_claude(str(rc.get("path", "") or ""))
+        if info["found"]:
+            add("claude", "Claude Code CLI", "ok", info["version"])
+            code, out = _run([*info["cmd"], "auth", "status"])
+            try:
+                st = json.loads(out)
+            except json.JSONDecodeError:
+                st = {}
+            if st.get("loggedIn") and st.get("authMethod") in ("claude.ai", "oauth", "subscription"):
+                plan = st.get("subscriptionType") or "구독"
+                add("claude_auth", "Claude 로그인", "ok", f"claude.ai 구독 로그인 ({plan})", "Pro 플랜은 대화 사용량과 한도를 같이 씁니다. 리뷰는 짧게 유지합니다.")
+            elif st.get("loggedIn"):
+                add("claude_auth", "Claude 로그인", "fail", f"인증 방식: {st.get('authMethod')}", "API 키 대신 `claude auth login`으로 구독 로그인하세요.")
+            else:
+                add("claude_auth", "Claude 로그인", "warn", "로그인 안 됨", "리뷰는 Codex 별도 세션으로 대신합니다. 교차 리뷰를 쓰려면 `claude auth login`.")
+            gone = _flag_check(info["cmd"], CLAUDE_FLAGS)
+            if gone:
+                add("claude_flags", "Claude 옵션", "fail", "없는 옵션: " + ", ".join(gone),
+                    "Claude Code가 업데이트되며 옵션이 바뀐 것 같아요. 진짜 실행 전에 studio/runtimes.py의 ClaudeRuntime을 고쳐야 해요.")
+            elif gone is None:
+                add("claude_flags", "Claude 옵션", "warn", "확인하지 못함", "`claude --help`가 읽히지 않았어요.")
+            else:
+                add("claude_flags", "Claude 옵션", "ok", f"{len(CLAUDE_FLAGS)}개 모두 있음")
+        else:
+            add("claude", "Claude Code CLI", "warn", "찾을 수 없음", "리뷰는 Codex 별도 세션으로 대신합니다 (교차 모델 검증 아님).")
 
     # Grok (선택: 꾸미기 공방·새 직원 그림을 Grok으로 그릴 때만)
     info = find_grok(str(cfg.runtime_cfg("grok").get("path", "") or ""))
@@ -116,7 +119,7 @@ def run_doctor(cfg: Config) -> dict[str, Any]:
         if grok_login(info):
             add("grok", "Grok CLI (그림, 선택)", "ok", f"{info['version']} · grok.com 로그인")
         else:
-            add("grok", "Grok CLI (그림, 선택)", "warn", f"{info['version']} · 로그인 안 됨", "Grok으로 그리려면 터미널에서 `grok login`을 실행해 본인이 로그인하세요.")
+            add("grok", "Grok CLI (그림, 선택)", "warn", f"{info['version']} · 로그인 확인 불가", "미로그인 또는 연결 지연일 수 있습니다. `grok models` 응답을 먼저 확인하고, 로그인이 필요하다고 나올 때 본인이 `grok login`을 실행하세요.")
     else:
         add("grok", "Grok CLI (그림, 선택)", "ok", "없음 (Codex로 그림)")
 

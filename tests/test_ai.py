@@ -35,6 +35,7 @@ class AILoading(unittest.TestCase):
         with self.assertRaises(EngineError):
             self.e.set_ai("nobody", {"runtime": "codex", "model": ""})
         # 읽기만 하는 일(기획)에는 Claude를 끼울 수 있다. 샌드박스는 그대로
+        self.s.cfg.runtimes.setdefault("claude", {})["enabled"] = True
         self.e.set_ai("producer", {"runtime": "claude", "model": "fable", "effort": "high"})
         r = self.cfg.roles["producer"]
         self.assertEqual((r.runtime, r.model, r.effort, r.sandbox), ("claude", "fable", "high", "read-only"))
@@ -71,7 +72,8 @@ class AILoading(unittest.TestCase):
     def test_options(self):
         opts = ai.options(self.cfg)
         self.assertEqual([m["slug"] for m in opts["codex"]], ["gpt-6-sol", "gpt-6-luna"])
-        self.assertEqual(opts["claude"][0]["slug"], "")
+        self.assertEqual(opts["claude"], [])
+        self.assertIn("claude",opts["unavailable"])
         self.assertEqual(opts["writes"], {"producer": False, "builder": True, "reviewer": False, "analyst": True})
 
 

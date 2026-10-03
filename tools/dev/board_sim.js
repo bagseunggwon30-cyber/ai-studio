@@ -25,12 +25,12 @@ check('칸 나누기: 단계별 칸, 막힘은 작업 중 칸 맨 위, 취소·�
   assert.deepStrictEqual(cols, { waiting: ['T01', 'T02'], running: ['T04', 'T03'], checking: ['T05'], awaiting: ['T06'], done: ['T07'] });
 });
 
-check('완료 칸: 기획 카드는 빼고 최근 8개만, 개수는 전체', () => {
+check('완료 칸: 기획 카드는 빼고 최근 5개만, 개수는 전체', () => {
   const tasks = Array.from({ length: 11 }, (_, i) => T(`T${String(i + 10)}`, 'done'));
   tasks.push(T('T99', 'done', { kind: 'plan' }));
   const done = L.columns(tasks).find((c) => c.key === 'done');
   assert.strictEqual(done.total, 11);
-  assert.strictEqual(done.tasks.length, 8);
+  assert.strictEqual(done.tasks.length, 5);
   assert.strictEqual(done.tasks[0].id, 'T20', '가장 최근에 끝난 것이 맨 위');
   assert.ok(!done.tasks.some((t) => t.kind === 'plan'));
 });

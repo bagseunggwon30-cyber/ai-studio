@@ -101,7 +101,8 @@ def draw_options(cfg: Config) -> list[dict[str, Any]]:
 def options(cfg: Config) -> dict[str, Any]:
     return {
         "codex": codex_models(cfg),
-        "claude": [{**m, "efforts": CLAUDE_EFFORTS, "default_effort": ""} for m in CLAUDE_MODELS],
+        "claude": [{**m, "efforts": CLAUDE_EFFORTS, "default_effort": ""} for m in CLAUDE_MODELS] if cfg.runtime_cfg("claude").get("enabled",False) else [],
+        "unavailable": {**({"claude":"현재 사용 불가 · 기본 흐름은 Codex로 진행"} if not cfg.runtime_cfg("claude").get("enabled",False) else {}), "grok_text":"정책 승인 및 도구 차단 확인 전에는 호출하지 않음"},
         "effort_labels": EFFORT_LABELS,
         "writes": {key: writes_files(cfg, key) for key in cfg.roles},
         "draw": [{k: v for k, v in d.items() if k != "at"} for d in draw_options(cfg)],
@@ -124,6 +125,8 @@ def clean(cfg: Config, role: str, data: Any) -> dict[str, str]:
     elif runtime == "claude":
         if writes_files(cfg, role):
             raise AIError(f"{cfg.roles[role].name}의 일은 파일을 고쳐야 해서 Codex만 끼울 수 있어요 (Claude는 읽기 전용).")
+        if not cfg.runtime_cfg("claude").get("enabled",False):
+            raise AIError("Claude는 현재 사용 불가입니다. Codex를 선택하세요.")
         if model not in {m["slug"] for m in CLAUDE_MODELS}:
             raise AIError(f"Claude 목록에 없는 모델입니다: {model}")
         efforts = CLAUDE_EFFORTS

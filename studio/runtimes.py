@@ -72,6 +72,9 @@ class RunResult:
     images: list[str] = field(default_factory=list)  # 만들어진 그림 (want_image)
     host_skills: list[str] = field(default_factory=list)  # 이 PC 사용자의 개인 Codex 스킬 중 직원이 열어 읽은 것 (회사 스킬이 아님)
 
+    side_effects: str = "unknown"  # Only an adapter may assert that no effects were dispatched.
+    provider_model: str | None = None  # Only provider response metadata; never the requested model
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -84,6 +87,8 @@ ERROR_LABELS = {
     "stopped": "중지됨",
     "not_found": "CLI를 찾을 수 없음",
     "schema": "출력 형식 오류",
+    "policy": "정책 또는 연결 확인 필요",
+    "unknown_outcome": "실행 여부 불확실",
     "error": "실행 오류",
 }
 
@@ -347,6 +352,7 @@ class CodexRuntime:
             warnings=warnings[:10],
             host_skills=host_skills_read(events),
         )
+        result.provider_model = next((e.get("model") for e in events if e.get("type") in ("session.created", "session_meta", "response.completed") and isinstance(e.get("model"),str)),None)
         if reason:
             result.ok, result.error_kind = False, reason
             result.error = ERROR_LABELS[reason]
@@ -643,7 +649,8 @@ def grok_login(info: dict[str, Any]) -> bool:
                            timeout=30, env=clean_child_env(), creationflags=no_window_flags())
     except (OSError, subprocess.SubprocessError):
         return False
-    return p.returncode == 0 and "logged in" in (p.stdout + p.stderr).lower()
+    text = (p.stdout + p.stderr).lower()
+    return p.returncode == 0 and "logged in" in text and not any(v in text for v in ("not logged in", "not authenticated", "logged out"))
 
 
 class GrokRuntime:
@@ -716,6 +723,7 @@ class GrokRuntime:
             result.error_kind = classify_error(text) or ("login" if code == 5 else "error")
             result.error = (final or read_text_tail(stderr_path, 1000) or "Grok 실행 실패").strip()[:1000]
             return result
+        result.provider_model = obj.get("model") if isinstance(obj.get("model"), str) else None
         result.images = self.session_images(str(obj.get("sessionId", "")))
         if not result.images:
             result.ok, result.error_kind, result.error = False, "error", "그림이 만들어지지 않았습니다."
@@ -736,6 +744,27 @@ class GrokRuntime:
 Behavior = Callable[[RunSpec], dict]
 
 
+class GrokTextRuntime:
+    """Proposed read-only text boundary, disabled until policy and isolation are verified.
+
+    The installed CLI advertises tool allowlists, but Windows filesystem sandbox
+    enforcement and disabling inherited MCP servers have not been verified. Do not
+    turn this into a prompt-only read-only promise or silently use the paid API.
+    """
+    name = "grok_text"
+
+    def __init__(self, rcfg):
+        self.rcfg = rcfg
+        self.info = find_grok(str(rcfg.get("path", "") or ""))
+
+    def run(self, spec, should_stop):
+        if not self.info.get("found"):
+            return RunResult(False,self.name,spec.model,None,0,error_kind="not_found",error="Grok CLI 연결을 찾을 수 없습니다.")
+        if spec.sandbox != "read-only" or spec.want_image or spec.mcp:
+            return RunResult(False,self.name,spec.model,None,0,error_kind="policy",error="Grok 텍스트 어댑터는 도구 없는 읽기 전용 입력만 허용하는 설계입니다.")
+        return RunResult(False,self.name,spec.model,None,0,error_kind="policy",error="Grok 이미지 전용 규칙의 텍스트 확장 승인과 CLI 도구·MCP 차단 확인이 필요합니다. 모델 정체성: 확인 불가. 실제 모델을 호출하지 않았습니다.")
+
+
 class FakeRuntime:
     """실제 모델을 부르지 않는 실행기. behavior(spec)가 돌려준 대로 파일을 쓰고 응답한다."""
 
@@ -753,7 +782,7 @@ class FakeRuntime:
         delay = float(out.get("delay", 0))
         while delay > 0:
             if should_stop():
-                return RunResult(False, self.name, spec.model, None, time.monotonic() - t0, error_kind="stopped", error="중지됨")
+                return RunResult(False, self.name, spec.model, None, time.monotonic() - t0, error_kind="stopped", error="중지됨",side_effects="none")
             time.sleep(min(0.1, delay))
             delay -= 0.1
         for rel, content in (out.get("files") or {}).items():
@@ -776,6 +805,7 @@ class FakeRuntime:
             error=ERROR_LABELS.get(error_kind, "") if error_kind else "",
             steps=[{"kind": "message", "text": message[:600]}],
             images=[str(x) for x in out.get("images") or []],
+            side_effects="none" if not out.get("files") and not out.get("images") else "local",
         )
 
 
@@ -973,6 +1003,8 @@ def make_runtime(name: str, runtimes_cfg: dict, fake: bool = False, fake_behavio
         return CodexRuntime(dict(runtimes_cfg.get("codex", {})))
     if name == "claude":
         return ClaudeRuntime(dict(runtimes_cfg.get("claude", {})))
+    if name == "grok_text":
+        return GrokTextRuntime(dict(runtimes_cfg.get("grok", {})))
     if name == "grok":
         return GrokRuntime(dict(runtimes_cfg.get("grok", {})))
     raise ValueError(f"알 수 없는 실행기: {name}")

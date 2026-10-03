@@ -1,0 +1,2 @@
+# Local raw test/probe output is excluded from public release.
+*.log

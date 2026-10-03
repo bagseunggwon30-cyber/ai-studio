@@ -442,7 +442,7 @@ def _launch(cfg: Config, name: str, item: dict[str, Any], role: str = "") -> dic
         command, args = item["command"], list(item["args"])
         found = shutil.which(command) if item["transport"] == "stdio" else None
         command = found or command  # npx → npx.cmd 같은 전체 경로 (윈도우는 확장자를 붙여야 띄울 수 있다)
-    return {"name": name, "title": item["title"], "description": item["description"], "when": item.get("when", ""),
+    return {"name": name, "title": item["title"], "description": item["description"], "when": item.get("when", ""), "source":item["source"],
             "transport": item["transport"],
             "command": command, "args": args, "url": item["url"], "env": env, "bearer_key": item["bearer_key"],
             "tools": [t.get("name") for t in ((item.get("check") or {}).get("tools") or []) if isinstance(t, dict)]}

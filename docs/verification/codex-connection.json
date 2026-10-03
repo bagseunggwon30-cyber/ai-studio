@@ -1,0 +1,27 @@
+{
+  "requested_provider": "codex",
+  "requested_model": null,
+  "actual_runtime": "codex",
+  "runtime_version": "codex-cli 0.160.0",
+  "provider_model": null,
+  "model_identity": "확인 불가",
+  "duration_s": 9.0,
+  "usage": {
+    "input_tokens": 17002,
+    "cached_input_tokens": 0,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 15,
+    "reasoning_output_tokens": 0
+  },
+  "fallback": false,
+  "fallback_reason": null,
+  "ok": true,
+  "error_kind": null,
+  "requested_timeout_s": 60,
+  "structured": {
+    "status": "ok"
+  },
+  "verified": true,
+  "error": "",
+  "scope": "one approved read-only call in a temporary project; no MCP attached"
+}

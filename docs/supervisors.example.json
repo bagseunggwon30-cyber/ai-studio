@@ -1,0 +1,19 @@
+{
+  "enabled": false,
+  "clients": [
+    {
+      "id": "assistant",
+      "enabled": false,
+      "token_sha256": "OWNER_PROVIDES_SHA256_AFTER_APPROVAL",
+      "projects": {
+        "your-project": {
+          "read": true,
+          "write": false,
+          "paths": [
+            "docs/**"
+          ]
+        }
+      }
+    }
+  ]
+}

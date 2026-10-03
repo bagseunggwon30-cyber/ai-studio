@@ -193,3 +193,7 @@ ai-studio/
 - [화면 설계](docs/design/README.md) · [세부 설계와 진행 기록](docs/design/SPEC.md)
 - [캐릭터 구현·독립 미리보기](docs/design/beach-standing/README.md)
 - [개발 작업 규칙](AGENTS.md) · [이어서 개발할 때 읽는 인수인계](docs/HANDOFF.md)
+
+## 외부 감독 MVP (작업 브랜치)
+
+외부 AI가 작업을 제출하고 진행·결과·근거를 조회하는 통로, 단계 저장과 복구, 최대 3개로 제한한 병렬 실행을 추가했습니다. [실행 방법과 연결 범위](docs/SUPERVISOR_MVP.md)를 참고하세요. 실제 외부 비서의 도구 등록과 권한 부여는 별도 단계입니다.

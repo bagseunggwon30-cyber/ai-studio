@@ -1,0 +1,288 @@
+{
+  "schema": "agent-harness-spec/v1",
+  "name": "ai-studio-supervisor-mvp-boundary",
+  "objective": "Accept scoped idempotent local jobs, preserve stage receipts, verify candidate evidence, and stop at the existing CEO approval boundary. Live UI and general external-effect adapters remain disabled.",
+  "risk_class": "mixed",
+  "initial_state": "created",
+  "terminal_states": [
+    "completed",
+    "partial",
+    "blocked",
+    "failed",
+    "cancelled"
+  ],
+  "states": [
+    "created",
+    "observing",
+    "planning",
+    "awaiting_approval",
+    "acting",
+    "verifying",
+    "retrying",
+    "checkpointed",
+    "completed",
+    "partial",
+    "blocked",
+    "failed",
+    "cancelled"
+  ],
+  "transitions": [
+    {
+      "from": "created",
+      "to": "observing",
+      "event": "run_started"
+    },
+    {
+      "from": "observing",
+      "to": "planning",
+      "event": "observation_valid"
+    },
+    {
+      "from": "observing",
+      "to": "retrying",
+      "event": "transient_observation_error",
+      "guard": "retry budget remains"
+    },
+    {
+      "from": "retrying",
+      "to": "observing",
+      "event": "retry_ready"
+    },
+    {
+      "from": "planning",
+      "to": "awaiting_approval",
+      "event": "side_effect_planned"
+    },
+    {
+      "from": "planning",
+      "to": "completed",
+      "event": "read_only_goal_satisfied"
+    },
+    {
+      "from": "planning",
+      "to": "blocked",
+      "event": "policy_blocked"
+    },
+    {
+      "from": "awaiting_approval",
+      "to": "acting",
+      "event": "single_use_receipt_verified"
+    },
+    {
+      "from": "awaiting_approval",
+      "to": "blocked",
+      "event": "isolation_or_sensitive_guard_failed"
+    },
+    {
+      "from": "awaiting_approval",
+      "to": "cancelled",
+      "event": "approval_declined"
+    },
+    {
+      "from": "acting",
+      "to": "verifying",
+      "event": "adapter_accepted_action"
+    },
+    {
+      "from": "acting",
+      "to": "checkpointed",
+      "event": "process_interrupted"
+    },
+    {
+      "from": "checkpointed",
+      "to": "observing",
+      "event": "resume_validated"
+    },
+    {
+      "from": "verifying",
+      "to": "completed",
+      "event": "postcondition_passed"
+    },
+    {
+      "from": "verifying",
+      "to": "partial",
+      "event": "effect_succeeded_evidence_incomplete"
+    },
+    {
+      "from": "verifying",
+      "to": "failed",
+      "event": "postcondition_failed"
+    }
+  ],
+  "budgets": {
+    "max_steps": 40,
+    "max_retries": 1,
+    "max_elapsed_seconds": 7200,
+    "per_action_timeout_seconds": 1200,
+    "max_observation_bytes": 1500000
+  },
+  "retry_policy": {
+    "retryable_errors": [
+      "temporary_unavailable",
+      "observation_stale",
+      "bounded_timeout"
+    ],
+    "never_retry": [
+      "approval_denied",
+      "policy_blocked",
+      "malformed_adapter",
+      "unknown_outcome"
+    ],
+    "backoff": {
+      "strategy": "exponential",
+      "initial_ms": 250,
+      "max_ms": 4000
+    },
+    "no_progress_limit": 2
+  },
+  "approval_policy": {
+    "required_for": [
+      "external_effect",
+      "destructive"
+    ],
+    "hard_blocks": [
+      "uac",
+      "credentials",
+      "payment",
+      "private_message"
+    ],
+    "receipt_bindings": [
+      "action_digest",
+      "target",
+      "observation_id",
+      "expected_effect",
+      "expiry",
+      "nonce",
+      "isolation_id"
+    ],
+    "single_use": true,
+    "force_bypass": false
+  },
+  "execution_safety": {
+    "live_input_isolation": "trusted_lease_required",
+    "pre_action_revalidation": [
+      "observation_freshness",
+      "target_identity",
+      "isolation_id",
+      "user_activity"
+    ],
+    "sensitive_input_policy": "hard_block",
+    "guard_failure_transition": "blocked",
+    "policy_mutability": "immutable",
+    "evidence_redaction": "required"
+  },
+  "actions": [
+    {
+      "id": "submit",
+      "method": "supervisor.submit",
+      "input_surface": "none",
+      "effect": "reversible",
+      "timeout_seconds": 15,
+      "idempotency": "idempotency_key",
+      "approval": "scoped_owner_grant",
+      "postcondition": "One atomic task record contains the request digest and idempotency key hash."
+    },
+    {
+      "id": "read",
+      "method": "supervisor.status_events_result_artifact",
+      "input_surface": "none",
+      "effect": "read_only",
+      "timeout_seconds": 15,
+      "idempotency": "naturally_idempotent",
+      "approval": "scoped_owner_grant",
+      "postcondition": "Only the granted project and file scope is returned."
+    },
+    {
+      "id": "cancel",
+      "method": "supervisor.cancel",
+      "input_surface": "none",
+      "effect": "reversible",
+      "timeout_seconds": 15,
+      "idempotency": "verify_before_retry",
+      "approval": "scoped_owner_grant",
+      "postcondition": "Only this client-owned task is cancelled; worker cleanup precedes lease release."
+    }
+  ],
+  "observation_contract": {
+    "schema": "example.observation/v1",
+    "required_fields": [
+      "status",
+      "summary",
+      "next_actions",
+      "artifacts"
+    ],
+    "identity_fields": [
+      "observation_id",
+      "nonce",
+      "captured_at",
+      "target_identity"
+    ],
+    "redaction": "typed_text_digest_only",
+    "max_bytes": 1500000
+  },
+  "adapter_contract": {
+    "request_schema": "studio.supervisor/v1",
+    "response_schema": "studio.supervisor-result/v1",
+    "response_required_fields": [
+      "status",
+      "data",
+      "errors",
+      "elapsed_ms"
+    ],
+    "malformed_response_policy": "fail_closed"
+  },
+  "checkpoint_contract": {
+    "enabled": true,
+    "atomic_write": true,
+    "path_scope": "private_user_data",
+    "required_fields": [
+      "run_id",
+      "spec_digest",
+      "state",
+      "remaining_budgets",
+      "completed_actions",
+      "artifact_hashes",
+      "adapter_identity"
+    ],
+    "resume_validation": [
+      "spec_digest",
+      "adapter_identity",
+      "target_identity",
+      "artifact_integrity",
+      "fresh_observation",
+      "candidate_sha",
+      "suite_hash",
+      "snapshot_digest"
+    ],
+    "sensitive_data": "redact_or_omit"
+  },
+  "final_result_contract": {
+    "schema": "example.final-result/v1",
+    "statuses": [
+      "complete",
+      "partial",
+      "blocked",
+      "failed",
+      "cancelled"
+    ],
+    "required_fields": [
+      "status",
+      "summary",
+      "next_actions",
+      "artifacts"
+    ],
+    "failure_fields": [
+      "error_type",
+      "failed_step",
+      "recoverable",
+      "recommended_action"
+    ]
+  },
+  "polling_policy": {
+    "interval_seconds": 5,
+    "max_attempts": 30,
+    "deadline_seconds": 300,
+    "terminal_predicate": "target state is stable for two observations",
+    "unchanged_limit": 5
+  }
+}

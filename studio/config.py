@@ -16,6 +16,7 @@ from pathlib import Path
 from . import floors
 
 DEFAULT_LIMITS = {
+    "max_parallel": 2,
     "task_timeout_min": 20,
     "max_attempts": 2,
     "max_children_per_plan": 8,
