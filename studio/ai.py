@@ -117,7 +117,7 @@ def grok_text_models(cfg: Config) -> list[dict[str, Any]]:
         ids = sorted({line.strip()[2:].split()[0] for line in text.splitlines()
                       if line.strip().startswith(("- ","* ")) and len(line.strip())>2})
         rows = [{"slug":name,"name":name,"desc":"기존 Grok 로그인 · 도구 없는 텍스트",
-                 "efforts":[],"default_effort":""} for name in ids if re.fullmatch(r"[a-z0-9_-]{1,80}",name)] if result.returncode == 0 else []
+                 "efforts":[],"default_effort":""} for name in ids if re.fullmatch(r"[a-z0-9_.-]{1,80}",name)] if result.returncode == 0 else []
     except (OSError,subprocess.SubprocessError):rows=[]
     _grok_text_catalog[key] = (time.monotonic(),rows)
     return rows

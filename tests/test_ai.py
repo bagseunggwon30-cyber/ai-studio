@@ -13,6 +13,21 @@ CATALOG = [
 ]
 
 
+class GrokCatalog(unittest.TestCase):
+    def test_native_cli_model_ids_keep_decimal_version(self):
+        ai._grok_text_catalog.clear()
+        self.addCleanup(ai._grok_text_catalog.clear)
+        company=TempStudio()
+        self.addCleanup(company.close)
+        response = mock.Mock(returncode=0, stdout=b"Default model: grok-build\n  - grok-4.7\n  - grok-4.7-build-fast\n  * grok-build (default)\n", stderr=b"")
+        with mock.patch("studio.ai.find_grok",return_value={"found":True,"cmd":["fixture"]}), \
+             mock.patch("studio.ai.subprocess.run",return_value=response) as call:
+            models=ai.grok_text_models(company.cfg)
+            self.assertEqual([row["slug"] for row in models],["grok-4.7","grok-4.7-build-fast","grok-build"])
+            self.assertEqual(ai.clean(company.cfg,"reviewer",{"runtime":"grok_text","model":"grok-4.7"})["model"],"grok-4.7")
+            self.assertEqual(call.call_count,1)
+
+
 class AILoading(unittest.TestCase):
     def setUp(self):
         ai._cache["codex"] = [dict(m) for m in CATALOG]  # 테스트에서는 CLI를 부르지 않는다
