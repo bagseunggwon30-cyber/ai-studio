@@ -18,7 +18,7 @@
 |---|---|---|
 | 새 MCP/CLI/권한 검사 | 10개 통과 | 임시 회사·합성 인증. 실제 HTTP 서버, 가짜 기획/구현/QA/리뷰 파일 조회 |
 | 기존 감독/등록/읽기 검사 | 36개 통과 | 임시 환경. 아래 전체 검사와 합산하지 않음 |
-| 설치된 Codex MCP 클라이언트 HTTP 왕복 | 통과, 도구 6개 | `codex-cli 0.160.0`의 app-server, 임시 회사에서 제출→재전송→상태/이벤트/결과→자신의 작업 취소. 모델 turn 0 |
+| 설치된 Codex MCP 클라이언트 HTTP 왕복 | 통과, 도구 6개 | `codex-cli 0.160.0`의 app-server, 임시 회사에서 6개 도구 전부 호출: 제출→재전송→가짜 구현/QA→상태/이벤트/결과/파일(SHA256 확인)→별도 자기 작업 취소. 모델 turn 0 |
 | 실제 회사 stdio/HTTP 인증 조회 | 둘 다 통과, 각 도구 6개 | 동일 설치 클라이언트로 기존 취소 확인 카드의 상태/이벤트/결과만 조회. 새 제출/취소/모델 호출 0, 기존 작업 파일·설정 불변 |
 | 소윤이 클라우드의 직접 MCP 등록 | 미확인 | 로컬 클라이언트 성공과 별개. localhost에 클라우드가 접속됐다고 판단하지 않음 |
 
@@ -36,7 +36,15 @@ S 드라이브에서 `python -X utf8 -B tools/dev/regression.py --report docs/ve
 - 검증한 소스 SHA256: `0f38bd5d5c0a69591b462e17bb43d690b774df20ed558963498b872dd646ebc0` (403파일).
 - [전체 검사 JSON](mcp-native-local-regression.json). 이전 검사/부분 검사를 합산하지 않았다.
 
-GitHub의 MCP 별도 브랜치 검사는 기존 모델 없는 Windows Actions에서 실행한다. 이 브랜치는 사용자의 병행 직원/UI 변경을 포함하지 않으므로 S 드라이브 전체 검사와 코드/검사 수가 다를 수 있다. CI 결과는 실행 완료 후 별도로 기록한다.
+MCP 별도 브랜치의 Windows Actions 전체 검사도 **통과**했다. 이 브랜치는 사용자의 병행 직원/UI 변경을 포함하지 않아 S 드라이브 결과와 합산하지 않는다.
+
+- 코드 커밋 `b999f5960822688a9d5e4837eea061a64fe46230`; CI 체크아웃 `5885523288ad469cec20e7a6aeb7248664fb7676`의 Git 트리가 이 코드 커밋과 동일하다.
+- Python 총 **291개: 271통과·20생략·0실패·0오류**. 생략 항목은 JSON에 기록했고 통과로 세지 않았다.
+- 진행판 12개·JS 문법 10파일·가짜 모델 stdio 왕복 통과. 전체 검사 246.8초, 검사 중 소스 불변.
+- 검증한 소스 SHA256: `273241cb14904e756cdb675f1e7ce45c13d1e7e0889430dbdda4d66e98db0b4a` (403파일). 이후 갱신은 문서·집계 근거만이며 이 소스 해시가 같다.
+- [CI 실행](https://github.com/bagseunggwon30-cyber/ai-studio/actions/runs/37132330592), [CI 전체 검사](mcp-native-ci-regression.json), [CI 가짜 모델 왕복](mcp-native-ci-supervisor-fake.json), [커밋/소스 일치 확인](mcp-native-ci.json).
+
+GitHub 변경은 `codex/ai-studio-mcp`의 [초안 PR #2](https://github.com/bagseunggwon30-cyber/ai-studio/pull/2)로 올렸다. 기존 MVP 브랜치 위의 별도 변경이며 main에 병합하지 않았다.
 
 ## 아직 확인하지 못한 것과 다음 조치
 
