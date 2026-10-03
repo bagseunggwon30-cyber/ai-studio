@@ -7,6 +7,7 @@ import argparse
 import http.client
 import json
 import os
+from pathlib import Path
 from .mcp_builtin.base import Server, ToolError, setup_stdio, MAX_TEXT
 
 
@@ -52,10 +53,16 @@ def build(port, token):
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--port",type=int,default=8765)
+    parser.add_argument("--credential",type=Path,help="현재 Windows 사용자로 암호화한 로컬 연결 토큰 파일")
     args=parser.parse_args()
     if not 1<=args.port<=65535:parser.error("잘못된 포트")
     setup_stdio()
-    build(args.port,os.environ.get("STUDIO_SUPERVISOR_TOKEN","")).serve()
+    token = os.environ.get("STUDIO_SUPERVISOR_TOKEN","")
+    if args.credential:
+        from .supervisor_credentials import load, CredentialError
+        try: token = load(args.credential)
+        except CredentialError as exc: parser.exit(2,str(exc)+"\n")
+    build(args.port,token).serve()
 
 
 if __name__ == "__main__":main()

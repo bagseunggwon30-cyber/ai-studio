@@ -1,0 +1,32 @@
+{
+  "status": "pass",
+  "company": "production",
+  "client": "local Codex MCP app-server",
+  "client_id": "soyun",
+  "client_version": "codex-cli 0.160.0",
+  "registered_config_used": true,
+  "credential": "DPAPI CurrentUser; owner-only ACL",
+  "tools_registered": [
+    "submit_task",
+    "task_status",
+    "task_events",
+    "task_result",
+    "task_artifact",
+    "cancel_task"
+  ],
+  "tool_count": 6,
+  "request_replay_same_task": true,
+  "different_content_conflict": true,
+  "outside_path_denied": true,
+  "other_project_denied": true,
+  "status_events_results_read": true,
+  "own_task_cancelled": true,
+  "artifact": "correctly unavailable: job not executed; no candidate",
+  "artifact_retrieval_verified": false,
+  "event_count": 1,
+  "model_generation_calls": 0,
+  "client_model_turns": 0,
+  "existing_jobs_executed": false,
+  "token_values_published": false,
+  "dot_cloud_tool_call_verified": false
+}

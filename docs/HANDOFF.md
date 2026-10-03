@@ -6,6 +6,10 @@
 
 ## 외부 감독 MVP 작업 (2026-10-03)
 
+**소윤이 로컬 연결 승인·적용 (후속):** CEO가 `studio-docs` 진행 조회와 `reports/connection-check/**` 제출·자신의 작업 취소, 로컬 MCP·토큰 설정을 승인했다. 사용자 Codex 설정에 `ai_studio` 6도구를 추가하고 토큰은 Windows DPAPI CurrentUser + owner-only ACL로 저장했다. 서버는 해시만 보관한다. 실제 회사 API 왕복·중복/충돌/경로/다른 프로젝트 차단을 실제 Codex MCP 클라이언트로 확인했다(모델 turn 0). 확인 카드만 만들고 취소했으며 제품 파일·기존 카드·직원 MCP 설정은 보존했다. [실제 연결 근거](verification/soyun-production-connection.json), [현재 연결 방법](SOYUN_CONNECT.md).
+
+현재 `tools/supervisor-host.py --port 8765`가 127.0.0.1의 연결 전용 서버다. 직원/스케줄러·기존 작업 복구·모델 실행·CEO 쓰기 API가 없다. 실제 모델 실행을 승인한 뒤 이 서버를 종료하고 일반 serve로 전환한다. 소윤이 클라우드의 직접 도구 호출은 아직 미검증이다. 소윤이에 메시지를 보내거나 모델을 추가 호출하지 않았다. 아래 과거의 승인 대기·미등록 설명보다 이 상태를 우선한다.
+
 후속 작업: Grok 텍스트 제한 어댑터를 실제 CLI+기존 grok.com 로그인으로 구현했고, 승인된 **리뷰 1회**를 임시 회사에서 실행했다. 기획·구현은 가짜 모델이며 실제 Codex 모델 호출은 추가하지 않았다. 응답에 모델 ID가 없어 `확인 불가`다. 설치된 Codex app-server의 실제 MCP 클라이언트로 도구 6개 왕복도 확인했다(모델 호출 0회). **메인 감독은 GPT dots 소윤이**로 정했다. 사용자가 소윤이 프로필에서 이 PC의 접근 허용을 확인했다. 소윤이의 감독 MCP 등록과 실제 회사 권한은 아직 미연결이다. [소윤이 연결 안내](SOYUN_CONNECT.md). 실제 회사·접근 권한·장착한 team-memory 설정은 보존한다. AGENTS.md 8번은 이번 CEO 요청에 따라 제한된 텍스트 범위를 명시했다.
 
 최종 후속 전체 검사는 마지막 코드 수정 후 `python -X utf8 -B tools/dev/regression.py`로 실행하고, 별도의 [후속 검사 JSON](verification/followup-regression.json)에 커밋·코드 해시·통과/생략/실패 수를 남긴다. 아래 기존 MVP 결과와 합산하지 않는다. GitHub Actions는 가짜 모델만 사용하며 실제 로그인 검사는 승인된 수동 실행으로 분리한다.

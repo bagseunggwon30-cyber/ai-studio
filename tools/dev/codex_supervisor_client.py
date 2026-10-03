@@ -18,7 +18,7 @@ from studio.util import atomic_write_text, clean_child_env, kill_tree, no_window
 
 
 class CodexMcpClient:
-    def __init__(self, port, token, cwd, root):
+    def __init__(self, port, token, cwd, root, mcp_config=None):
         self.operations = []
         self.folder = tempfile.TemporaryDirectory(prefix="ai-studio-codex-mcp-")
         self.messages = queue.Queue()
@@ -32,11 +32,14 @@ class CodexMcpClient:
         self.version = info["version"]
         env = clean_child_env()
         env["CODEX_HOME"] = str(home)
-        env["STUDIO_SUPERVISOR_TOKEN"] = token
+        if token: env["STUDIO_SUPERVISOR_TOKEN"] = token
         config = '[analytics]\nenabled = false\n[mcp_servers.ai_studio]\n'
-        config += 'command = ' + json.dumps(sys.executable) + '\n'
-        config += 'args = ' + json.dumps(["-X","utf8",str(root / "tools/supervisor-mcp.py"),"--port",str(port)]) + '\n'
-        config += 'env_vars = ["STUDIO_SUPERVISOR_TOKEN"]\nstartup_timeout_sec = 20\ntool_timeout_sec = 20\n'
+        if mcp_config is not None:
+            config += '\n'.join(key+' = '+json.dumps(value) for key,value in mcp_config.items())+'\n'
+        else:
+            config += 'command = ' + json.dumps(sys.executable) + '\n'
+            config += 'args = ' + json.dumps(["-X","utf8",str(root / "tools/supervisor-mcp.py"),"--port",str(port)]) + '\n'
+            config += 'env_vars = ["STUDIO_SUPERVISOR_TOKEN"]\nstartup_timeout_sec = 20\ntool_timeout_sec = 20\n'
         atomic_write_text(home / "config.toml", config)
         try:
             self.process = subprocess.Popen([*info["cmd"],"app-server","--strict-config"],
