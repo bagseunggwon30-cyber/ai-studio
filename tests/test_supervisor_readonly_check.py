@@ -108,3 +108,41 @@ class ReadonlyCheck(unittest.TestCase):
             self.assertEqual(exit_code,1)
             self.assertNotIn("secret-value-and-private-path", output.getvalue())
             self.assertEqual(json.loads(output.getvalue())["status"],"blocked")
+
+    def test_config_failure_names_only_approved_fields_never_values_or_extra_keys(self):
+        path = self.root / "config.toml"
+        path.write_text('[mcp_servers.ai_studio]\ncommand="private-executable-value"\n'
+            'private_key_name="private-token-value"\n', encoding="utf-8")
+        with patch.object(CHECK,"default_paths",return_value=(path,self.root/"private.credential")), \
+                patch.object(sys,"argv",["check","--diagnose"]), \
+                patch.object(CHECK,"CodexMcpClient") as client, \
+                patch("studio.supervisor_credentials.load") as credential:
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output): result = CHECK.main()
+            self.assertEqual(result,1)
+            data = json.loads(output.getvalue())
+            self.assertEqual(data["stage"],"config_match")
+            self.assertIn("command",data["different_fields"])
+            self.assertTrue(data["additional_fields_present"])
+            for value in ("private-executable-value","private_key_name","private-token-value"):
+                self.assertNotIn(value,output.getvalue())
+            client.assert_not_called()
+            credential.assert_not_called()
+
+    def test_diagnose_cannot_start_mcp_authenticate_or_enter_write_mode(self):
+        with patch.object(sys,"argv",["check","--diagnose","--owner-approved"]), \
+                patch.object(CHECK,"preflight",return_value=({},"T0001")) as preflight, \
+                patch.object(CHECK,"run") as run, \
+                patch.object(CHECK,"CodexMcpClient") as client, \
+                patch("studio.supervisor_credentials.load") as credential:
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output): result = CHECK.main()
+            self.assertEqual(result,0)
+            preflight.assert_called_once_with(8765,read_only=True)
+            data = json.loads(output.getvalue())
+            self.assertEqual(data["mode"],"unauthenticated-preflight")
+            self.assertFalse(data["mcp_started"])
+            self.assertFalse(data["credential_read"])
+            run.assert_not_called()
+            client.assert_not_called()
+            credential.assert_not_called()

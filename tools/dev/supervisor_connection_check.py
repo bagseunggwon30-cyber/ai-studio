@@ -6,9 +6,11 @@ models, changes product files, approves work, or impersonates the dot's cloud.
 """
 from pathlib import Path
 import argparse
+from contextlib import contextmanager
 import hashlib
 import http.client
 import json
+import os
 import sys
 import tomllib
 
@@ -21,6 +23,35 @@ from studio.checkpoints import digest
 from studio.supervisor import TASK
 
 PROBE_KEY = "soyun-connection-2026-10-03-v1"
+
+REASONS = {
+    "local_paths":"현재 실행 환경에서 로컬 사용자 저장 위치를 확인하지 못했습니다.",
+    "config_load":"현재 실행 환경의 사용자 설정에서 ai_studio 등록을 읽지 못했습니다.",
+    "config_match":"등록 설정이 현재 Python·사용자 저장 위치·승인된 연결 설정과 다릅니다. 값은 출력하지 않습니다.",
+    "server_health":"연결 전용 서버의 상태 또는 대상 회사 확인에 실패했습니다.",
+    "existing_probe":"기존 취소된 확인 카드를 확인하지 못했습니다. 새 작업을 제출하지 않습니다.",
+    "mcp_start":"등록된 로컬 MCP 클라이언트를 시작하거나 도구 목록을 확인하지 못했습니다.",
+    "task_status":"인증된 상태 조회에 실패했습니다.",
+    "task_events":"인증된 이벤트 조회에 실패했습니다.",
+    "task_result":"인증된 결과 조회에 실패했습니다.",
+    "probe_state":"기존 확인 카드가 실행되지 않은 취소 상태인지 확인하지 못했습니다.",
+}
+
+
+class ProbeBlocked(ValueError):
+    def __init__(self, stage, error_kind="ValueError", details=None):
+        super().__init__(REASONS[stage])
+        self.stage, self.error_kind, self.details = stage, error_kind, details or {}
+
+
+@contextmanager
+def phase(stage):
+    try:
+        yield
+    except ProbeBlocked:
+        raise
+    except (ValueError, OSError, TimeoutError, KeyError, TypeError, AttributeError) as exc:
+        raise ProbeBlocked(stage, type(exc).__name__) from None
 
 
 def existing_probe():
@@ -42,14 +73,17 @@ def existing_probe():
 
 
 def readonly_result(client, task):
-    status = client.call("task_status", project="studio-docs", task=task)
-    events = client.call("task_events", project="studio-docs", task=task, after=0)
-    result = client.call("task_result", project="studio-docs", task=task)
+    with phase("task_status"):
+        status = client.call("task_status", project="studio-docs", task=task)
+    with phase("task_events"):
+        events = client.call("task_events", project="studio-docs", task=task, after=0)
+    with phase("task_result"):
+        result = client.call("task_result", project="studio-docs", task=task)
     if (status.get("task", {}).get("status") != "cancelled"
             or result.get("task", {}).get("status") != "cancelled"
             or result.get("runs") != [] or result.get("implemented") is not False
             or result.get("approved") is not False):
-        raise ValueError("기존 확인 카드가 실행되지 않은 취소 상태인지 확인하지 못했습니다.")
+        raise ProbeBlocked("probe_state")
     return {"status":"pass", "mode":"authenticated-read-only",
         "company":"production", "project":"studio-docs",
         "client":"local Codex MCP app-server", "client_version":client.version,
@@ -62,20 +96,50 @@ def readonly_result(client, task):
         "dot_native_mcp_registration_verified":False}
 
 
+def preflight(port, read_only):
+    with phase("local_paths"):
+        path,credential=default_paths()
+    with phase("config_load"):
+        configured=tomllib.loads(path.read_text(encoding="utf-8"))["mcp_servers"]["ai_studio"]
+        if not isinstance(configured,dict):raise ValueError()
+    with phase("config_match"):
+        expected = connection_config(ROOT,credential,port)
+        if configured != expected:
+            # Allowlist field names; even unexpected key names could contain secrets.
+            raise ProbeBlocked("config_match", details={
+                "different_fields":sorted(k for k in expected if configured.get(k) != expected[k]),
+                "additional_fields_present":bool(set(configured)-set(expected)),
+                "codex_home_override_present":bool(os.environ.get("CODEX_HOME")),
+                "python_version":sys.version.split()[0]})
+    with phase("server_health"):
+        connection=http.client.HTTPConnection("127.0.0.1",port,timeout=5)
+        try:
+            connection.request("GET","/supervisor/health")
+            response=connection.getresponse();raw=response.read(65537)
+            if len(raw)>65536:raise ValueError()
+            health=json.loads(raw)
+        finally:connection.close()
+        if (response.status != 200 or health.get("mode") != "connection-only"
+                or health.get("workers") != 0 or health.get("model_generation_calls") != 0
+                or health.get("company_id") != hashlib.sha256(str(ROOT).encode()).hexdigest()):
+            raise ValueError()
+    with phase("existing_probe"):
+        probe = existing_probe() if read_only else None
+    return configured, probe
+
+
+def diagnose(port):
+    preflight(port, read_only=True)
+    return {"status":"pass", "mode":"unauthenticated-preflight", "stage":"preflight_complete",
+        "checks":["local_paths","config_load","config_match","server_health","existing_probe"],
+        "mcp_started":False, "credential_read":False, "authenticated_reads":0,
+        "new_tasks_submitted":0, "cancellation_calls":0, "model_generation_calls":0}
+
+
 def run(port, read_only=False):
-    path,credential=default_paths()
-    configured=tomllib.loads(path.read_text(encoding="utf-8"))["mcp_servers"]["ai_studio"]
-    if configured != connection_config(ROOT,credential,port):
-        raise ValueError("등록된 MCP 설정이 승인한 연결과 다릅니다.")
-    connection=http.client.HTTPConnection("127.0.0.1",port,timeout=5)
-    connection.request("GET","/supervisor/health")
-    response=connection.getresponse();health=json.loads(response.read());connection.close()
-    if (response.status != 200 or health.get("mode") != "connection-only"
-            or health.get("workers") != 0 or health.get("model_generation_calls") != 0
-            or health.get("company_id") != hashlib.sha256(str(ROOT).encode()).hexdigest()):
-        raise ValueError("모델 없는 실제 회사 연결 서버를 확인하지 못했습니다.")
-    probe = existing_probe() if read_only else None
-    client=CodexMcpClient(port,None,ROOT,ROOT,mcp_config=configured)
+    configured, probe = preflight(port, read_only)
+    with phase("mcp_start"):
+        client=CodexMcpClient(port,None,ROOT,ROOT,mcp_config=configured)
     owned=None
     try:
         if read_only:
@@ -133,16 +197,22 @@ def main():
     parser.add_argument("--owner-approved",action="store_true")
     parser.add_argument("--read-only",action="store_true",
         help="기존에 취소한 연결 확인 카드의 인증된 조회만 수행; 제출·취소·모델 실행 없음")
+    parser.add_argument("--diagnose",action="store_true",
+        help="실패 단계만 진단; MCP 시작·인증 파일 읽기·인증 조회 없음")
     parser.add_argument("--port",type=int,default=8765)
     parser.add_argument("--report",type=Path)
     args=parser.parse_args()
-    if not args.owner_approved and not args.read_only:
+    if not args.owner_approved and not args.read_only and not args.diagnose:
         parser.error("실제 회사에 제출·취소하는 연결 검사에는 CEO 승인이 필요합니다.")
     try:
-        result=run(args.port, read_only=args.read_only)
+        result=diagnose(args.port) if args.diagnose else run(args.port, read_only=args.read_only)
+    except ProbeBlocked as exc:
+        print(json.dumps({"status":"blocked", "stage":exc.stage, "error_kind":exc.error_kind,
+            "reason":REASONS[exc.stage], **exc.details},ensure_ascii=False))
+        return 1
     except (ValueError, OSError, TimeoutError, KeyError, TypeError, AttributeError) as exc:
         # Never print the exception, raw provider reply, credential or local path.
-        print(json.dumps({"status":"blocked", "error_kind":type(exc).__name__,
+        print(json.dumps({"status":"blocked", "stage":"unexpected", "error_kind":type(exc).__name__,
             "reason":"연결 전용 서버·승인된 MCP 설정·기존 확인 카드를 점검하세요. 자동 제출·모델 실행은 하지 않습니다."},ensure_ascii=False))
         return 1
     if args.report:atomic_write_json(args.report,result)
