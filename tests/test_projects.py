@@ -23,6 +23,22 @@ def target_repo(s):
 
 
 class ProjectManagement(unittest.TestCase):
+    def test_fixture_canonicalizes_allocated_temp_directory(self):
+        from tests import helpers
+        allocate = helpers.tempfile.mkdtemp
+
+        def noncanonical_directory(*args, **kwargs):
+            path = Path(allocate(*args, **kwargs))
+            return str(path / ".." / path.name)
+
+        with patch("tests.helpers.tempfile.mkdtemp", side_effect=noncanonical_directory):
+            company = TempStudio()
+        try:
+            self.assertEqual(company.root, company.root.resolve())
+            self.assertEqual(company.root, company.cfg.root)
+        finally:
+            company.close()
+
     def setUp(self):
         self.s = TempStudio()
         self.e = self.s.engine

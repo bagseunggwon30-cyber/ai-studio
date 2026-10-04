@@ -102,7 +102,7 @@ def rmtree_force(path: Path) -> None:
 
 class TempStudio:
     def __init__(self) -> None:
-        self.root = Path(tempfile.mkdtemp(prefix="studio-test-"))
+        self.root = Path(tempfile.mkdtemp(prefix="studio-test-")).resolve()
         (self.root / "studio.toml").write_text(STUDIO_TOML, encoding="utf-8")
         shutil.copytree(ROOT / "company", self.root / "company")
         (self.root / "trusted" / "projects").mkdir(parents=True)

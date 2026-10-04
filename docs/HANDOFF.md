@@ -1,5 +1,11 @@
 # 인수인계 — 다른 세션·다른 계정에서 이어서 작업하기
 
+## 2026-10-04 main 통합과 Windows CI 임시 경로 보정
+
+- CEO가 로컬 main 통합과 원격 main 정상 push를 승인했다. `7f5bcbd`에서 검증된 작업대 `31e9353`으로 fast-forward하고 원격 main에 정상 push했다. 기존 개선·보호 데이터·미추적 산출물을 보존했고 강제 push/서버 재시작/배포/실제 모델 호출은 하지 않았다.
+- 첫 CI는 프로젝트 기본 경로 검사 1개가 실패했다. `load_config`는 실제 폴더 경로로 정규화하지만 테스트 회사의 `TempStudio.root`는 임시 경로 표기를 유지한 것이 원인이었다. 경로 별칭으로 재현한 뒤 테스트 회사 생성 시 `.resolve()` 한 줄과 회귀 검사 1개를 추가했다. 제품 코드·기존 검사 조건은 바꾸지 않았다.
+- 최신 CI 결과는 [Actions](https://github.com/bagseunggwon30-cyber/ai-studio/actions/workflows/regression.yml)에서 해당 main SHA를 확인한다. 로컬 통합·검사·보존 보고는 `output/main-integration.json`에 기록한다. 보호 파일 1709개 변경 없음. 기존 브라우저 진단 로그 1개는 열린 세션이 계속 갱신하므로 소스 변경과 구분한다.
+
 ## 2026-10-04 기능 서랍·재사용 노드 작업대·실행 장부
 
 - `codex/node-workbench-20261004`에서 기존 미커밋 개선을 `43a0616`으로 보존하고 작업대 구현을 `2b6079f`로 커밋했다. main 병합/push/배포 없음. 기존 사무실은 복원하지 않았다.
