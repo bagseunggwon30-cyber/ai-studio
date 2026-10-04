@@ -1,5 +1,14 @@
 # 인수인계 — 다른 세션·다른 계정에서 이어서 작업하기
 
+## 2026-10-04 대표 화면 시각 교정 · 검토 대기
+
+- codex/workbench-visual-20261004, 기준 4f57a0e. main 병합/push/배포/운영 재시작 없음.
+- CEO가 지정한 Downloads/f4e2dd7a-9962-4a0b-9aed-5c502920c1de.png를 실제로 열어 비교했다. 큰 베이지 폴더·겹친 종이·한 줄 헤더·짧은 화살표·선택 노드 아래 근거 세 장·장부/JSON 접힘을 UI에 반영했다. 종이 질감/사선 입체감은 아직 차이가 있으며 시각 검토 전 디자인 완료로 판단하지 않는다.
+- 대표 캡처 Library libfile_27497ec8af8c8191877945859ac2ed3d (버전 0). output/playwright/workbench-visual-representative.png, 실제 기존 FakeRuntime 후보의 근거 2/3·누락 승인 잠금.
+- 격리 UI 12개+최신 소스 조작 22개 통과, 최종 픽셀/내용 범위 검사·JS/diff 통과. 이번 UI 대표 교정에서 전체 Python 회귀는 실행 안 함. 기준 358개 결과와 백엔드/수용 테스트 보존. 실제 모델 0·운영 쓰기 0·보호 1939개 해시 변경 0.
+- docs/verification/workbench-visual.md와 JSON을 먼저 확인하고 부모의 대표 화면 시각 검토를 받은 뒤 추가 교정/최종 회귀를 진행한다. Library 업로드 성공, Windows 공식 도구의 로컬 메타데이터 저장은 미완료라 JSON의 정확한 ID/해시를 사용한다.
+
+
 ## 2026-10-04 접고 펼치는 업무 묶음·후보별 완료 근거
 
 - `codex/workbench-evidence-20261004`, 기준 main `6b8bfa1`. 이번 지시는 로컬 기능 커밋까지만이며 main 통합/push/배포/운영 서버 재시작은 하지 않는다. 기존 보호 파일 1939개와 이전 개선을 보존한다.

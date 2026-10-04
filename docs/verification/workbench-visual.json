@@ -1,0 +1,84 @@
+{
+  "status": "representative_ready_for_visual_review",
+  "branch": "codex/workbench-visual-20261004",
+  "base": "4f57a0ea8869be072f7098aa07a497bdd6bf2a4b",
+  "main": "6b8bfa15dde1f186a10a5b27e846c21bf9748b4a",
+  "library_file_id": "libfile_27497ec8af8c8191877945859ac2ed3d",
+  "file_id": "file_00000000197c81f584bd19081fe40785",
+  "version": 0,
+  "screenshot": "output/playwright/workbench-visual-representative.png",
+  "screenshot_sha256": "b115d60c228d164291d44b7db4377a8ef70dd5cf280107c6ceab3a1e098fe0bb",
+  "screenshot_dimensions": [
+    1585,
+    1080
+  ],
+  "reference": "C:\\Users\\bark\\Downloads\\f4e2dd7a-9962-4a0b-9aed-5c502920c1de.png",
+  "reference_sha256": "15851a8a5c805c984a2ffaad9407d1be9a80932c84da39e5bb3fc26681ec717b",
+  "reference_dimensions": [
+    1586,
+    992
+  ],
+  "preview_checks": {
+    "status": "pass",
+    "count": 12
+  },
+  "interaction_checks": {
+    "status": "pass",
+    "count": 22,
+    "checks": [
+      "격리 미리보기만 검사",
+      "기존 FakeRuntime 사용",
+      "큰 폴더의 기능 꺼내기 동작",
+      "Escape로 도구함 접기",
+      "도구함 접은 뒤 초점 복귀",
+      "키보드 Enter로 근거 펼침",
+      "Escape로 근거 접기",
+      "근거 접은 뒤 노드 초점 복귀",
+      "고급 입력·출력은 요청할 때 펼침",
+      "고급 상세 다시 접기",
+      "근거 패널이 다른 노드를 가리지 않음",
+      "닫기·재열기에서 실행 근거 유지",
+      "1024px 화면 바깥 가로 넘침 없음",
+      "1024px 누락 후보 승인 잠금 유지",
+      "390px 화면 바깥 가로 넘침 없음",
+      "390px 누락 후보 승인 잠금 유지",
+      "reduced-motion 적용",
+      "순환 연결은 기존 검증이 거부",
+      "실행 조회의 일시적 연결 실패 검증",
+      "조회 실패 뒤 같은 근거 기록 복구",
+      "실패 복구가 작업을 재제출하지 않음",
+      "브라우저 런타임 오류 없음"
+    ],
+    "errors": [],
+    "real_model_calls": 0,
+    "production_writes": 0
+  },
+  "geometry": {
+    "headerVisible": true,
+    "folderWidth": 585,
+    "proofWidth": 540,
+    "contentFits": true,
+    "historyClosed": true,
+    "advancedClosed": true,
+    "approvalLocked": true,
+    "verified": 2,
+    "missing": 1
+  },
+  "syntax": "pass",
+  "diff_check": "pass",
+  "full_python_regression": "not rerun for representative visual review; base 4f57a0e: 358 total / 357 passed / 1 POSIX-only skip / 0 failed",
+  "backend_changed": false,
+  "protected_files": 1939,
+  "protected_changed": [],
+  "real_model_calls": 0,
+  "production_writes": 0,
+  "production_restarts": 0,
+  "push_or_deploy": false,
+  "local_library_identity_persisted": false,
+  "local_library_metadata_limitation": "Official current Library helper does not support os.setxattr on Windows. Upload succeeded; exact identity retained here.",
+  "remaining": [
+    "Parent visual comparison and approval of representative screen",
+    "Reference paper texture and perspective are simplified as SVG/CSS",
+    "Full final design regression after visual acceptance"
+  ]
+}
