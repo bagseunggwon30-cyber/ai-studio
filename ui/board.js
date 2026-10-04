@@ -312,7 +312,7 @@ const Board = (() => {
 
   // ---- 왼쪽 메뉴: app.js의 data-action 동작을 그대로 쓴다. 흐린 가는 선으로 세 묶음: 보는 곳 | 관리 | 기록
   const MENU = [
-    [['office', '사무실', 'home'], ['board', '진행판', 'scroll'], ['inbox', '결재함', 'doc'], ['meeting', '회의실', 'folder']],
+    [['office', '사무실', 'home'], ['board', '진행판', 'scroll'], ['workbench', '기능 작업대', 'archive'], ['inbox', '결재함', 'doc'], ['meeting', '회의실', 'folder']],
     [['team', '직원', 'team'], ['skills', '스킬 학습', 'star'], ['mcp', 'MCP 보관소', 'link'], ['schedules', '자동 업무', 'bolt']],
     [['diary', '업무 일지', 'book'], ['trophies', '완성작', 'trophy']],
   ];

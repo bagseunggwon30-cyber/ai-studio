@@ -254,6 +254,12 @@ class StudioHandler(BaseHTTPRequestHandler):
                 return self._ui_file(path)
             if path == "/api/state":
                 return self._json(self._state())
+            if path == "/api/workbench":
+                return self._json(self.server.engine.workbench.catalog())
+            if path == "/api/workbench/ledger":
+                return self._json({"runs": self.server.engine.workbench.ledger()})
+            if path.startswith("/api/workbench/runs/") and path.count("/") == 4:
+                return self._json(self.server.engine.workbench.run(path.split("/")[4]))
             if path.startswith("/api/tasks/") and path.endswith("/diff"):
                 return self._json(self._diff(path.split("/")[3]))
             if path.startswith("/api/tasks/") and path.endswith("/report"):
@@ -402,6 +408,26 @@ class StudioHandler(BaseHTTPRequestHandler):
         engine = self.server.engine
         path = urlparse(self.path).path
         try:
+            if path.startswith("/api/workbench/"):
+                wb = engine.workbench
+                action = path[len("/api/workbench/"):]
+                if action == "nodes":
+                    return self._json({"node": wb.save_node(body)})
+                if action == "folders":
+                    return self._json({"folder": wb.save_folder(body)})
+                if action == "flows":
+                    return self._json({"flow": wb.save_flow(body)})
+                if action == "validate":
+                    expanded = wb.validate(body.get("graph"))
+                    return self._json({"graph": wb.graph_only(expanded), "definitions": [n["definition"] for n in expanded["nodes"]]})
+                if action == "plan":
+                    return self._json(wb.plan(body))
+                if action == "start":
+                    return self._json({"run": wb.start(body)})
+                parts = action.split("/")
+                if len(parts) == 3 and parts[0] == "runs" and parts[2] in ("reconcile", "halt"):
+                    return self._json({"run": getattr(wb, parts[2])(parts[1])})
+                return self._error(HTTPStatus.NOT_FOUND, "없는 작업대 동작")
             if path == "/api/directive":
                 task = engine.submit_directive(str(body.get("text", "")), str(body.get("project", "")))
                 return self._json({"ok": True, "task": task.id})

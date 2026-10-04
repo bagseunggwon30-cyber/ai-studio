@@ -27,6 +27,7 @@ from .prompts import (PLAN_SCHEMA, REVIEW_SCHEMA, TOOL_SCHEMA, build_prompt, pla
 from .qa import run_qa, suite_hash
 from .runtimes import ERROR_LABELS, RunResult, RunSpec, make_runtime, read_jsonl, summarize_codex_events
 from .store import Store
+from .workbench import Workbench
 from .util import atomic_write_json, atomic_write_text, now_iso, read_json, stamp, today_str
 
 
@@ -60,6 +61,8 @@ class Engine:
             self._stop.set()
         # AI 탑재: studio.toml 값을 처음 값으로 기억하고, CEO가 바꿔 둔 AI(data/ai.json)를 끼운다
         self.ai_defaults = ai.apply_saved(cfg, store)
+        self.workbench = Workbench(self)
+        self._workbench_version = -1
 
     # ------------------------------------------------------------ 수명
     def start(self) -> None:
@@ -120,6 +123,7 @@ class Engine:
                 uncertain = True
                 self.journal.write(t.id,"pipeline",status="unknown_outcome",reason="server_restart",next_action="후보 커밋 저장 도중 중단됨: Git 결과를 사람이 확인해야 합니다.")
             self.store.block(t, "실행 여부 불확실 — 결과 확인 전 재실행 금지" if uncertain else "서버 재시작으로 중단됐습니다. 저장된 단계에서 재개할 수 있습니다.")
+        self.workbench.recover()
 
     def wake(self) -> None:
         self._wake.set()
@@ -388,7 +392,7 @@ class Engine:
     def request_run(self, task_id: str) -> Task:
         with self.store.lock:
             task = self._task(task_id)
-            if task.status != "ready" and not (task.status == "queued" and task.created_by.startswith("supervisor:")):
+            if task.status != "ready" and not (task.status == "queued" and (task.created_by.startswith("supervisor:") or task.extra.get("workflow_run"))):
                 raise EngineError("준비 상태의 작업만 실행할 수 있습니다.")
             task.run_requested = True
             self.store.save(task)
@@ -589,6 +593,8 @@ class Engine:
     def _reviewer_for(self, task: Task) -> str:
         """리뷰 담당이 여럿이면 작업 번호로 돌아가며 맡는다 (같은 작업은 늘 같은 사람)."""
         cands = self.staff_for("reviewer") or ["reviewer"]
+        if task.extra.get("workflow_reviewer") in cands:
+            return task.extra["workflow_reviewer"]
         digits = "".join(ch for ch in task.id if ch.isdigit())
         return cands[int(digits or 0) % len(cands)]
 
@@ -705,7 +711,7 @@ class Engine:
         - 스위치가 꺼져 있거나 오늘 횟수(max_auto_skills_per_day)를 다 썼으면 하지 않는다.
         - 회고는 새 스킬·고친 스킬을 '제안'만 한다. 배우는 것은 CEO 승인 뒤다.
         """
-        if task.kind not in ("plan", "build", "research") or not self.self_learning():
+        if task.extra.get("workflow_no_retry") or task.kind not in ("plan", "build", "research") or not self.self_learning():
             return []
         ceo = any(f.get("by") == "ceo" for f in task.feedback)
         who = []
@@ -738,6 +744,13 @@ class Engine:
     def _loop(self) -> None:
         while not self._shutdown.is_set():
             if not self._stop.is_set():
+                with self.store.lock:
+                    if self._workbench_version != self.store.version:
+                        try:
+                            self.workbench.tick()
+                        except (ValueError, OSError) as e:
+                            self.last_error = f"작업대 기록 확인 실패: {e}"
+                        self._workbench_version = self.store.version
                 if time.monotonic()-self._tick_at > 30:
                     self._tick_at = time.monotonic()
                     try:
@@ -799,9 +812,13 @@ class Engine:
         for t in sorted(tasks,key=lambda x: bool(x.origin)):
             if t.id in self._workers or scheduler.blocker(t,tasks,self._workers):
                 continue
+            if t.extra.get("workflow_plan_child") and not t.run_requested:
+                continue
             if t.status == "queued" and t.kind in NO_BRANCH:
+                if t.extra.get("workflow_run") and not t.run_requested: continue
                 if t.created_by.startswith("supervisor:") and not (t.run_requested or self.auto_run()):continue
                 return self._task(t.id)
+            if t.extra.get("workflow_run") and not t.run_requested: continue
             if t.status != "ready" or t.kind in NO_BRANCH or not (self.auto_run() or t.run_requested):continue
             if any(d not in by_id or by_id[d].status != "done" for d in t.depends_on):continue
             return self._task(t.id)
@@ -817,6 +834,7 @@ class Engine:
     # ------------------------------------------------------------ 에이전트 1회 실행
     def _agent_run(self, task, role, prompt, cwd, **kwargs):
         stage = kwargs["stage"]
+        self.workbench.check_task(task, role, stage)
         if self._should_stop(task.id):
             return RunResult(False,kwargs.get("runtime_name") or self.cfg.roles[role].runtime,kwargs.get("model") or self.cfg.roles[role].model,None,0,error_kind="stopped",error="중단됨")
         requested = kwargs.get("runtime_name") or self.cfg.roles[role].runtime
@@ -1099,6 +1117,9 @@ class Engine:
         role = task.role if self.job_of(task.role) == "producer" else self._pick("producer")
         task = self.store.transition(task, "running", note="기획 담당이 작업을 나누는 중")
         prompt = plan_prompt(self.cfg, task, project, self.store.list(), role)
+        if task.extra.get("workflow_run"):
+            prompt += "\n# 작업대에서 CEO가 확인한 허용 범위\n" + "\n".join(task.extra.get("scope_paths", []))
+            prompt += "\n이 범위 밖의 작업은 제안하지 않는다. 결재 뒤 생성된 카드는 별도로 직접 실행한다.\n"
         cwd = project.repo if project.repo.exists() else self.cfg.root
         run = self._agent_run(task, role, prompt, cwd, sandbox="read-only", stage="plan", schema=PLAN_SCHEMA, skills_kind="plan")
         if self._cancelled(task.id):
@@ -1132,6 +1153,15 @@ class Engine:
         edits = payload.get("edits") or {}
         project = self._project(task.project)
         index_to_id: dict[int, str] = {}
+        if task.extra.get("workflow_no_retry"):
+            from .supervisor import path_scope
+            # Validate the whole selection before creating the first child card.
+            for i, item in enumerate(items):
+                if selected_set is not None and i not in selected_set:
+                    continue
+                allowed = _clean_paths(item.get("allowed_paths", []), project)
+                if any(not path_scope(p, task.extra.get("scope_paths", [])) for p in allowed):
+                    raise EngineError("기획안이 작업대에서 확인한 허용 경로를 벗어났습니다.")
         for i, item in enumerate(items):
             if selected_set is not None and i not in selected_set:
                 continue
@@ -1146,6 +1176,11 @@ class Engine:
                 if not allowed: raise EngineError("외부 지시의 허용 경로를 벗어난 기획안입니다.")
                 child_extra = {"requirements":task.extra.get("requirements",[]),"resources":task.extra.get("resources",[]),"scope_paths":task.extra.get("scope_paths",[])}
             child_extra["plan_item"] = i
+            if task.extra.get("workflow_no_retry"):
+                from .supervisor import path_scope
+                if any(not path_scope(p, task.extra.get("scope_paths", [])) for p in allowed):
+                    raise EngineError("기획안이 작업대에서 확인한 허용 경로를 벗어났습니다.")
+                child_extra.update(workflow_no_retry=True, workflow_plan_child=True, scope_paths=task.extra.get("scope_paths", []))
             prior = next((t for t in self.store.list() if t.parent == task.id and t.extra.get("plan_item") == i),None)
             if prior:
                 index_to_id[i] = prior.id
@@ -1898,7 +1933,7 @@ class Engine:
         job = KIND_ROLE.get(task.kind, "builder")
         role = task.role if self.job_of(task.role) == job else job
         rcfg = self.cfg.roles[role]
-        max_attempts = self.cfg.limit("max_attempts")
+        max_attempts = 1 if task.extra.get("workflow_no_retry") else self.cfg.limit("max_attempts")
         task = self._ensure_worktree(task, project)
         wt = Path(task.worktree or "")
         feedback = self._latest_feedback(task)
@@ -2025,7 +2060,7 @@ class Engine:
         if qa["verdict"] == "fail":
             self._trouble(task,"qa",_qa_feedback(qa,violations))
             self.journal.write(task.id,"pipeline",status="needs_changes")
-            if task.attempts < self.cfg.limit("max_attempts"): return False
+            if not task.extra.get("workflow_no_retry") and task.attempts < self.cfg.limit("max_attempts"): return False
             self.store.block(task,f"고쳐 봐도 검증 실패 — {qa['reason']}"); return True
         review = self._review(task,project,qa,qa_dir/"snapshot")
         if self._cancelled(task.id):
@@ -2043,7 +2078,7 @@ class Engine:
             self.store.transition(task,"awaiting_approval",note="검증·리뷰 결과 확인 및 CEO 결재 필요"); return True
         self._trouble(task,"review",_review_feedback(review))
         self.journal.write(task.id,"pipeline",status="needs_changes")
-        if task.attempts < self.cfg.limit("max_attempts"):return False
+        if not task.extra.get("workflow_no_retry") and task.attempts < self.cfg.limit("max_attempts"):return False
         self.store.block(task,"리뷰의 수정 요청이 남아 있습니다.");return True
 
     def _ensure_worktree(self, task: Task, project: ProjectConfig) -> Task:
@@ -2074,6 +2109,8 @@ class Engine:
             chain.append((rcfg.fallback_runtime, rcfg.fallback_model, ""))
         if rcfg.runtime == "claude" and not self.cfg.runtime_cfg("claude").get("enabled",False):
             chain = [("claude",rcfg.model,rcfg.effort)]
+        if task.extra.get("workflow_no_retry"):
+            chain = chain[:1]
         errors = []
         failure = None
         for index, (runtime_name, model, effort) in enumerate(chain):

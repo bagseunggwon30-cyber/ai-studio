@@ -155,10 +155,10 @@ def _one_line(text: object, n: int) -> str:
 
 
 # ---------------------------------------------------------------- 목록
-def servers(cfg: Config) -> list[dict[str, Any]]:
+def servers(cfg: Config, *, include_secret_presence: bool = True) -> list[dict[str, Any]]:
     """보관소 목록 (내장 먼저, 그다음 등록한 순서). 토큰 값은 넣지 않는다 (env_set: 이름마다 넣었는지만)."""
     saved = _load(cfg)
-    secrets = _secrets(cfg)
+    secrets = _secrets(cfg) if include_secret_presence else {}
     out = []
     for name, b in _builtins(cfg).items():
         st = saved.get(name, {})

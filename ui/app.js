@@ -314,15 +314,19 @@ function fail(err) { notify((Data.BY_ROLE.producer || Data.TEAM[0]).name, err.me
 // ---------------------------------------------------------------- 사무실 ↔ 진행판
 // 진행판(board.js)은 사무실과 같은 데이터를 칸반으로 본다. 마지막으로 본 화면은 이 브라우저에만 기억한다.
 function setView(name, remember = true) {
+  const workbench = name === 'workbench';
+  Workbench.setVisible(workbench);
+  stage.hidden = workbench;
   const board = !OFFICE || name === 'board'; // 사무실을 안 쓰면 언제나 진행판
   stage.classList.toggle('view-board', board);
-  Board.setVisible(board);
+  Board.setVisible(board && !workbench);
   if (!remember) return;
-  try { localStorage.setItem('studio.view', board ? 'board' : 'office'); } catch (_) { /* 기억 못 해도 된다 */ }
+  try { localStorage.setItem('studio.view', workbench ? 'workbench' : board ? 'board' : 'office'); } catch (_) { /* 기억 못 해도 된다 */ }
 }
 
 // 처음 화면: 주소의 #view=… → 개발용 주소(#demo·#open·#floor)면 사무실 → 이 브라우저가 기억한 것. 주소로 연 화면은 기억하지 않는다 (캡처가 서로 섞이지 않게).
 function savedView() {
+  if (hash.get('view') === 'workbench') return 'workbench';
   if (!OFFICE) return 'board';
   if (hash.get('view')) return hash.get('view');
   if (demo || hash.get('open') || hash.get('floor')) return 'office';
@@ -377,6 +381,7 @@ const ACTIONS = {
   project: () => Popups.chooseProject(),
   quests: () => Popups.questBoard(),
   board: () => setView('board'),
+  workbench: () => setView('workbench'),
   office: () => { if (OFFICE) setView('office'); },
   team: () => Popups.team(),
   diary: () => Popups.diary(),
@@ -477,6 +482,12 @@ Data.on('connection', (ok) => {
 // 팝업이 모두 닫히면 본사를 다시 그린다 (그사이 생긴 벽 쪽지·완성작이 이때 떨어진다).
 Popups.init({ notify, onOpen: () => $('#notice').classList.add('hidden'), onClose: render });
 Board.init($('#layer-board'), { notify, fail, office: OFFICE });
+Workbench.init($('#workbench-screen'), {
+  back: () => setView('board'),
+  task: (id) => { setView('board'); const t = Data.task(id); if (t) Popups.openTask(t); else Popups.taskCard(id); },
+  inbox: () => { setView('board'); Popups.inbox(); },
+  diary: () => { setView('board'); Popups.diary(); },
+});
 setView(savedView(), false);
 
 // ---------------------------------------------------------------- 시작
