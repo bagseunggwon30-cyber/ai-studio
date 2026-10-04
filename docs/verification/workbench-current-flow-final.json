@@ -1,0 +1,219 @@
+{
+  "at": "2026-10-05T02:43:26+09:00",
+  "status": "complete_local_commit_ready",
+  "branch": "codex/workbench-current-flow-20261005",
+  "before_commit": "7ce7adaab0c40d8ac507d974ca36712348677161",
+  "main_unchanged": "6b8bfa15dde1f186a10a5b27e846c21bf9748b4a",
+  "changed_files": [
+    "docs/HANDOFF.md",
+    "ui/workbench.js",
+    "ui/workbench.css",
+    "tools/dev/workbench_fixture.py",
+    "tools/dev/workbench_flow_check.cjs",
+    "tools/dev/workbench_current_flow_check.cjs",
+    "tools/dev/workbench_current_flow_compat.cjs",
+    "tools/dev/workbench_flow_video_check.cjs",
+    "docs/verification/workbench-current-flow-browser.json",
+    "docs/verification/workbench-current-flow-compat.json",
+    "docs/verification/workbench-current-flow-preservation.json",
+    "docs/verification/workbench-current-flow-regression.json",
+    "docs/verification/workbench-current-flow-static.json",
+    "docs/verification/workbench-current-flow-video.json",
+    "docs/verification/workbench-current-flow.md",
+    "docs/verification/workbench-current-flow-final.json"
+  ],
+  "source_hashes": {
+    "docs/HANDOFF.md": "584c5bf331a07dda6a5373216460ba2822b80e1b7fa423fbb71399d70ecec3d0",
+    "ui/workbench.js": "4593f9771d453bfbb091ea731592124d55ff5c82addaf23a22df2496c2ed7b12",
+    "ui/workbench.css": "7cd0a8496426029489e9ccfb08f7dd6c98f81ba197977fc83e683e8f8ab3e035",
+    "tools/dev/workbench_fixture.py": "3d300f37ebc21b3c617a61fd30f9689627b699618d1afad3332da3f5ab72e562",
+    "tools/dev/workbench_flow_check.cjs": "aaeba4537081557f230405bc4257cbc8df4d1f8829d809f3e27d127a3de062fc",
+    "tools/dev/workbench_current_flow_check.cjs": "4ab15880b8f1b853e1023c61419b319db43c9097899d88cde3724562515a0a88",
+    "tools/dev/workbench_current_flow_compat.cjs": "03e7ed205a3711dabf4d87b37562c7eb9af9cf2abcd1e819571d2da5f1e37605",
+    "tools/dev/workbench_flow_video_check.cjs": "7457039c5986f7920b15e0cc7d7ce0f0f6ec9a7140bbd0bc4cceeef71d5a4744",
+    "docs/verification/workbench-current-flow-browser.json": "84c9e5eee40cfb0f26f0982185a32c9b2fc48582d1a5a70ca1782eab147d7432",
+    "docs/verification/workbench-current-flow-compat.json": "40d8fe965e85bfa7636b6b6e1f7e42351c0e2f567b10ee8cf1948c8894b78684",
+    "docs/verification/workbench-current-flow-preservation.json": "e4c8d216dcc163bbd47d1619c967fabbf58187e49281c0db4960f5f16fab2c87",
+    "docs/verification/workbench-current-flow-regression.json": "e51bebc1cdd42f08a375a6847679997cc02cad959b0646d9e856ff4b3c6b3385",
+    "docs/verification/workbench-current-flow-static.json": "e8b2f76c0c367b4c649f82deaeb84ef4ffd1859b1e6da08d12ac3e0f434d9932",
+    "docs/verification/workbench-current-flow-video.json": "ed01f2023824ae64eb4e1f5aceabd9a879025a23f71a4fc3c4b5ea12ea49e219",
+    "docs/verification/workbench-current-flow.md": "d1562b2424f59ba5e49262ae0224f22f3ee124e050d42df10e13fceac75b118b"
+  },
+  "artifacts": [
+    {
+      "path": "S:\\AI\\ai studio\\output\\playwright\\workbench-current-flow-active.png",
+      "sha256": "f86f1aa8d237da6f90443f28ec9ccf1bf93e44461b17e69ed7dfbc28ea18a730",
+      "bytes": 389080,
+      "dimensions": [
+        1585,
+        1080
+      ]
+    },
+    {
+      "path": "S:\\AI\\ai studio\\output\\playwright\\workbench-current-flow-compat-workbench-visual-polish-interactions.png",
+      "sha256": "a37e28a73cd7b6740670ed0364d41a36d9b8e3348fe92f39026eaaa0754964df",
+      "bytes": 441062,
+      "dimensions": [
+        1585,
+        1080
+      ]
+    },
+    {
+      "path": "S:\\AI\\ai studio\\output\\playwright\\workbench-current-flow-compat-workbench-visual-polished.png",
+      "sha256": "af7c998f75df9c7e083673317b2dc08a64458e81ccae965c1ede391523ae2c99",
+      "bytes": 445075,
+      "dimensions": [
+        1585,
+        1080
+      ]
+    },
+    {
+      "path": "S:\\AI\\ai studio\\output\\playwright\\workbench-current-flow-failure.png",
+      "sha256": "5b72e550ca976bdaeab1049a61fd6a7730009c527822545ed3859c9cd3d8dc50",
+      "bytes": 369547,
+      "dimensions": [
+        1585,
+        1080
+      ]
+    },
+    {
+      "path": "S:\\AI\\ai studio\\output\\playwright\\workbench-current-flow-missing.png",
+      "sha256": "80dec649788f711ae3c2d30eebc36f82b7080c73e4873e24c9f9f2bc6eacf1f3",
+      "bytes": 441554,
+      "dimensions": [
+        1585,
+        1080
+      ]
+    },
+    {
+      "path": "S:\\AI\\ai studio\\output\\playwright\\workbench-current-flow-reduced.png",
+      "sha256": "ddc6daa027b259b588948f0a870d7d6251ead74b0763cae4d42b97763727f0c6",
+      "bytes": 389076,
+      "dimensions": [
+        1585,
+        1080
+      ]
+    },
+    {
+      "path": "S:\\AI\\ai studio\\output\\playwright\\workbench-current-flow-review.png",
+      "sha256": "0da4fb866e61f06b7854870bbce701bfa47e4bc5243ce997e877fec3bf53b396",
+      "bytes": 398127,
+      "dimensions": [
+        1585,
+        1080
+      ]
+    },
+    {
+      "path": "S:\\AI\\ai studio\\output\\playwright\\workbench-current-flow-video-frame.png",
+      "sha256": "606c53015b85d6a6e640c88ca0a670ee2a86beea2cc6c64b8f044a96b2db16bf",
+      "bytes": 686464,
+      "dimensions": [
+        1585,
+        1080
+      ]
+    },
+    {
+      "path": "S:\\AI\\ai studio\\output\\playwright\\workbench-current-flow.webm",
+      "sha256": "e2c44017afc606ec1e209684cdb7bca8441914501921fc56f80d6f8d8604a847",
+      "bytes": 1659363
+    }
+  ],
+  "checks": {
+    "regression": {
+      "status": "pass",
+      "total": 358,
+      "passed": 357,
+      "failures": [],
+      "errors": [],
+      "skipped": [
+        {
+          "test": "tests.test_lifecycle.ChildProcessTests.test_timeout_isolates_and_reaps_child",
+          "reason": "POSIX process-group regression"
+        }
+      ],
+      "exact_discovery_match": true
+    },
+    "interpretation": {
+      "status": "pass",
+      "count": 41,
+      "real_model_calls": 0,
+      "product_writes": 0
+    },
+    "browser_new": {
+      "status": "pass",
+      "count": 52,
+      "errors": []
+    },
+    "browser_unchanged": {
+      "status": "pass",
+      "count": 54
+    },
+    "browser_total": 106,
+    "syntax_files": 15,
+    "video": {
+      "status": "pass",
+      "path": "S:\\AI\\ai studio\\output\\playwright\\workbench-current-flow.webm",
+      "bytes": 1659363,
+      "sha256": "e2c44017afc606ec1e209684cdb7bca8441914501921fc56f80d6f8d8604a847",
+      "duration": 11.28,
+      "width": 1584,
+      "height": 1080,
+      "currentTime": 4.409824,
+      "decodedFrames": 118,
+      "readyState": 4,
+      "mediaError": null,
+      "real_model_calls": 0
+    },
+    "doctor": {
+      "exit_code": 0,
+      "warning": "Existing Claude unavailable; existing Codex fallback",
+      "real_model_calls": 0
+    },
+    "diff_check": "pass"
+  },
+  "preservation": {
+    "at": "2026-10-05T02:43:26+09:00",
+    "branch": "codex/workbench-current-flow-20261005",
+    "base_commit": "7ce7adaab0c40d8ac507d974ca36712348677161",
+    "main": "6b8bfa15dde1f186a10a5b27e846c21bf9748b4a",
+    "protected": {
+      "manifest_files": 1939,
+      "changed": [],
+      "removed": [],
+      "preexisting_not_in_original_manifest": [
+        "data/studio.lock"
+      ]
+    },
+    "backend_unchanged": {
+      "studio/engine.py": true,
+      "studio/workbench.py": true,
+      "studio/evidence.py": true,
+      "studio/server.py": true
+    },
+    "rejected_prototype_unchanged": true,
+    "previous_approved_capture_unchanged": true,
+    "real_model_calls": 0,
+    "production_submissions": 0,
+    "production_cancellations": 0,
+    "production_restarts": 0,
+    "permissions_credentials_ports_changed": false
+  },
+  "preview_closed": true,
+  "preview_scope": "disposable TempStudio / existing FakeRuntime / 127.0.0.1:8798",
+  "real_model_calls": 0,
+  "production_submissions": 0,
+  "production_cancellations": 0,
+  "production_restarts": 0,
+  "main_merge_push_deployment": false,
+  "new_library_transfer": "not run; previous official prepare_uploads environment unavailable",
+  "not_run": [
+    "Actual model execution",
+    "Production submission/cancellation",
+    "Production rollout",
+    "New Library upload"
+  ],
+  "remaining_conditions": [
+    "User-authorized safe production rollout",
+    "Official Library transfer environment if remote delivery is requested"
+  ]
+}

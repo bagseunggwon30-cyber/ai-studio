@@ -1,0 +1,27 @@
+{
+  "at": "2026-10-05T02:43:26+09:00",
+  "branch": "codex/workbench-current-flow-20261005",
+  "base_commit": "7ce7adaab0c40d8ac507d974ca36712348677161",
+  "main": "6b8bfa15dde1f186a10a5b27e846c21bf9748b4a",
+  "protected": {
+    "manifest_files": 1939,
+    "changed": [],
+    "removed": [],
+    "preexisting_not_in_original_manifest": [
+      "data/studio.lock"
+    ]
+  },
+  "backend_unchanged": {
+    "studio/engine.py": true,
+    "studio/workbench.py": true,
+    "studio/evidence.py": true,
+    "studio/server.py": true
+  },
+  "rejected_prototype_unchanged": true,
+  "previous_approved_capture_unchanged": true,
+  "real_model_calls": 0,
+  "production_submissions": 0,
+  "production_cancellations": 0,
+  "production_restarts": 0,
+  "permissions_credentials_ports_changed": false
+}

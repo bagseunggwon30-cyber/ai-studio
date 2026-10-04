@@ -1,0 +1,88 @@
+{
+  "at": "2026-10-05T02:40:20+09:00",
+  "status": "pass",
+  "syntax_files": [
+    {
+      "file": "ui/app.js",
+      "exit_code": 0,
+      "error": ""
+    },
+    {
+      "file": "ui/board.js",
+      "exit_code": 0,
+      "error": ""
+    },
+    {
+      "file": "ui/data.js",
+      "exit_code": 0,
+      "error": ""
+    },
+    {
+      "file": "ui/effects.js",
+      "exit_code": 0,
+      "error": ""
+    },
+    {
+      "file": "ui/looks.js",
+      "exit_code": 0,
+      "error": ""
+    },
+    {
+      "file": "ui/m.js",
+      "exit_code": 0,
+      "error": ""
+    },
+    {
+      "file": "ui/popups.js",
+      "exit_code": 0,
+      "error": ""
+    },
+    {
+      "file": "ui/puppet.js",
+      "exit_code": 0,
+      "error": ""
+    },
+    {
+      "file": "ui/scene.js",
+      "exit_code": 0,
+      "error": ""
+    },
+    {
+      "file": "ui/sound.js",
+      "exit_code": 0,
+      "error": ""
+    },
+    {
+      "file": "ui/workbench.js",
+      "exit_code": 0,
+      "error": ""
+    },
+    {
+      "file": "tools/dev/workbench_current_flow_check.cjs",
+      "exit_code": 0,
+      "error": ""
+    },
+    {
+      "file": "tools/dev/workbench_current_flow_compat.cjs",
+      "exit_code": 0,
+      "error": ""
+    },
+    {
+      "file": "tools/dev/workbench_flow_check.cjs",
+      "exit_code": 0,
+      "error": ""
+    },
+    {
+      "file": "tools/dev/workbench_flow_video_check.cjs",
+      "exit_code": 0,
+      "error": ""
+    }
+  ],
+  "interpretation": {
+    "status": "pass",
+    "count": 41,
+    "real_model_calls": 0,
+    "product_writes": 0
+  },
+  "real_model_calls": 0
+}

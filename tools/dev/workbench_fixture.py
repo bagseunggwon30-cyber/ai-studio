@@ -4,6 +4,7 @@ import json
 import shutil
 import sys
 import threading
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,11 +16,19 @@ from studio.server import StudioServer
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8798)
+    parser.add_argument("--flow-gates", action="store_true", help="Pause the existing fake builder/reviewer until temporary release files appear")
     args = parser.parse_args()
     company = TempStudio()
+    gate_stop = threading.Event()
     builds = 0
     def behavior(spec, runtime):
         nonlocal builds
+        if args.flow_gates and spec.role in {"builder", "reviewer"}:
+            release = company.root / ("flow-release-build" if spec.role == "builder" else "flow-release-review")
+            deadline = time.monotonic() + 90
+            while not release.is_file() and not gate_stop.wait(.05):
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("Disposable preview gate timed out")
         result = default_behavior(spec, runtime)
         if spec.role == "builder":
             builds += 1
@@ -43,6 +52,7 @@ def main():
             if line.strip() == "stop":
                 break
     finally:
+        gate_stop.set()
         if server:
             server.shutdown()
             server.server_close()

@@ -1,0 +1,136 @@
+{
+  "status": "pass",
+  "count": 52,
+  "checks": [
+    "격리 미리보기와 원래 CSP",
+    "기존 FakeRuntime 회사 확인",
+    "기존 다섯 종이 노드와 저장 복원",
+    "원래 네 연결의 SVG 장식만 추가",
+    "계획·모델 동의 전 잠금",
+    "실제 엔진 일지의 실행 단계·번호",
+    "실제로 실행 중인 구현 노드의 입력선 하나만 흐름",
+    "향후 검증·근거 노드는 전류 없음",
+    "단계명을 글자로 함께 표시",
+    "진행 방향으로 실제 CSS 전류 이동",
+    "동일 실행 조회가 SVG 연결을 재생성하지 않음",
+    "동일 조회에서 애니메이션 위상 유지",
+    "동작 감소에서 이동 전류 숨김",
+    "동작 감소에서 정적 실행 표시",
+    "동작 감소·보조 기술에서 실행 텍스트 유지",
+    "기존 효과 끄기 설정도 전류 숨김",
+    "효과 끄기에서 남은 완료 효과 제거",
+    "단일 실행 기록 조회 실패 즉시 전류 중단",
+    "연결 복구가 같은 실행을 복원",
+    "복구 뒤 지나간 완료 효과 재생 없음",
+    "화면 닫기에서 전류 정지",
+    "재열기에서 기록 재생 없음",
+    "키보드 노드 상세 열기",
+    "실행 중 상세 접기",
+    "상세 열고 닫기에서 기존 연결 보존",
+    "1024px 바깥 넘침 없음",
+    "1024px 원래 작업면 내부 스크롤",
+    "390px 바깥 넘침 없음",
+    "390px 원래 작업면 내부 스크롤",
+    "실제 후보와 QA 통과 기록 일치",
+    "실제 리뷰 실행은 구현 카드에서만 표시",
+    "근거 누락에서 기존 엔진이 결재를 차단",
+    "실제 테스트 통과와 완료 근거 2/3 구분",
+    "끝난 실제 실행의 지속 전류 없음",
+    "승인 근거 누락 잠금 유지",
+    "failed 기록에서 전류 없음",
+    "failed 기록에서 실행 광택 없음",
+    "failed 알림에서 이전 실행 중 문구 제거",
+    "uncertain 기록에서 전류 없음",
+    "uncertain 기록에서 실행 광택 없음",
+    "uncertain 알림에서 이전 실행 중 문구 제거",
+    "paused 기록에서 전류 없음",
+    "paused 기록에서 실행 광택 없음",
+    "paused 알림에서 이전 실행 중 문구 제거",
+    "cancelled 기록에서 전류 없음",
+    "cancelled 기록에서 실행 광택 없음",
+    "cancelled 알림에서 이전 실행 중 문구 제거",
+    "실패 probe 원복 시 이전 완료 재생 없음",
+    "효과·상태 변화가 원래 노드 배치를 보존",
+    "중복 클릭·복구·영상에서 실행 제출 한 번",
+    "검증 중 결재·취소·수정 요청 없음",
+    "브라우저 pageerror 없음"
+  ],
+  "errors": [],
+  "writes": [
+    "/api/workbench/nodes",
+    "/api/workbench/nodes",
+    "/api/workbench/nodes",
+    "/api/workbench/nodes",
+    "/api/workbench/nodes",
+    "/api/workbench/flows",
+    "/api/workbench/validate",
+    "/api/workbench/plan",
+    "/api/workbench/start",
+    "/api/workbench/validate"
+  ],
+  "observations": [
+    {
+      "run": "W1e7d32383004439dab43c1591b307075",
+      "task": "T0001",
+      "flow": "flow-ac32348eef6e",
+      "real_builder": [
+        {
+          "stage": "build1",
+          "status": "running",
+          "run_id": "R20261005-023722-edaf5772-T0001-build1",
+          "effect": "external_effect",
+          "candidate_sha": null,
+          "reason": null,
+          "next_action": null,
+          "updated_at": "2026-10-05T02:37:22+09:00",
+          "label": "구현",
+          "status_label": "진행 중"
+        }
+      ],
+      "review_candidate": "b0c1527166572652b1145f77de7c4be3bb838e6d",
+      "qa": "pass",
+      "evidence": [
+        "verified",
+        "verified",
+        "missing"
+      ],
+      "geometry": [
+        {
+          "id": "visual-input",
+          "x": "410px",
+          "y": "44px"
+        },
+        {
+          "id": "visual-implement",
+          "x": "685px",
+          "y": "60px"
+        },
+        {
+          "id": "visual-test",
+          "x": "960px",
+          "y": "60px"
+        },
+        {
+          "id": "visual-review",
+          "x": "1000px",
+          "y": "345px"
+        },
+        {
+          "id": "visual-approve",
+          "x": "1265px",
+          "y": "370px"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    "output/playwright/workbench-current-flow-active.png",
+    "output/playwright/workbench-current-flow-reduced.png",
+    "output/playwright/workbench-current-flow-review.png",
+    "output/playwright/workbench-current-flow-missing.png",
+    "output/playwright/workbench-current-flow-failure.png"
+  ],
+  "video": "output/playwright/workbench-current-flow.webm",
+  "real_model_calls": 0,
+  "production_writes": 0
+}

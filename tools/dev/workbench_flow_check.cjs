@@ -1,0 +1,55 @@
+/* Verify interpretation of actual record shapes without any runtime or DOM. */
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const context = vm.createContext({ window: { matchMedia: () => ({ matches: false }) } });
+vm.runInContext(fs.readFileSync('ui/workbench.js','utf8'), context);
+const create = vm.runInContext('WorkbenchFlow.create', context);
+const clone = value => JSON.parse(JSON.stringify(value));
+let count = 0;
+function check(name, test) { test(); count++; }
+function fixture() {
+  const run={id:'W-current',revision:1,status:'running',snapshot:{graph:{nodes:['input','implement','test','review','approve'].map((op,i)=>({id:op,definition:{spec:{operation:op}}})),edges:[{from:'input',to:'implement'},{from:'implement',to:'test'},{from:'test',to:'review'},{from:'review',to:'approve'}]}},nodes:{input:{status:'succeeded',output:'Input'},implement:{status:'running',task:'T1',revision:1},test:{status:'pending'},review:{status:'pending'},approve:{status:'pending'}},events:[{type:'started',at:'2026-10-05T01:00:00Z'},{type:'task_linked',node:'implement',at:'2026-10-05T01:00:01Z'}],current_tasks:{T1:{task:'T1',revision:1,status:'running',candidate_sha:null,history:[{to:'running',at:'2026-10-05T01:00:02Z'}]}}};
+  const step={stage:'build1',status:'running',run_id:'R-build-1',candidate_sha:null,updated_at:'2026-10-05T01:00:03Z'};
+  const live={online:true,stopped:false,tasks:[{id:'T1',status:'running',extra:{workflow_run:run.id,workflow_node:'implement',workflow_revision:1},progress:{steps:[step],last:step}}],current:{task:'T1',stage:'build1',run_id:'R-build-1'}};
+  return {run,live,step,task:run.current_tasks.T1};
+}
+const read = f => create().read(f.run,f.live);
+const mode = f => read(f).nodes.get('implement').mode;
+check('actual running stage and directed incoming edge',()=>{const f=fixture(),v=read(f);assert.equal(v.nodes.get('implement').mode,'active');assert.equal(v.edges.get('input:implement').mode,'active');assert.equal(v.edges.get('implement:test').mode,'idle');assert.ok(v.nodes.get('implement').token.includes('R-build-1'));});
+for(const queued of ['ready','queued'])check(queued+' does not imply actual execution',()=>{const f=fixture();f.task.status=f.live.tasks[0].status=queued;assert.equal(mode(f),'idle');});
+check('missing stage receipt',()=>{const f=fixture();f.live.tasks[0].progress.steps=[];assert.equal(mode(f),'syncing');});
+check('missing execution ID',()=>{const f=fixture();delete f.step.run_id;assert.equal(mode(f),'syncing');});
+check('wrong workflow link',()=>{const f=fixture();f.live.tasks[0].extra.workflow_run='W-other';assert.equal(mode(f),'syncing');});
+check('wrong model node link',()=>{const f=fixture();f.live.tasks[0].extra.workflow_node='other';assert.equal(mode(f),'syncing');});
+check('missing task-linked event',()=>{const f=fixture();f.run.events.pop();assert.equal(mode(f),'syncing');});
+check('missing workflow start event',()=>{const f=fixture();f.run.events.shift();assert.equal(mode(f),'syncing');});
+check('conflicting current execution ID',()=>{const f=fixture();f.live.current.run_id='R-new';assert.equal(mode(f),'syncing');});
+check('stale candidate',()=>{const f=fixture();f.task.candidate_sha='a'.repeat(40);assert.equal(mode(f),'syncing');});
+check('stale receipt before the current task transition',()=>{const f=fixture();f.step.updated_at='2026-10-05T00:59:59Z';assert.equal(mode(f),'syncing');});
+check('stale revision',()=>{const f=fixture();f.live.tasks[0].extra.workflow_revision=2;assert.equal(mode(f),'syncing');});
+check('inconsistent task snapshots',()=>{const f=fixture();f.live.tasks[0].status='checking';assert.equal(mode(f),'syncing');});
+for(const stage of ['verification','review'])check('actual '+stage+' stays on the linked implementation task',()=>{const f=fixture();f.task.status=f.live.tasks[0].status='checking';f.task.history=[{to:'checking',at:'2026-10-05T01:00:02Z'}];f.task.candidate_sha=f.step.candidate_sha='a'.repeat(40);f.step.stage=stage;f.live.current=null;const v=read(f);assert.equal(v.nodes.get('implement').mode,'active');assert.notEqual(v.nodes.get('test').mode,'active');assert.notEqual(v.nodes.get('review').mode,'active');assert.equal(v.edges.get('implement:test').mode,'idle');});
+check('verification requires an actual candidate',()=>{const f=fixture();f.task.status=f.live.tasks[0].status='checking';f.step.stage='verification';assert.equal(mode(f),'syncing');});
+check('finished stage is not active',()=>{const f=fixture();f.step.status='complete';assert.equal(mode(f),'syncing');});
+check('unsupported stage is not active',()=>{const f=fixture();f.step.stage='other-operation';assert.equal(mode(f),'syncing');});
+for(const reason of ['offline','stopped','cancelled','blocked'])check(reason+' stops the loop',()=>{const f=fixture();if(reason==='offline')f.live.online=false;else if(reason==='stopped')f.live.stopped=true;else f.run.status=reason;assert.notEqual(mode(f),'active');assert.notEqual(read(f).edges.get('input:implement').mode,'active');});
+check('failed execution',()=>{const f=fixture();f.task.status='blocked';f.run.nodes.implement.status='blocked';f.step.status='failed';assert.equal(mode(f),'failed');});
+check('uncertain execution never animates',()=>{const f=fixture();f.task.status='blocked';f.step.status='unknown_outcome';assert.equal(mode(f),'uncertain');});
+check('interrupted execution',()=>{const f=fixture();f.task.status='blocked';f.step.status='interrupted';assert.equal(mode(f),'paused');});
+check('linked task cancellation',()=>{const f=fixture();f.task.status='cancelled';assert.equal(mode(f),'cancelled');});
+check('historical initial load does not replay completion',()=>{const f=fixture();f.run.nodes.input.completed_at='2026-10-05T01:00:01Z';f.run.events.push({type:'node_finished',node:'input',at:'2026-10-05T01:00:01Z'});assert.equal(read(f).completions.length,0);});
+check('new completion with one real incoming transfer',()=>{const f=fixture(),c=create();c.read(f.run,f.live);f.run.nodes.implement.status='succeeded';f.run.events.push({type:'node_finished',node:'implement',at:'2026-10-05T01:00:04Z'});const v=c.read(f.run,f.live);assert.equal(v.completions.join(','),'implement');assert.equal(v.transfers.join(','),'input:implement');assert.equal(c.read(f.run,f.live).transfers.length,0);});
+check('duplicated completion record is ignored',()=>{const f=fixture(),c=create();c.read(f.run,f.live);f.run.nodes.implement.status='succeeded';const e={type:'node_finished',node:'implement',at:'2026-10-05T01:00:04Z'};f.run.events.push(e);assert.equal(c.read(f.run,f.live).completions.length,1);f.run.events.push(clone(e));assert.equal(c.read(f.run,f.live).completions.length,0);});
+check('completion never powers an unstarted successor',()=>{const f=fixture(),c=create();c.read(f.run,f.live);f.run.events.push({type:'node_finished',node:'input',at:'2026-10-05T01:00:04Z'});assert.equal(c.read(f.run,f.live).transfers.length,0);});
+check('reconnection restores facts without replay',()=>{const f=fixture(),c=create();c.read(f.run,f.live);c.suspend();f.run.nodes.implement.status='succeeded';f.run.events.push({type:'node_finished',node:'implement',at:'2026-10-05T01:00:04Z'});assert.equal(c.read(f.run,f.live).completions.length,0);});
+check('changed graph drops pending visual history',()=>{const f=fixture(),c=create();c.read(f.run,f.live);f.run.snapshot.graph.edges.pop();f.run.nodes.implement.status='succeeded';f.run.events.push({type:'node_finished',node:'implement',at:'2026-10-05T01:00:04Z'});assert.equal(c.read(f.run,f.live).completions.length,0);});
+check('revision reset and fresh execution token',()=>{const f=fixture(),c=create();const first=c.read(f.run,f.live).nodes.get('implement').token;f.run.revision=f.task.revision=f.run.nodes.implement.revision=f.live.tasks[0].extra.workflow_revision=2;f.step.run_id=f.live.current.run_id='R-build-2';const second=c.read(f.run,f.live);assert.equal(second.reset,true);assert.notEqual(second.nodes.get('implement').token,first);assert.equal(second.completions.length,0);});
+check('fan-out powers only actually running branches',()=>{const f=fixture();f.run.snapshot.graph.nodes.push({id:'second',definition:{spec:{operation:'implement'}}});f.run.snapshot.graph.edges.push({from:'input',to:'second'});f.run.nodes.second={status:'pending'};const v=read(f);assert.equal(v.edges.get('input:implement').mode,'active');assert.equal(v.edges.get('input:second').mode,'idle');});
+check('passing QA and missing evidence are distinct',()=>{const f=fixture();f.task.candidate_sha='a'.repeat(40);f.task.status='awaiting_approval';f.task.qa={candidate_sha:f.task.candidate_sha,verdict:'pass'};f.task.evidence={strict:true,complete:false,suite_current:true};f.run.nodes.test.status='blocked';f.run.nodes.review.status='skipped';f.run.nodes.approve.status='skipped';const v=read(f);for(const id of ['test','review','approve'])assert.equal(v.nodes.get(id).mode,'missing');assert.notEqual(v.edges.get('implement:test').mode,'active');});
+check('stale QA must not report confirmed evidence',()=>{const f=fixture();f.task.candidate_sha='a'.repeat(40);f.task.qa={candidate_sha:'b'.repeat(40),verdict:'pass'};f.task.evidence={strict:true,complete:false,suite_current:true};f.run.nodes.test.status='succeeded';assert.equal(read(f).nodes.get('test').mode,'uncertain');});
+check('failed QA must not report only missing evidence',()=>{const f=fixture();f.task.candidate_sha='a'.repeat(40);f.task.qa={candidate_sha:f.task.candidate_sha,verdict:'fail'};f.task.evidence={strict:true,complete:false,suite_current:true};f.run.nodes.test.status='blocked';assert.equal(read(f).nodes.get('test').mode,'failed');});
+check('waiting approval is static',()=>{const f=fixture();f.run.nodes.approve.status='waiting';assert.equal(read(f).nodes.get('approve').mode,'waiting');});
+check('halt does not replay recent completion',()=>{const f=fixture(),c=create();c.read(f.run,f.live);f.run.status='cancelled';f.run.events.push({type:'node_finished',node:'input',at:'2026-10-05T01:00:04Z'});assert.equal(c.read(f.run,f.live).completions.length,0);});
+check('halt preserves already completed input fact',()=>{const f=fixture();f.run.status='cancelled';const info=read(f).nodes.get('input');assert.equal(info.mode,'done');assert.equal(info.caption,'');});
+console.log(JSON.stringify({status:'pass',count,real_model_calls:0,product_writes:0}));

@@ -1,6 +1,96 @@
 /* 기능 서랍 · 재사용 노드 작업대 · 실행 장부. 모든 실행은 기존 서버 엔진으로 보낸다. */
 'use strict';
 
+// Pure interpretation of recorded facts. Animation never advances the workflow.
+const WorkbenchFlow = (() => {
+  const operation = n => n.definition?.spec.operation;
+  const qaPass = task => Boolean(task?.candidate_sha && task.qa?.candidate_sha === task.candidate_sha && ['pass', 'none'].includes(task.qa.verdict) && (!task.evidence || task.evidence.suite_current === true));
+  function linked(run, node) {
+    const found = new Set(), seen = new Set(), queue = [node.id];
+    while (queue.length) {
+      const id = queue.shift(); if (seen.has(id)) continue; seen.add(id);
+      const state = run.nodes[id] || {}, task = state.task || state.inputs?.task || state.output?.task;
+      if (task && run.current_tasks?.[task]) found.add(task);
+      else queue.push(...run.snapshot.graph.edges.filter(e => e.to === id).map(e => e.from));
+    }
+    return found.size === 1 ? run.current_tasks[[...found][0]] : null;
+  }
+  function nodeInfo(run, node, live) {
+    const state = run.nodes[node.id] || {}, task = linked(run, node), op = operation(node);
+    const info = (mode, caption = '', token = '') => ({ mode, caption, token });
+    if (run.status === 'cancelled' || state.status === 'cancelled' || task?.status === 'cancelled') return state.status === 'succeeded' ? info('done') : info('cancelled', '중단');
+    const missing = task?.evidence?.strict && !task.evidence.complete && qaPass(task);
+    if (['blocked', 'skipped', 'waiting'].includes(state.status) && missing && ['test', 'review', 'approve'].includes(op)) return info('missing');
+    if (state.status === 'skipped') return info('skipped');
+    if (state.status === 'waiting') return info('waiting');
+    if (state.status === 'succeeded') {
+      if (op === 'test' && !qaPass(task)) return info('uncertain', '현재 검증 근거 확인 필요');
+      if (op === 'review' && !(task?.candidate_sha && task.review?.candidate_sha === task.candidate_sha && task.review.verdict === 'approve')) return info('uncertain', '현재 검토 근거 확인 필요');
+      return info('done');
+    }
+    const summary = task && live.tasks?.find(t => t.id === task.task);
+    const steps = summary?.progress?.steps || [];
+    const relevant = step => op === 'requirements' ? step.stage === 'plan' : op === 'implement' && (/^build(?:\d+)?(?:-|$)/.test(step.stage) || ['verification', 'review'].includes(step.stage));
+    const sameCandidate = step => (step.candidate_sha || null) === (task?.candidate_sha || null);
+    const terminal = steps.filter(s => relevant(s) && sameCandidate(s)).sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')))[0];
+    if (state.status === 'blocked' || task?.status === 'blocked') {
+      const recorded = summary?.progress?.last?.status;
+      if (recorded === 'unknown_outcome' || terminal?.status === 'unknown_outcome') return info('uncertain', '실행 여부 불확실 · 결과 확인');
+      return info(recorded === 'interrupted' || terminal?.status === 'interrupted' ? 'paused' : 'failed', recorded === 'interrupted' || terminal?.status === 'interrupted' ? '중단 · 결과 확인' : '처리 실패 · 결과 확인');
+    }
+    if (!live.online) return info('offline', state.status === 'running' ? '연결 확인 대기 · 마지막 기록' : '');
+    if (live.stopped) return info('paused', state.status === 'running' ? '회사 정지 · 실행 기록 확인' : '');
+    if (run.status !== 'running') return info('paused', state.status === 'running' ? '흐름 정지 · 기존 작업창 확인' : '');
+    if (state.status !== 'running' || !['implement', 'requirements'].includes(op)) return info('idle');
+    if (!task || !summary || summary.status !== task.status || summary.extra?.workflow_run !== run.id || summary.extra?.workflow_node !== node.id || (summary.extra.workflow_revision || 1) !== (task.revision || 1) || (state.revision || 1) !== (task.revision || 1)) return info('syncing', '실행 기록 확인 대기');
+    if (!['running', 'checking'].includes(task.status)) return info('idle', '실행 대기 · 기존 작업 연결');
+    if (!(run.events || []).some(e => e.type === 'task_linked' && e.node === node.id) || !(run.events || []).some(e => e.type === 'started')) return info('syncing', '실행 연결 기록 확인 대기');
+    const transition = (task.history || []).filter(h => h.to === task.status).at(-1);
+    const running = steps.filter(s => relevant(s) && s.status === 'running' && s.run_id && s.updated_at && sameCandidate(s)
+      && (task.status === 'checking' ? ['verification', 'review'].includes(s.stage) && Boolean(task.candidate_sha) : !['verification', 'review'].includes(s.stage))
+      && (!transition?.at || s.updated_at >= transition.at)).sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
+    if (!running) return info('syncing', '실제 실행 단계 확인 대기');
+    if (live.current?.task === task.task && live.current.stage === running.stage && live.current.run_id !== running.run_id) return info('syncing', '단계 실행 번호 확인 대기');
+    const phase = running.stage === 'verification' ? '기존 QA 검증' : running.stage === 'review' ? '읽기 전용 검토' : op === 'requirements' ? '기획' : '구현';
+    return info('active', `실행 중 · ${phase}`, JSON.stringify([run.id, task.revision || 1, node.id, task.task, running.stage, running.run_id, running.candidate_sha || null]));
+  }
+  function create() {
+    let scope = '', cursor = 0, baseline = true, seen = new Set();
+    const fingerprint = e => JSON.stringify([e.type, e.node, e.at, e.message]);
+    return {
+      suspend() { baseline = true; },
+      read(run, live) {
+        if (!run) { scope = ''; baseline = true; return { nodes: new Map(), edges: new Map(), completions: [], transfers: [], reset: true }; }
+        const graph = run.snapshot.graph, events = run.events || [];
+        const key = JSON.stringify([run.id, run.revision || 1, graph]);
+        const nodes = new Map(graph.nodes.map(n => [n.id, nodeInfo(run, n, live)]));
+        const edges = new Map(graph.edges.map(e => {
+          const from = nodes.get(e.from), to = nodes.get(e.to);
+          const mode = [from, to].find(n => ['cancelled', 'uncertain', 'failed', 'missing', 'waiting', 'skipped', 'offline', 'paused'].includes(n?.mode))?.mode
+            || (from?.mode === 'done' && to?.mode === 'active' ? 'active' : 'idle');
+          return [`${e.from}:${e.to}`, { mode, token: mode === 'active' ? to.token : '' }];
+        }));
+        const completions = [], transfers = [];
+        const reset = scope !== key || baseline || cursor > events.length || !live.online || live.stopped;
+        if (reset) {
+          seen = new Set(events.map(fingerprint));
+        } else {
+          for (let index = cursor; index < events.length; index++) {
+            const event = events[index], id = fingerprint(event);
+            if (seen.has(id)) continue; seen.add(id);
+            if (run.status === 'cancelled' || event.type !== 'node_finished' || nodes.get(event.node)?.mode !== 'done') continue;
+            completions.push(event.node);
+            for (const edge of graph.edges.filter(e => e.to === event.node && nodes.get(e.from)?.mode === 'done')) transfers.push(`${edge.from}:${edge.to}`);
+          }
+        }
+        scope = key; cursor = events.length; baseline = !live.online || live.stopped;
+        return { nodes, edges, completions, transfers, reset };
+      },
+    };
+  }
+  return { create };
+})();
+
 const Workbench = (() => {
   const h = (...args) => Popups.h(...args);
   const children = nodes => nodes.flat(Infinity).filter(n => n != null && n !== false);
@@ -17,6 +107,9 @@ const Workbench = (() => {
   let refreshAgain = false, lastSignature = '', drag = null, readFailure = false;
   let surface = 'workspace', toolboxOpen = false, detailOpen = false, detailPane;
   const definitions = new Map();
+  const power = WorkbenchFlow.create();
+  let powerState = { nodes: new Map(), edges: new Map(), completions: [], transfers: [] };
+  const flowMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const DRAFT_KEY = 'studio.workbench.draft.v1';
   const LAST_RUN = 'studio.workbench.lastRun';
   const SURFACE_KEY = 'studio.workbench.surface.v1';
@@ -186,12 +279,17 @@ const Workbench = (() => {
       }
       refresh();
     });
-    Data.on('connection', ok => { if (visible) { message(ok ? '다시 연결됐어요. 저장된 실행 기록을 확인합니다.' : '연결이 끊겼어요. 작성 중인 흐름은 이 브라우저에 보존됩니다.', !ok); if (ok) refresh(); } });
+    Data.on('connection', ok => { if (visible) { power.suspend(); clearPowerPulses(); updateGraphStates(); message(ok ? '다시 연결됐어요. 저장된 실행 기록을 확인합니다.' : '연결이 끊겼어요. 작성 중인 흐름은 이 브라우저에 보존됩니다.', !ok); if (ok) refresh(); } });
     window.addEventListener('resize', () => { if (visible && draft) { positionDetail(); drawWires(); } });
+    root.append(h('span', { class: 'wb-flow-announcement', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' }));
+    document.addEventListener('visibilitychange', () => { if (visible) { power.suspend(); clearPowerPulses(); updateGraphStates(); if (!document.hidden) refresh(); } });
+    flowMotion.addEventListener('change', () => { clearPowerPulses(); if (visible) updateGraphStates(); });
+    new MutationObserver(() => { power.suspend(); clearPowerPulses(); if (visible) updateGraphStates(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   }
 
   function setSurface(value) {
     surface = value; root.dataset.surface = value;
+    power.suspend(); clearPowerPulses();
     try { localStorage.setItem(SURFACE_KEY, value); } catch (_) { /* optional navigation memory */ }
     root.querySelector('.wb-layout').hidden = value !== 'workspace';
     root.querySelector('.wb-pack-shelf').hidden = value === 'workspace';
@@ -337,6 +435,7 @@ const Workbench = (() => {
 
   async function setVisible(on) {
     visible = on; root.hidden = !on;
+    power.suspend(); clearPowerPulses();
     if (pollTimer) clearInterval(pollTimer); pollTimer = null;
     if (!on) { remember(); closeDialog(); return; }
     try {
@@ -378,7 +477,8 @@ const Workbench = (() => {
     if (loading) { refreshAgain = true; return; }
     loading = true;
     try {
-      const results = await Promise.allSettled([Data.workbenchGet('/ledger'), active ? Data.workbenchGet('/runs/' + encodeURIComponent(active.id)) : Promise.resolve(null)]);
+      const read = path => Data.workbenchGet(path).catch(error => { readFailure = true; power.suspend(); clearPowerPulses(); if (active) updateGraphStates(); throw error; });
+      const results = await Promise.allSettled([read('/ledger'), active ? read('/runs/' + encodeURIComponent(active.id)) : Promise.resolve(null)]);
       if (results[0].status === 'fulfilled') { ledger = results[0].value.runs; renderLedger(); }
       else { readFailure = true; message(results[0].reason.message, true); }
       if (results[1].status === 'fulfilled' && results[1].value && active?.id === results[1].value.id) {
@@ -386,8 +486,10 @@ const Workbench = (() => {
         if (signature !== lastSignature) { active = next; lastSignature = signature; updateGraphStates(); renderRunDetail(); renderRunBar(); renderLedger(); }
       } else if (results[1].status === 'rejected') { readFailure = true; message(results[1].reason.message, true); }
       if (readFailure && results.every(result => result.status === 'fulfilled')) {
-        readFailure = false; message('실행 기록에 다시 연결됐어요. 같은 실행을 복원합니다.');
+        readFailure = false; power.suspend(); message('실행 기록에 다시 연결됐어요. 같은 실행을 복원합니다.');
       }
+      if (readFailure) { power.suspend(); clearPowerPulses(); }
+      if (active) updateGraphStates(); // Stage receipts can change without a graph state change.
     } finally {
       loading = false;
       if (refreshAgain) { refreshAgain = false; refresh(); }
@@ -528,6 +630,7 @@ const Workbench = (() => {
         h('small', { class: 'wb-node-mode', text: `${MODE[op.mode]} · 노트 v${n.ref.version}` }),
         h('span', { class: 'wb-node-state', text: active ? STATUS[st.status] : '설정 확인' }));
       el.dataset.operation = d?.spec.operation || '';
+      el.addEventListener('animationend', event => { if (event.animationName === 'wb-power-complete') el.classList.remove('wb-complete-pulse'); });
       el.style.setProperty('--paper-height', `${nodeHeight(n)}px`);
       el.style.setProperty('--paper-angle', `${index % 2 ? 2 : -1}deg`);
       if (op.job) {
@@ -575,19 +678,34 @@ const Workbench = (() => {
   function wireState(e) {
     if (!active) return 'pending';
     const a = nodeState(e.from).status, b = nodeState(e.to).status;
-    return ['blocked', 'skipped', 'cancelled'].includes(a) || ['blocked', 'skipped', 'cancelled'].includes(b) ? 'blocked' : a === 'succeeded' ? b : 'pending';
+    if (active.status === 'cancelled' || a === 'cancelled' || b === 'cancelled') return 'cancelled';
+    if (a === 'blocked' || b === 'blocked') return 'blocked';
+    if (a === 'skipped' || b === 'skipped') return 'skipped';
+    return a === 'succeeded' ? b : 'pending';
   }
 
   function drawWires() {
     const svg = root.querySelector('.wb-wires'); if (!svg) return;
-    svg.replaceChildren();
+    if (!svg.querySelector('defs')) {
     const defs = document.createElementNS(svg.namespaceURI, 'defs'), marker = document.createElementNS(svg.namespaceURI, 'marker');
     marker.setAttribute('id', 'wb-arrow'); marker.setAttribute('viewBox', '0 0 10 10'); marker.setAttribute('refX', '9'); marker.setAttribute('refY', '5'); marker.setAttribute('markerWidth', '7'); marker.setAttribute('markerHeight', '7'); marker.setAttribute('orient', 'auto-start-reverse');
     const arrow = document.createElementNS(svg.namespaceURI, 'path'); arrow.setAttribute('d', 'M1 1 9 5 1 9 3 5Z'); arrow.setAttribute('class', 'wb-arrow-head'); marker.append(arrow); defs.append(marker); svg.append(defs);
+    }
+    const old = new Map([...svg.querySelectorAll('.wb-edge')].map(group => [group.dataset.edge, group]));
     const map = Object.fromEntries(graph().nodes.map(n => [n.id, n]));
     for (const e of graph().edges) {
         const a = map[e.from] && displayPosition(map[e.from]), b = map[e.to] && displayPosition(map[e.to]); if (!a || !b) continue;
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const id = `${e.from}:${e.to}`;
+      let group = old.get(id); old.delete(id);
+      if (!group) {
+        group = document.createElementNS(svg.namespaceURI, 'g'); group.setAttribute('class', 'wb-edge'); group.dataset.edge = id;
+        for (const cls of ['wb-wire', 'wb-flow-trace', 'wb-flow-current']) {
+          const path = document.createElementNS(svg.namespaceURI, 'path'); path.setAttribute('class', cls); path.setAttribute('pathLength', '100'); group.append(path);
+        }
+        group.querySelector('.wb-flow-current').addEventListener('animationend', event => { if (event.animationName === 'wb-power-transfer') group.removeAttribute('data-transfer'); });
+        svg.append(group);
+      }
+      const path = group.querySelector('.wb-wire');
       let line;
       if (Math.abs(a.y - b.y) < 100) {
         const right = b.x > a.x, ax = a.x + (right ? 222 : 0), ay = a.y + nodeHeight(map[e.from]) / 2;
@@ -602,8 +720,14 @@ const Workbench = (() => {
       }
       path.setAttribute('d', line); path.setAttribute('marker-end', 'url(#wb-arrow)');
       path.setAttribute('class', `wb-wire s-${wireState(e)}`); path.dataset.edge = `${e.from}:${e.to}`;
-      svg.append(path);
+      for (const layer of group.children) layer.setAttribute('d', line);
+      const flow = powerState.edges.get(id);
+      group.dataset.flow = flow?.mode || 'idle';
+      group.dataset.flowToken = flow?.token || '';
+      if (['failed', 'missing', 'waiting', 'cancelled', 'skipped', 'uncertain', 'offline', 'paused'].includes(flow?.mode)) group.removeAttribute('data-transfer');
     }
+    for (const group of old.values()) group.remove();
+    for (const path of svg.querySelectorAll('.wb-proof-wire, .wb-proof-junction')) path.remove();
     drawProofConnections(svg);
   }
 
@@ -630,32 +754,68 @@ const Workbench = (() => {
     if (p) { el.style.setProperty('--node-x', `${p.x}px`); el.style.setProperty('--node-y', `${p.y}px`); }
   } positionDetail(); drawWires(); }
   function updateGraphStates() {
+    if (!draft || !catalog) return;
+    const live = Data.get();
+    const online = visible && surface === 'workspace' && !document.hidden && Data.isOnline() && !readFailure;
+    powerState = power.read(active, { online, stopped: Boolean(live.stopped), tasks: live.tasks, current: live.current });
+    if (powerState.reset || active?.status === 'cancelled') clearPowerPulses();
+    root.dataset.flowOnline = String(online && !live.stopped && active?.status !== 'cancelled');
     for (const n of graph().nodes) {
       const el = root.querySelector(`[data-node="${n.id}"]`); if (!el) continue;
         const st = nodeState(n.id);
-        const changed = active && el.dataset.lastStatus && el.dataset.lastStatus !== st.status;
-        el.className = `wb-node s-${st.status}`;
-        if (changed) el.classList.add('wb-event-change'); el.dataset.lastStatus = st.status;
-      el.querySelector('.wb-node-state').textContent = active ? nodeStatus(n) : '설정 확인';
+        for (const name of Object.keys(STATUS)) el.classList.remove(`s-${name}`);
+        el.classList.add(`s-${st.status}`); el.dataset.lastStatus = st.status;
+      const flow = powerState.nodes.get(n.id);
+      el.dataset.flow = flow?.mode || 'idle'; el.dataset.flowToken = flow?.token || '';
+      if (flow?.mode !== 'done') el.classList.remove('wb-complete-pulse');
+      const caption = active ? flow?.caption || nodeStatus(n) : '설정 확인';
+      el.querySelector('.wb-node-state').textContent = caption;
       const facts = nodeFacts(n), factsEl = el.querySelector('.wb-node-facts');
       factsEl.replaceChildren(...facts.map(text => h('span', { text })));
       factsEl.hidden = !facts.length; el.querySelector('.wb-node-description').hidden = Boolean(facts.length);
       el.querySelector('.wb-node-description').textContent = operationSummary(n);
       el.dataset.qa = definition(n)?.spec.operation === 'test' && currentQaPass(taskForNode(n)) ? 'pass' : '';
       el.querySelector('.wb-state-mark').textContent = st.status === 'succeeded' ? '✓' : st.status === 'blocked' ? '!' : st.status === 'waiting' ? '◷' : '';
+      const glyph = { active: '●', cancelled: '■', offline: '‖', paused: '‖', uncertain: '?' }[flow?.mode];
+      if (glyph) el.querySelector('.wb-state-mark').textContent = glyph;
       if (el.dataset.qa === 'pass') el.querySelector('.wb-state-mark').textContent = '✓';
       if (definition(n)?.spec.operation === 'review') {
         const proof = taskForNode(n)?.evidence;
         el.dataset.proof = proof ? proof.complete ? 'verified' : 'missing' : '';
         if (proof) el.querySelector('.wb-state-mark').textContent = `${proof.items.filter(item => item.status === 'verified').length}/${proof.items.length}`;
       }
-      el.setAttribute('aria-label', `${nodeTitle(n)} · ${MODE[catalog.operations[definition(n)?.spec.operation]?.mode]} · ${nodeStatus(n)}`);
+      el.setAttribute('aria-label', `${nodeTitle(n)} · ${MODE[catalog.operations[definition(n)?.spec.operation]?.mode]} · ${caption}`);
     }
     drawWires();
+    if (online && !flowMotion.matches && !document.documentElement.classList.contains('calm')) {
+      for (const id of powerState.completions) {
+        const el = [...root.querySelectorAll('[data-node]')].find(n => n.dataset.node === id);
+        if (el) el.classList.add('wb-complete-pulse');
+      }
+      for (const id of powerState.transfers) {
+        const group = [...root.querySelectorAll('.wb-edge')].find(e => e.dataset.edge === id);
+        if (group) group.dataset.transfer = '1';
+      }
+    }
+    const announced = [...powerState.nodes.entries()].filter(([, info]) => info.mode === 'active').map(([id, info]) => `${nodeTitle(graph().nodes.find(n => n.id === id))}: ${info.caption}`);
+    if (powerState.completions.length) announced.push(...powerState.completions.map(id => `${nodeTitle(graph().nodes.find(n => n.id === id))}: 완료`));
+    if (!announced.length && active) {
+      const attention = [...powerState.nodes.entries()].find(([, info]) => info.caption && ['failed', 'cancelled', 'uncertain', 'paused', 'offline'].includes(info.mode));
+      announced.push(attention ? `${nodeTitle(graph().nodes.find(n => n.id === attention[0]))}: ${attention[1].caption}` : `실행 기록: ${runLabel(active)}`);
+    }
+    const liveEl = root.querySelector('.wb-flow-announcement'), announcement = announced.join(' · ');
+    if (liveEl && liveEl.textContent !== announcement) liveEl.textContent = announcement;
     for (const el of root.querySelectorAll('[data-edge-status]')) {
       const e = graph().edges.find(e => `${e.from}:${e.to}` === el.dataset.edgeStatus);
       if (e) el.textContent = STATUS[wireState(e)];
     }
+  }
+
+  function clearPowerPulses() {
+    root?.querySelectorAll('.wb-complete-pulse').forEach(el => el.classList.remove('wb-complete-pulse'));
+    root?.querySelectorAll('[data-transfer]').forEach(el => el.removeAttribute('data-transfer'));
+    const liveEl = root?.querySelector('.wb-flow-announcement'); if (liveEl) liveEl.textContent = '';
+    if (root) root.dataset.flowOnline = 'false';
   }
 
   function renderConnections() {

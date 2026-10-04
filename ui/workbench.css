@@ -318,6 +318,35 @@
 .wb-arrow-head { fill: #455952; stroke: #455952; stroke-width: .7; }
 .wb-proof-wire { fill: none; stroke: #8ca79e; stroke-width: 1.6; }.wb-proof-wire.missing { stroke: #bd8a37; stroke-width: 1.8; }.wb-proof-wire.stem { stroke: #9d9f89; }
 .wb-proof-junction { fill: #fffef9; stroke: #c19448; stroke-width: 1.8; }
+
+/* Verified activity only. These decorative layers never alter graph state. */
+.wb-flow-trace, .wb-flow-current { fill: none; pointer-events: none; opacity: 0; }
+.wb-flow-trace { stroke: #36b4a4; stroke-width: 3.2; filter: drop-shadow(0 0 3px #249b8845); }
+.wb-flow-current { stroke: #8ef3da; stroke-width: 3.8; stroke-linecap: round; stroke-dasharray: 5 95; }
+#workbench-screen[data-flow-online="true"] .wb-edge[data-flow="active"] .wb-flow-trace { opacity: .3; }
+#workbench-screen[data-flow-online="true"] .wb-edge[data-flow="active"] .wb-flow-current { opacity: .95; animation: wb-power-current 1.5s linear infinite; }
+#workbench-screen[data-flow-online="true"] .wb-edge[data-transfer="1"] .wb-flow-current { opacity: .9; animation: wb-power-transfer .65s linear both; }
+#workbench-screen .wb-edge[data-flow="idle"] .wb-wire { stroke: #596965; }
+#workbench-screen .wb-edge:is([data-flow="waiting"],[data-flow="missing"],[data-flow="uncertain"],[data-flow="paused"],[data-flow="offline"]) .wb-wire { stroke: #b58b43; }
+#workbench-screen .wb-edge[data-flow="failed"] .wb-wire { stroke: #ad6154; }
+#workbench-screen .wb-edge:is([data-flow="cancelled"],[data-flow="skipped"]) .wb-wire { stroke: #949d96; stroke-dasharray: 3 5; }
+#workbench-screen[data-flow-online="true"] .wb-node[data-flow="active"] { animation: wb-power-live 2.4s ease-in-out infinite; }
+#workbench-screen[data-flow-online="true"] .wb-node[data-flow="done"].wb-complete-pulse { animation: wb-power-complete .7s ease-out both; }
+#workbench-screen .wb-node[data-flow="active"] .wb-state-mark { border: 1px solid #3b9e8f; background: #eaf8f1; }
+#workbench-screen .wb-node:is([data-flow="waiting"],[data-flow="missing"],[data-flow="uncertain"],[data-flow="paused"],[data-flow="offline"]) .wb-state-mark { color: #936b23; border: 1px solid #bc944f; background: #fff8e8; }
+#workbench-screen .wb-node[data-flow="failed"] .wb-state-mark { color: #934d42; background: #f9eee8; }
+#workbench-screen .wb-node:is([data-flow="cancelled"],[data-flow="skipped"]) .wb-state-mark { color: #68756d; background: #eef0eb; }
+.wb-flow-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.calm #workbench-screen .wb-flow-current { display: none !important; }
+.calm #workbench-screen .wb-node[data-flow="active"] { border-color: #3b9e8f; box-shadow: 0 0 0 1px #9cc7b8; }
+@keyframes wb-power-current { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@keyframes wb-power-transfer { 0% { stroke-dashoffset: 100; opacity: .9; } 90% { opacity: .9; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes wb-power-live { 0%,100% { box-shadow: -6px 7px 0 -2px #f0ede5, 0 0 8px #39b19b18, 2px 14px 20px -8px #5a53482b; } 50% { box-shadow: -6px 7px 0 -2px #f0ede5, 0 0 14px #39b19b38, 2px 14px 20px -8px #5a53482b; } }
+@keyframes wb-power-complete { from { box-shadow: 0 0 0 3px #37aa943a, 0 0 15px #37aa942a; } to { box-shadow: -6px 7px 0 -2px #f0ede5, 2px 14px 20px -8px #5a53482b; } }
+@media (prefers-reduced-motion: reduce) {
+  #workbench-screen .wb-flow-current { display: none !important; }
+  #workbench-screen[data-flow-online="true"] .wb-node[data-flow="active"] { box-shadow: -6px 7px 0 -2px #f0ede5, 0 0 0 2px #4baf9840, 2px 14px 20px -8px #5a53482b; }
+}
 #workbench-screen .wb-detail { width: 380px; max-height: 480px; padding: 15px; border-color: #d6d7cf; border-radius: 3px; background: #fffefa; box-shadow: 0 10px 24px #50504818; }
 #workbench-screen .wb-detail.wb-run-detail { width: 540px; max-height: none; padding: 0 5px 12px; border: 0; box-shadow: none; background: transparent; overflow: visible; }
 .wb-run-detail::before { content: none; }
