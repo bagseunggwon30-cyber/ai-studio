@@ -53,7 +53,7 @@ async (page) => {
   assert(await page.getByRole('button',{name:'기존 결재 창에서 승인',exact:true}).isDisabled(),'누락 후보 승인 잠금 유지');
   assert(await page.locator('.wb-advanced pre').count()===3 && !await page.locator('.wb-advanced').evaluate(e=>e.open),'JSON은 접힌 고급 상세에 보관');
   assert(writes.filter(p=>p==='/api/workbench/start').length===1,'실행 중복 클릭 방지');
-  await page.screenshot({path:'output/playwright/workbench-visual-representative.png',fullPage:true,animations:'disabled'});
+  await page.screenshot({path:'output/playwright/workbench-visual-polish-initial.png',fullPage:true,animations:'disabled'});
   assert(errors.length===0,'브라우저 런타임 오류 없음');
-  return {status:'representative_ready_for_visual_review',checks,errors,writes,run:run.id,task:task.task,flow:saved.id,real_model_calls:0,production_writes:0,screenshot:'output/playwright/workbench-visual-representative.png'};
+  return {status:'representative_ready_for_visual_review',checks,errors,writes,run:run.id,task:task.task,flow:saved.id,real_model_calls:0,production_writes:0,screenshot:'output/playwright/workbench-visual-polish-initial.png'};
 }

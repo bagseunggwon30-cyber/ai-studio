@@ -128,10 +128,11 @@ const Workbench = (() => {
     return h('section', { class: 'wb-proof-panel', 'aria-label': historical ? '이전 후보 완료 근거' : '현재 후보 완료 근거' },
       h('div', { class: 'wb-proof-heading' }, h('h3', { text: historical ? '이전 후보 근거' : '완료 근거' }),
         h('span', { class: `wb-proof-badge ${proof.complete ? 'verified' : 'missing'}`, text: proof.complete ? '모든 기준 확인' : '근거 확인 필요' })),
-      h('p', { class: 'wb-candidate', text: `${historical ? '이전' : '현재'} 후보 v${task.revision || 1} · ${task.candidate_sha?.slice(0, 10) || '후보 준비 중'}` }),
+      h('p', { class: 'wb-candidate', text: `${historical ? '이전' : '현재'} 결과 v${task.revision || 1} · ${proof.items.filter(item => item.status === 'verified').length}/${proof.items.length}개 근거 확인` }),
       h('ul', { class: 'wb-proof-items' }, proof.items.map(item => h('li', { class: item.status === 'verified' ? 'verified' : 'missing' },
-        h('strong', { text: `${item.status === 'verified' ? '✓' : '!'} ${item.text}` }), h('p', { class: 'wb-proof-item-status', text: `${item.id} · ${item.status === 'verified' ? '현재 후보에서 확인' : '근거 누락'}` }),
-        item.evidence.length ? h('ul', {}, item.evidence.map(ref => h('li', { text: `${ref.verified ? '✓' : '!'} ${ref.type === 'test' ? '신뢰 검사' : ref.type === 'screenshot' ? '이미지' : '파일'} · ${ref.name || ref.path || ref.id}` }))) : h('p', { text: '지정한 근거 없음' })))),
+        h('strong', { text: `${item.status === 'verified' ? '✓' : '!'} ${item.text}` }), h('p', { class: 'wb-proof-item-status', text: item.status === 'verified' ? '현재 결과에서 확인했습니다.' : '필수 근거가 없어 승인할 수 없습니다.' }),
+        h('details', { class: 'wb-proof-references' }, h('summary', { text: '근거 상세' }),
+          item.evidence.length ? h('ul', {}, item.evidence.map(ref => h('li', { text: `${ref.verified ? '✓' : '!'} ${ref.type === 'test' ? '신뢰 검사' : ref.type === 'screenshot' ? '이미지' : '파일'} · ${ref.name || ref.path || ref.id}` }))) : h('p', { text: '지정한 근거 없음' }))))),
       reasons.length ? h('details', { class: 'wb-approval-reasons' }, h('summary', { text: `승인 불가 사유 ${reasons.length}개` }), h('ul', {}, reasons.map(reason => h('li', { text: reason })))) : null,
       historical ? null : h('div', { class: 'wb-detail-actions' },
         ['awaiting_approval', 'blocked'].includes(task.status) ? button('현재 후보 근거 지정', () => {
@@ -144,12 +145,13 @@ const Workbench = (() => {
         }) : null,
         button(task.status === 'done' ? '승인 완료' : '기존 결재 창에서 승인', () => hooks.task(task.task),
           { disabled: !allowed, title: allowed ? '현재 후보의 근거를 확인하고 기존 결재 창을 엽니다.' : reasons.join('\n') || '이미 승인된 결과입니다.', 'aria-describedby': 'wb-proof-reason' })),
-      historical ? null : h('p', { id: 'wb-proof-reason', class: 'wb-hint', text: allowed ? '최신 후보의 기준별 근거를 확인했습니다. CEO 승인 후 결과를 장부에 보관합니다.' : task.status === 'done' ? '승인 당시 근거는 이 실행 장부에 보존됩니다.' : '누락된 근거를 해결한 뒤 기록을 다시 확인하세요. 모델을 자동 재호출하지 않습니다.' }));
+      historical ? null : h('p', { id: 'wb-proof-reason', class: 'wb-hint', text: allowed ? '모든 완료 근거를 확인했습니다. CEO가 승인할 수 있습니다.' : task.status === 'done' ? '승인 당시 근거를 장부에 보관했습니다.' : '누락된 근거를 채운 뒤 기록을 다시 확인해 주세요.' }));
   }
 
   function init(el, options = {}) {
     root = el; hooks = options;
     detailPane = h('aside', { class: 'wb-detail', id: 'wb-node-details', 'aria-label': '노드 상세', tabindex: 0 });
+    detailPane.addEventListener('toggle', () => { if (visible) { positionDetail(); drawWires(); } }, true);
     root.append(h('header', { class: 'wb-header' },
       h('div', { class: 'wb-brand' }, h('h1', { text: 'AI STUDIO' })),
       h('nav', { class: 'wb-space-tabs', 'aria-label': '업무 공간' },
@@ -213,12 +215,18 @@ const Workbench = (() => {
     const artwork = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     artwork.setAttribute('viewBox', '0 0 500 560'); artwork.setAttribute('aria-hidden', 'true');
     // Fixed paper geometry. All titles and labels are separate textContent nodes.
-    artwork.innerHTML = '<ellipse class="folder-shadow" cx="248" cy="483" rx="201" ry="32"/>' +
+    artwork.innerHTML = '<defs><linearGradient id="wb-folder-front-tone" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6efdf"/><stop offset=".5" stop-color="#eee2cc"/><stop offset="1" stop-color="#d9c9ad"/></linearGradient>' +
+      '<linearGradient id="wb-folder-side-tone" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#d5c4a4"/><stop offset="1" stop-color="#f0e5d1"/></linearGradient>' +
+      '<linearGradient id="wb-folder-paper-tone" x1="0" y1="0" x2=".8" y2="1"><stop offset="0" stop-color="#fffefc"/><stop offset=".75" stop-color="#f6f6f1"/><stop offset="1" stop-color="#d9ddd7"/></linearGradient></defs>' +
+      '<ellipse class="folder-shadow" cx="248" cy="492" rx="210" ry="36"/>' +
       '<path class="folder-back" d="M30 162 Q27 150 40 138 L173 30 Q185 19 199 25 L465 173 Q480 181 466 199 L362 326 65 240Z"/>' +
       '<path class="folder-side" d="M463 187 447 376 329 529 335 324Z"/>' +
-      '<path class="folder-paper" d="M68 151 182 57 441 200 325 324Z"/>' +
-      '<path class="folder-paper" d="M63 169 174 76 429 219 316 340Z"/>' +
-      '<path class="folder-paper" d="M59 187 165 96 415 235 308 360Z"/>' +
+      '<path class="folder-paper-edge" d="M66 134 181 39 446 185 328 330 67 191Z"/>' +
+      '<path class="folder-paper" d="M68 127 182 32 441 179 325 324 68 184Z"/>' +
+      '<path class="folder-paper-edge" d="M61 160 173 65 434 207 319 347 61 214Z"/>' +
+      '<path class="folder-paper" d="M63 153 174 58 429 201 316 340 63 207Z"/>' +
+      '<path class="folder-paper-edge" d="M57 184 164 90 420 230 311 367Z"/>' +
+      '<path class="folder-paper" d="M59 177 165 83 415 224 308 360Z"/>' +
       '<path class="folder-paper accent" d="M53 205 155 116 400 251 298 378Z"/>' +
       '<path class="folder-paper" d="M48 223 146 137 384 270 290 395Z"/>' +
       '<path class="folder-front" d="M29 169 Q25 160 38 169 L336 333 Q347 340 344 355 L329 529 Q327 543 312 535 L59 393 Q49 387 47 375Z"/>' +
@@ -285,6 +293,7 @@ const Workbench = (() => {
     detailPane.style.setProperty('--detail-y', `${p.y}px`);
     detailPane.style.setProperty('--detail-anchor', `${n.position.x + 111 - p.x}px`);
     const size = graphSize(); canvas.style.setProperty('width', `${size.width}px`); canvas.style.setProperty('height', `${size.height}px`);
+    const wires = canvas.querySelector('.wb-wires'); wires?.setAttribute('width', size.width); wires?.setAttribute('height', size.height);
   }
 
   function revealDetail() {
@@ -320,7 +329,10 @@ const Workbench = (() => {
     }
     return tasks.size === 1 ? active.current_tasks[[...tasks][0]] : null;
   }
-  function runLabel(r) { return STATUS[r.status] || r.status; }
+  function runLabel(r) {
+    return r.status === 'blocked' && Object.values(r.current_tasks || {}).some(task => task.evidence && !task.evidence.complete)
+      ? '근거 누락 · 승인 대기' : STATUS[r.status] || r.status;
+  }
   function key() { return 'n-' + crypto.randomUUID().replaceAll('-', '').slice(0, 12); }
 
   async function setVisible(on) {
@@ -445,22 +457,41 @@ const Workbench = (() => {
     const nodes = graph().nodes;
     const focus = nodes.find(n => n.id === selected);
     return { width: Math.max(1450, ...nodes.map(n => displayPosition(n).x + 250)),
-      height: Math.max(850, ...nodes.map(n => displayPosition(n).y + nodeHeight(n) + 40), detailOpen && focus ? detailPosition(focus).y + (active ? 420 : 500) : 0) };
+      height: Math.max(925, ...nodes.map(n => displayPosition(n).y + nodeHeight(n) + 40), detailOpen && focus ? detailPosition(focus).y + Math.max(detailPane.offsetHeight, detailPane.scrollHeight, active ? 320 : 480) + 30 : 0) };
   }
 
   function displayPosition(n) { return { ...n.position }; }
-  function nodeHeight(n) { return ['review', 'approve', 'summary'].includes(definition(n)?.spec.operation) ? 156 : 230; }
+  function nodeHeight(n) { return ['review', 'approve', 'summary'].includes(definition(n)?.spec.operation) ? 180 : 230; }
+  function operationSummary(n) {
+    const task = taskForNode(n), op = definition(n)?.spec.operation;
+    const missing = task?.evidence && !task.evidence.complete;
+    if (op === 'review' && missing) return '필수 근거를 채워야 승인할 수 있습니다.';
+    if (op === 'approve' && missing) return '완료 근거가 누락되어 승인이 잠겨 있습니다.';
+    return { input: '업무에 사용할 자료를 입력합니다.', implement: '요구한 변경을 만들고 결과를 검증합니다.',
+      test: '테스트 결과와 완료 근거를 확인합니다.', review: '검토 기록과 완료 근거를 확인합니다.',
+      approve: '근거가 준비되면 CEO가 승인합니다.', summary: '승인한 결과와 실행 기록을 정리합니다.',
+      requirements: '입력을 정리해 기획안을 만듭니다.', lines: '빈 줄과 중복을 정리합니다.' }[op] || definition(n)?.note.purpose || '';
+  }
+  function currentQaPass(task) { return task?.candidate_sha && task.qa?.candidate_sha === task.candidate_sha && ['pass', 'none'].includes(task.qa.verdict) && (!task.evidence || task.evidence.suite_current === true); }
+  function currentReviewPass(task) { return task?.candidate_sha && task.review?.candidate_sha === task.candidate_sha && task.review.verdict === 'approve'; }
+  function nodeStatus(n) {
+    const state = nodeState(n.id), task = taskForNode(n), op = definition(n)?.spec.operation;
+    if (task?.evidence && !task.evidence.complete && ['blocked', 'skipped', 'waiting', 'pending'].includes(state.status)) {
+      if (op === 'test' && currentQaPass(task)) return '테스트 통과 · 승인 근거 누락';
+      if (op === 'review') return '근거 누락 · 확인 대기';
+      if (op === 'approve') return '근거 누락 · 승인 차단';
+    }
+    return STATUS[state.status] + (state.progress === 'checking' ? ' · 검증·검토' : '');
+  }
   function nodeFacts(n) {
     if (!active) return [];
     const op = definition(n)?.spec.operation, task = taskForNode(n);
-    if (op === 'input') return ['실행 입력', String(n.params.text || '').slice(0, 100)];
+    if (op === 'input') return [n.params.text ? '업무 자료 입력됨' : '업무 자료 입력 필요', '다음 노드에 자료 전달'];
     if (op === 'implement' && task?.candidate_sha) {
-      const file = task.evidence?.items.flatMap(item => item.evidence).find(ref => ref.type === 'file' && ref.verified);
-      return [...(file ? ['✓ ' + file.path] : []), `검토 기록 · ${task.review?.verdict || '대기'}`, `후보 · ${task.candidate_sha.slice(0, 10)}`];
+      return ['수정 후보 준비됨', currentQaPass(task) ? '✓ 테스트 기록 확인' : '테스트 기록 대기', currentReviewPass(task) ? '✓ 검토 기록 확인' : '검토 기록 대기'];
     }
     if (op === 'test' && task?.qa) {
-      const tests = task.evidence?.items.flatMap(item => item.evidence).filter(ref => ref.type === 'test' && ref.verified) || [];
-      return [`신뢰 검증 · ${task.qa.verdict}`, ...tests.slice(0, 2).map(ref => '✓ ' + ref.name)];
+      return [currentQaPass(task) ? '✓ 테스트 기록 통과' : '테스트 기록 확인 필요', '승인 근거는 별도로 확인'];
     }
     return [];
   }
@@ -492,7 +523,7 @@ const Workbench = (() => {
         'aria-label': `${nodeTitle(n)} · ${MODE[op.mode] || ''} · ${STATUS[st.status]}` },
         h('span', { class: 'wb-node-top' }, h('span', { class: 'wb-node-number', text: String(index + 1).padStart(2, '0') }), h('span', { class: 'wb-state-mark', 'aria-hidden': true })),
         h('strong', { text: nodeTitle(n) }), h('span', { class: 'wb-ports', text: `${TYPE[op.input] || '직접 입력'} → ${TYPE[op.output] || ''}` }),
-        h('span', { class: 'wb-node-description', text: d?.note.purpose || op.description }),
+        h('span', { class: 'wb-node-description', text: operationSummary(n) }),
         h('span', { class: 'wb-node-facts', hidden: true }),
         h('small', { class: 'wb-node-mode', text: `${MODE[op.mode]} · 노트 v${n.ref.version}` }),
         h('span', { class: 'wb-node-state', text: active ? STATUS[st.status] : '설정 확인' }));
@@ -552,7 +583,7 @@ const Workbench = (() => {
     svg.replaceChildren();
     const defs = document.createElementNS(svg.namespaceURI, 'defs'), marker = document.createElementNS(svg.namespaceURI, 'marker');
     marker.setAttribute('id', 'wb-arrow'); marker.setAttribute('viewBox', '0 0 10 10'); marker.setAttribute('refX', '9'); marker.setAttribute('refY', '5'); marker.setAttribute('markerWidth', '7'); marker.setAttribute('markerHeight', '7'); marker.setAttribute('orient', 'auto-start-reverse');
-    const arrow = document.createElementNS(svg.namespaceURI, 'path'); arrow.setAttribute('d', 'M1 1 9 5 1 9'); arrow.setAttribute('class', 'wb-arrow-head'); marker.append(arrow); defs.append(marker); svg.append(defs);
+    const arrow = document.createElementNS(svg.namespaceURI, 'path'); arrow.setAttribute('d', 'M1 1 9 5 1 9 3 5Z'); arrow.setAttribute('class', 'wb-arrow-head'); marker.append(arrow); defs.append(marker); svg.append(defs);
     const map = Object.fromEntries(graph().nodes.map(n => [n.id, n]));
     for (const e of graph().edges) {
         const a = map[e.from] && displayPosition(map[e.from]), b = map[e.to] && displayPosition(map[e.to]); if (!a || !b) continue;
@@ -573,6 +604,23 @@ const Workbench = (() => {
       path.setAttribute('class', `wb-wire s-${wireState(e)}`); path.dataset.edge = `${e.from}:${e.to}`;
       svg.append(path);
     }
+    drawProofConnections(svg);
+  }
+
+  function drawProofConnections(svg) {
+    if (!active || !detailOpen || detailPane.hidden) return;
+    const node = graph().nodes.find(n => n.id === selected), cards = [...detailPane.querySelectorAll('.wb-proof-items > li')];
+    if (!node || !cards.length) return;
+    const canvas = root.querySelector('.wb-canvas').getBoundingClientRect(), p = displayPosition(node);
+    const targets = cards.map(card => { const rect = card.getBoundingClientRect(); return { x: (rect.left + rect.right) / 2 - canvas.left, y: rect.top - canvas.top - 5, missing: card.classList.contains('missing') }; });
+    const x = p.x + 111, y = p.y + nodeHeight(node) + 4, branch = Math.max(y + 18, Math.min(...targets.map(t => t.y)) - 24);
+    const stem = document.createElementNS(svg.namespaceURI, 'path'); stem.setAttribute('d', `M${x},${y} L${x},${branch}`); stem.setAttribute('class', 'wb-proof-wire stem'); svg.append(stem);
+    for (const [index, target] of targets.entries()) {
+      const path = document.createElementNS(svg.namespaceURI, 'path');
+      path.setAttribute('d', `M${x},${branch} C${x},${branch + 10} ${target.x},${branch + 5} ${target.x},${target.y}`);
+      path.setAttribute('class', `wb-proof-wire ${target.missing ? 'missing' : 'verified'}`); path.dataset.proofLink = String(index + 1); svg.append(path);
+    }
+    const junction = document.createElementNS(svg.namespaceURI, 'circle'); junction.setAttribute('cx', x); junction.setAttribute('cy', y); junction.setAttribute('r', 4); junction.setAttribute('class', 'wb-proof-junction'); svg.append(junction);
   }
 
   function updateSelection() { for (const el of root.querySelectorAll('[data-node]')) {
@@ -588,17 +636,20 @@ const Workbench = (() => {
         const changed = active && el.dataset.lastStatus && el.dataset.lastStatus !== st.status;
         el.className = `wb-node s-${st.status}`;
         if (changed) el.classList.add('wb-event-change'); el.dataset.lastStatus = st.status;
-      el.querySelector('.wb-node-state').textContent = active ? `${STATUS[st.status]}${st.progress === 'checking' ? ' · 신뢰 검증·검토' : ''}` : '설정 확인';
+      el.querySelector('.wb-node-state').textContent = active ? nodeStatus(n) : '설정 확인';
       const facts = nodeFacts(n), factsEl = el.querySelector('.wb-node-facts');
       factsEl.replaceChildren(...facts.map(text => h('span', { text })));
       factsEl.hidden = !facts.length; el.querySelector('.wb-node-description').hidden = Boolean(facts.length);
+      el.querySelector('.wb-node-description').textContent = operationSummary(n);
+      el.dataset.qa = definition(n)?.spec.operation === 'test' && currentQaPass(taskForNode(n)) ? 'pass' : '';
       el.querySelector('.wb-state-mark').textContent = st.status === 'succeeded' ? '✓' : st.status === 'blocked' ? '!' : st.status === 'waiting' ? '◷' : '';
+      if (el.dataset.qa === 'pass') el.querySelector('.wb-state-mark').textContent = '✓';
       if (definition(n)?.spec.operation === 'review') {
         const proof = taskForNode(n)?.evidence;
         el.dataset.proof = proof ? proof.complete ? 'verified' : 'missing' : '';
         if (proof) el.querySelector('.wb-state-mark').textContent = `${proof.items.filter(item => item.status === 'verified').length}/${proof.items.length}`;
       }
-      el.setAttribute('aria-label', `${nodeTitle(n)} · ${MODE[catalog.operations[definition(n)?.spec.operation]?.mode]} · ${STATUS[st.status]}`);
+      el.setAttribute('aria-label', `${nodeTitle(n)} · ${MODE[catalog.operations[definition(n)?.spec.operation]?.mode]} · ${nodeStatus(n)}`);
     }
     drawWires();
     for (const el of root.querySelectorAll('[data-edge-status]')) {
@@ -676,23 +727,26 @@ const Workbench = (() => {
     const opened = new Set([...el.querySelectorAll('details[open]')].map(item => item.className));
     el.replaceChildren(...children([h('h2', { text: d.title }), h('p', { class: `wb-kind s-${state.status}`, text: `${STATUS[state.status]} · 실행 당시 v${n.ref.version}` }),
       proofPanel(task),
-      state.error ? h('p', { class: 'wb-error', text: state.error }) : null,
-      state.task ? h('div', { class: 'wb-task-link' }, h('p', { text: `기존 작업 ${state.task}` }), button(state.status === 'waiting' ? '기존 결재 창 열기' : '작업·일지·산출물 보기', () => hooks.task(state.task), { 'data-wb-focus': 'task' })) : null,
       h('details', { class: 'wb-advanced' }, h('summary', { text: '노드 입력·출력·실행 명세' }),
+        state.error ? h('p', { class: 'wb-error', text: state.error }) : null,
+        state.task ? h('div', { class: 'wb-task-link' }, h('p', { text: `기존 작업 ${state.task}` }), button(state.status === 'waiting' ? '기존 결재 창 열기' : '작업·일지·산출물 보기', () => hooks.task(state.task), { 'data-wb-focus': 'task' })) : null,
         h('h3', { text: '노드별 입력' }), h('pre', { text: state.inputs === null ? '선행 입력 대기' : typeof state.inputs === 'string' ? state.inputs : JSON.stringify(state.inputs, null, 2) }),
         h('h3', { text: '출력·결과' }), h('pre', { text: state.output === null ? '아직 결과가 없습니다.' : typeof state.output === 'string' ? state.output : JSON.stringify(state.output, null, 2) }),
-        h('h3', { text: '실행 당시 명세' }), h('pre', { text: JSON.stringify({ operation: d.spec.operation, params: n.params }, null, 2) })), noteView(d)]));
+        h('h3', { text: '실행 당시 명세' }), h('pre', { text: JSON.stringify({ operation: d.spec.operation, params: n.params, candidate_sha: task?.candidate_sha }, null, 2) }), noteView(d))]));
     el.scrollTop = scroll;
     for (const item of el.querySelectorAll('details')) item.open = opened.has(item.className);
     if (focus) el.querySelector(`[data-wb-focus="${focus}"]`)?.focus({ preventScroll: true });
       updateSelection();
-    el.prepend(button('상세 접기', closeDetail, { class: 'wb-btn wb-detail-close' })); positionDetail();
+    const close = button('상세 접기', closeDetail, { class: 'wb-btn wb-detail-close' });
+    const heading = el.querySelector('.wb-proof-heading h3');
+    if (heading) heading.after(close); else el.prepend(close);
+    positionDetail(); drawWires();
   }
 
   function renderRunBar() {
     const el = root.querySelector('.wb-run-bar'); if (!el || !active) return;
     el.hidden = false;
-    el.replaceChildren(...children([h('div', {}, h('strong', { text: `${runLabel(active)} · 실행 당시 흐름` }), h('small', { text: active.created_at })),
+    el.replaceChildren(...children([h('div', {}, h('strong', { text: runLabel(active) }), h('small', { text: new Date(active.created_at).toLocaleString('ko-KR') })),
       h('details', {}, h('summary', { text: '허용 범위·호출 집계' }),
         h('p', { text: active.error || `${active.snapshot.uses_models ? '모델 사용 · ' : '고정 처리 · '}${active.snapshot.project_title} · ${active.snapshot.allowed_paths.join(', ') || '파일 변경 없음'}` }),
         active.usage ? h('p', { class: 'wb-call-count', text: `실행 집계: 현재 ${active.usage.current}회 · 이전 ${active.usage.previous}회 · 전체 ${active.usage.total}회 / 최초 계획 ${active.usage.planned_initial}회` }) : null),

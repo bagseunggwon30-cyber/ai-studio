@@ -59,7 +59,7 @@ async (page) => {
   await page.locator('[data-node="visual-review"]').click();
   if (await page.locator('.wb-run-history').evaluate(e=>e.open)) await page.locator('.wb-run-history > summary').click();
   await page.evaluate(()=>{document.querySelector('#workbench-screen').scrollTop=0;document.querySelector('.wb-graph-scroll').scrollLeft=0;});
-  await page.screenshot({path:'output/playwright/workbench-visual-interactions.png',fullPage:true,animations:'disabled'});
+  await page.screenshot({path:'output/playwright/workbench-visual-polish-interactions.png',fullPage:true,animations:'disabled'});
   assert(errors.length===0,'브라우저 런타임 오류 없음');
   return {status:'pass',count:checks.length,checks,errors,real_model_calls:0,production_writes:0};
 }

@@ -21,6 +21,6 @@ async (page) => {
     missing:canvas.querySelectorAll('.wb-proof-items > .missing').length,
   }));
   if (!geometry.headerVisible||!geometry.contentFits||!geometry.historyClosed||!geometry.advancedClosed||!geometry.approvalLocked||geometry.verified!==2||geometry.missing!==1) throw new Error(JSON.stringify(geometry));
-  await page.screenshot({path:'output/playwright/workbench-visual-representative.png',fullPage:true,animations:'disabled'});
+  await page.screenshot({path:'output/playwright/workbench-visual-polished.png',fullPage:true,animations:'disabled'});
   return {status:'representative_ready_for_visual_review',geometry,real_model_calls:0,production_writes:0};
 }

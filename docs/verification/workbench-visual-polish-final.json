@@ -1,0 +1,80 @@
+{
+  "at": "2026-10-05T00:29:01+09:00",
+  "branch": "codex/workbench-visual-20261004",
+  "before_commit": "77668e76ea1ebfaa056f5f25d58d3633da3e3113",
+  "feature_base": "4f57a0ea8869be072f7098aa07a497bdd6bf2a4b",
+  "main_unchanged": "6b8bfa15dde1f186a10a5b27e846c21bf9748b4a",
+  "baseline": {
+    "head": "6b8bfa15dde1f186a10a5b27e846c21bf9748b4a",
+    "branch": "codex/workbench-evidence-20261004",
+    "status": "?? .playwright-cli/\n?? output/"
+  },
+  "protected": {
+    "manifest_files": 1939,
+    "changed": [],
+    "removed": [],
+    "preexisting_not_in_original_manifest": [
+      "data/studio.lock"
+    ],
+    "preexisting_lock_mtime_before_baseline": true
+  },
+  "source": {
+    "ui/workbench.js": "c52842a6604137145b17b54da2f6b2d68460d53db95380a097a33426a348a725",
+    "ui/workbench.css": "4b39138b84860142f404c5101a01dcdd367cfca690f968918023e538edf0c2ab",
+    "studio/engine.py": "a4cc42232bfbbedcf77a8ac8a985cbf695ccd418d3fc314bdf9dfef610ec2366",
+    "studio/workbench.py": "68995f7eccb106f1e5042c8bbd85c5de33345ff9df0719f5147649045e14d3b0",
+    "studio/evidence.py": "4ad4f27ec1967e4a3071de952d26ecf29d634831e68ffadbc26f1c8aae7e2ff7",
+    "studio/server.py": "884d2a5330514f78b4e79360d8a632ad6c0ebadc0d87d5282b16b2e4e1813ef2"
+  },
+  "reference": {
+    "path": "C:\\Users\\bark\\Downloads\\f4e2dd7a-9962-4a0b-9aed-5c502920c1de.png",
+    "sha256": "15851a8a5c805c984a2ffaad9407d1be9a80932c84da39e5bb3fc26681ec717b"
+  },
+  "screenshot": {
+    "path": "S:\\AI\\ai studio\\output\\playwright\\workbench-visual-polished.png",
+    "sha256": "6ab227ba86d38c6ceb2d3fe3a6fe67e84c635d21ca15dd44b6a46a3c6b8af4b0",
+    "dimensions": [
+      1585,
+      1080
+    ],
+    "library_id": "libfile_b444a084d53c8191a9c90365b2d5c64c",
+    "file_id": "file_00000000d57081f5b833423510d16a28",
+    "version": 0,
+    "upload": "success",
+    "local_metadata": "official helper cannot set xattrs on Windows"
+  },
+  "checks": {
+    "full_regression": {
+      "status": "pass",
+      "total": 358,
+      "passed": 357,
+      "failures": [],
+      "errors": [],
+      "skipped": [
+        {
+          "test": "tests.test_lifecycle.ChildProcessTests.test_timeout_isolates_and_reaps_child",
+          "reason": "POSIX process-group regression"
+        }
+      ],
+      "exact_discovery_match": true,
+      "discovery_total": 358
+    },
+    "full_regression_exit": 0,
+    "visual_browser": 32,
+    "interaction_browser": 22,
+    "same_fixture_preview": 12,
+    "doctor_exit": 0,
+    "doctor_warning": "Claude unavailable",
+    "javascript_syntax": "pass",
+    "git_diff_check": "pass"
+  },
+  "real_model_calls": 0,
+  "production_submissions": 0,
+  "production_cancellations": 0,
+  "production_writes": 0,
+  "production_restarts": 0,
+  "main_merge": false,
+  "remote_push": false,
+  "deploy": false,
+  "owned_preview_and_browser_closed": true
+}

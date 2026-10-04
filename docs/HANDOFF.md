@@ -1,5 +1,14 @@
 # 인수인계 — 다른 세션·다른 계정에서 이어서 작업하기
 
+## 2026-10-04 대표 화면 마감 교정 · 최종 회귀 완료
+
+- `codex/workbench-visual-20261004`, 기능 기준 `4f57a0e`, 대표 화면 기준 `77668e7`. main `6b8bfa1`은 그대로이며 main 병합/push/배포/운영 서버 재시작 없음.
+- 부모 검토의 겹침·잘림·작은 글씨·상태 의미·연결선·폴더 깊이 교정을 완료했다. 상세 접기는 근거 제목 옆에 놓고 실제 상세 높이에 맞춰 장부를 내린다. 검토/승인 문장을 끝까지 표시하며 경로·해시·내부 설명은 접힌 상세에 보존한다. 실제 QA 통과와 완료 근거 누락에 따른 승인 차단을 구분한다. 기존 엔진/승인 규칙은 변경하지 않았다.
+- 새 캡처 Library `libfile_b444a084d53c8191a9c90365b2d5c64c`, 버전 0. `output/playwright/workbench-visual-polished.png`, 1585×1080, SHA-256 `6ab227ba86d38c6ceb2d3fe3a6fe67e84c635d21ca15dd44b6a46a3c6b8af4b0`. 이전 대표 캡처는 덮어쓰지 않았다.
+- 동일 기존 FakeRuntime 자료 UI 12개, 최종 시각/반응형/키보드 검사 32개, 기존 조작/실패 복구 22개 통과. 1585/1280/390px 겹침/잘림 없음, 작업면 가로 스크롤로 마지막 카드 접근, 브라우저 pageerror 0. 격리 미리보기와 브라우저 세션은 종료했다.
+- 최종 전체 회귀는 정상 발견 358개와 실행 ID가 정확히 일치하며 357 통과·POSIX 대상 밖 생략 1·실패/오류 0·종료 0. 첫 단일 프로세스 검사는 202개 종료 기록 뒤 결과 없이 종료되어, 같은 전체 목록을 33개 모듈별 독립 프로세스로 다시 실행했다. 테스트/수용 기준을 바꾸지 않았다. JS/diff/doctor 통과, 기존 Claude 사용 불가 주의만 남았다.
+- 실제 모델 호출/운영 제출·취소·쓰기·재시작 0, 보호 파일 1939개 해시 변경 0. [마감 보고](verification/workbench-visual-polish.md), [전체 회귀](verification/workbench-visual-polish-regression.json), [최종 보존 기록](verification/workbench-visual-polish-final.json) 참조. Library 업로드 성공; Windows 공식 도구의 로컬 메타데이터 저장 미지원은 JSON의 정확한 ID/해시로 확인한다. Grok 제한 실행 확장/사무실·펫 복원은 수행하지 않았다.
+
 ## 2026-10-04 대표 화면 시각 교정 · 검토 대기
 
 - codex/workbench-visual-20261004, 기준 4f57a0e. main 병합/push/배포/운영 재시작 없음.
