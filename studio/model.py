@@ -96,6 +96,12 @@ class Task:
         names = {f.name for f in fields(cls)}
         return cls(**{k: v for k, v in data.items() if k in names})
 
+    @property
+    def needs_plan_input(self) -> bool:
+        p = self.proposal
+        return bool(self.kind == "plan" and self.status == "blocked" and isinstance(p, dict)
+                    and not p.get("tasks") and p.get("questions") and not p.get("problems"))
+
     def summary(self) -> dict[str, Any]:
         """보드에 보여줄 요약."""
         qa = self.qa or {}
@@ -107,7 +113,8 @@ class Task:
             "role": self.role,
             "project": self.project,
             "status": self.status,
-            "status_label": STATUS_LABELS.get(self.status, self.status),
+            "status_label": "답변 필요" if self.needs_plan_input else STATUS_LABELS.get(self.status, self.status),
+            "needs_plan_input": self.needs_plan_input,
             "attempts": self.attempts,
             "depends_on": self.depends_on,
             "parent": self.parent,

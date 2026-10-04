@@ -15,17 +15,20 @@ import json
 import os
 import re
 import shutil
+import ssl
 import subprocess
 import tempfile
 import threading
 import time
 from dataclasses import asdict, dataclass, field
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable
 
 from .util import (
     IS_WINDOWS,
     atomic_write_json,
+    atomic_write_text,
     clean_child_env,
     kill_tree,
     no_window_flags,
@@ -73,6 +76,7 @@ class RunResult:
 
     side_effects: str = "unknown"  # Only an adapter may assert that no effects were dispatched.
     provider_model: str | None = None  # Only provider response metadata; never the requested model
+    provider_model_source: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -83,6 +87,7 @@ ERROR_LABELS = {
     "quota": "구독 사용 한도 도달",
     "model": "모델 사용 불가",
     "timeout": "시간 초과",
+    "certificate": "보안 인증서 연결 오류",
     "stopped": "중지됨",
     "not_found": "CLI를 찾을 수 없음",
     "schema": "출력 형식 오류",
@@ -92,11 +97,32 @@ ERROR_LABELS = {
 }
 
 
+def response_model_metadata(events: list[dict]) -> tuple[str | None, str | None]:
+    """Read response metadata, never local session settings or assistant text."""
+    for event in reversed(events):
+        if not isinstance(event, dict):
+            continue
+        kind = event.get("type")
+        if kind not in ("response.created", "response.completed"):
+            continue
+        response = event.get("response")
+        candidates = [(response.get("model"), f"{kind}.response.model")] if isinstance(response, dict) else []
+        candidates.append((event.get("model"), f"{kind}.model"))
+        for value, source in candidates:
+            if isinstance(value, str) and 0 < len(value.strip()) <= 200 and not any(ord(c) < 32 for c in value):
+                return value.strip(), source
+    return None, None
+
+
 def classify_error(text: str) -> str | None:
     low = text.lower()
+    if any(s in low for s in ("invalid peer certificate", "unknownissuer", "certificate verify failed",
+                             "certificate_verify_failed", "unable to get local issuer certificate")):
+        return "certificate"
     if any(s in low for s in ("usage limit", "rate limit", "rate_limit", "too many requests", "quota", "limit reached", "hit your limit", " 429")):
         return "quota"
-    if any(s in low for s in ("not logged in", "please log in", "unauthorized", " 401", "authentication", "login required", "token expired", "sign in again")):
+    if (any(s in low for s in ("not logged in", "please log in", " 401", "login required", "token expired", "sign in again"))
+            or re.search(r"\b(?:unauthorized|authentication)\b", low)):
         return "login"
     if "model" in low and any(s in low for s in ("not supported", "not found", "does not exist", "unknown model", "not available")):
         return "model"
@@ -135,6 +161,7 @@ def run_process(
     timeout_s: int,
     should_stop: Callable[[], bool],
     env: dict[str, str],
+    failure_probe: Callable[[], str | None] | None = None,
 ) -> tuple[int | None, str | None, float]:
     """프로세스를 실행하고 끝나기를 기다린다. 중지·시간 초과면 자식까지 모두 종료한다."""
     start = time.monotonic()
@@ -162,8 +189,10 @@ def run_process(
         while proc.poll() is None:
             if should_stop():
                 reason = "stopped"
-            elif time.monotonic() - start > timeout_s:
-                reason = "timeout"
+            else:
+                reason = failure_probe() if failure_probe else None
+                if not reason and time.monotonic() - start > timeout_s:
+                    reason = "timeout"
             if reason:
                 kill_tree(proc.pid)
                 try:
@@ -192,6 +221,63 @@ def _probe_version(cmd: list[str]) -> str:
 
 
 # ---------------------------------------------------------------- Codex
+
+class CertificateSetupError(ValueError):
+    pass
+
+
+@contextmanager
+def codex_child_env(extra: dict[str, str] | None = None):
+    """Use Windows' existing trust store without changing system certificates or TLS verification."""
+    env = clean_child_env(extra)
+    if not IS_WINDOWS or env.get("CODEX_CA_CERTIFICATE") or env.get("SSL_CERT_FILE"):
+        yield env
+        return
+    try:
+        certs = ssl.create_default_context().get_ca_certs(binary_form=True)
+        if not certs:
+            raise CertificateSetupError("Windows 신뢰 인증서를 읽지 못했습니다. 인증서 설정을 확인하세요.")
+        bundle = "".join(ssl.DER_cert_to_PEM_cert(cert) for cert in certs)
+    except OSError as exc:
+        raise CertificateSetupError("Windows 신뢰 인증서를 읽지 못했습니다. 인증서 설정을 확인하세요.") from exc
+    with tempfile.TemporaryDirectory(prefix="ais-codex-ca-") as folder:
+        path = Path(folder) / "windows-roots.pem"
+        atomic_write_text(path, bundle)
+        env["CODEX_CA_CERTIFICATE"] = str(path)
+        yield env
+
+
+def codex_certificate_failure(events_path: Path) -> str | None:
+    """Only CLI error events can stop a run; prompts and tool output are not error signals."""
+    try:
+        with events_path.open("rb") as stream:
+            stream.seek(0, os.SEEK_END)
+            stream.seek(max(0, stream.tell() - 16384))
+            lines = stream.read().splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        try:
+            event = json.loads(line)
+        except (ValueError, UnicodeDecodeError):
+            continue
+        if not isinstance(event, dict):
+            continue
+        message = ""
+        if event.get("type") == "error":
+            message = event.get("message", "")
+        elif event.get("type") == "turn.failed":
+            detail = event.get("error")
+            if isinstance(detail, dict):
+                message = detail.get("message", "")
+        elif event.get("type") == "item.completed":
+            item = event.get("item")
+            if isinstance(item, dict) and item.get("type") == "error":
+                message = item.get("message", "")
+        if isinstance(message, str) and classify_error(message) == "certificate":
+            return "certificate"
+    return None
+
 
 _codex_cache: dict[str, Any] = {}
 
@@ -324,16 +410,22 @@ class CodexRuntime:
 
         events_path = spec.run_dir / "events.jsonl"
         stderr_path = spec.run_dir / "stderr.txt"
-        code, reason, duration = run_process(
-            args,
-            cwd=spec.cwd,
-            stdin_text=spec.prompt,
-            stdout_path=events_path,
-            stderr_path=stderr_path,
-            timeout_s=spec.timeout_s,
-            should_stop=should_stop,
-            env=clean_child_env(mcp_env),
-        )
+        try:
+            with codex_child_env(mcp_env) as env:
+                code, reason, duration = run_process(
+                    args,
+                    cwd=spec.cwd,
+                    stdin_text=spec.prompt,
+                    stdout_path=events_path,
+                    stderr_path=stderr_path,
+                    timeout_s=spec.timeout_s,
+                    should_stop=should_stop,
+                    env=env,
+                    failure_probe=lambda: codex_certificate_failure(events_path),
+                )
+        except CertificateSetupError as exc:
+            return RunResult(False, self.name, spec.model, None, 0.0,
+                             error_kind="certificate", error=str(exc), side_effects="none")
         events = read_jsonl(events_path)
         steps, messages, errors, warnings, usage = summarize_codex_events(events)
         final = last_path.read_text(encoding="utf-8", errors="replace").strip() if last_path.exists() else ""
@@ -351,7 +443,7 @@ class CodexRuntime:
             warnings=warnings[:10],
             host_skills=host_skills_read(events),
         )
-        result.provider_model = next((e.get("model") for e in events if e.get("type") in ("session.created", "session_meta", "response.completed") and isinstance(e.get("model"),str)),None)
+        result.provider_model, result.provider_model_source = response_model_metadata(events)
         if reason:
             result.ok, result.error_kind = False, reason
             result.error = ERROR_LABELS[reason]
@@ -723,6 +815,7 @@ class GrokRuntime:
             result.error = (final or read_text_tail(stderr_path, 1000) or "Grok 실행 실패").strip()[:1000]
             return result
         result.provider_model = obj.get("model") if isinstance(obj.get("model"), str) else None
+        result.provider_model_source = "grok_result.model" if result.provider_model else None
         result.images = self.session_images(str(obj.get("sessionId", "")))
         if not result.images:
             result.ok, result.error_kind, result.error = False, "error", "그림이 만들어지지 않았습니다."

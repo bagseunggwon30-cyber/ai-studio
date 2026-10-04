@@ -373,7 +373,7 @@ def diary(cfg: Config, store: Store, tasks: list[Task], n: int) -> dict[str, Any
         "day": n,
         "date": on,
         "today": on == today_str(),
-        "events": lines[-8:],
+        "events": lines,
         "summary": {"done": done, "approvals": approvals, "runs": len(runs), "firstPass": [first, len(checked)], "tomorrow": tomorrow},
     }
 

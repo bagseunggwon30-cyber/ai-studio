@@ -1,0 +1,11 @@
+{
+  "status": "pass",
+  "environment": "production, read-only popup inspection of an existing cancelled plan",
+  "inside_stage": true,
+  "content_fits": true,
+  "close_visible": true,
+  "cancelled_status_preserved": true,
+  "writes": 0,
+  "new_models": 0,
+  "new_tasks": 0
+}

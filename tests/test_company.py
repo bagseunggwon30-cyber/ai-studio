@@ -156,6 +156,23 @@ class CompanyInfo(unittest.TestCase):
         self.assertIn("퀘스트 2개 붙였어요", texts)
         self.assertNotIn("퀘스트 0개 붙였어요", texts)
 
+    def test_diary_keeps_every_record_and_summary_for_the_day(self):
+        from studio.util import append_jsonl
+        t = self.e.create_task({"project": "demo", "kind": "research", "title": "긴 업무 기록", "brief": "b", "allowed_paths": ["docs/**"]})
+        today = company.day_date(self.store, company.day_number(self.store))
+        for i in range(12):
+            append_jsonl(self.store.events_path, {"at": f"{today}T10:{i:02}:00", "type": "task.blocked", "task": t.id})
+        append_jsonl(self.store.events_path, {"at": f"{today}T11:00:00", "type": "task.status", "task": t.id,
+                                              "data": {"status": "done", "by": "ceo"}})
+        append_jsonl(self.store.events_path, {"at": "2000-01-01T10:00:00", "type": "task.blocked", "task": t.id})
+        diary = company.diary(self.cfg, self.store, self.store.list(), company.day_number(self.store))
+        self.assertEqual(len(diary["events"]), 13)
+        self.assertEqual(diary["events"][0]["time"], "10:00")
+        self.assertEqual(diary["events"][-1]["time"], "11:00")
+        self.assertEqual(diary["events"][-1]["text"], "긴 업무 기록 완성")
+        self.assertEqual(diary["summary"]["done"], 1)
+        self.assertEqual(diary["summary"]["approvals"], 1)
+
     def test_alerts_diary_stats_scene(self):
         t = self.build()
         alerts = company.alerts(self.cfg, self.store, self.store.list())

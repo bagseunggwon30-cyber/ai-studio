@@ -23,6 +23,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from . import __version__, ai, company, evidence, floors, gitops, login, mcp, qr, remote, schedules, skills, wardrobe
 from .supervisor import Supervisor, AccessError
 from .config import Config
+from .checkpoints import digest
 from .doctor import run_doctor
 from .engine import Engine, EngineError
 from .model import KIND_LABELS, STATUS_LABELS, TransitionError
@@ -271,6 +272,11 @@ class StudioHandler(BaseHTTPRequestHandler):
                 return self._json(self._diary(query.get("day")))
             if path.startswith("/api/skills/"):
                 return self._json(self._skill_detail(path.split("/")[3]))
+            if path == "/api/projects/defaults":
+                cfg = self.server.cfg
+                branch = gitops.current_branch(cfg.root) if gitops.is_repo(cfg.root) else "main"
+                return self._json({"repo": str(cfg.root), "main_branch": branch,
+                                   "allowed_paths": ["ui/**", "docs/design/**", "tests/**"]})
             if path.startswith("/api/tasks/"):
                 return self._json(self._task_detail(path.split("/")[3]))
             if path.startswith("/api/runs/"):
@@ -402,6 +408,9 @@ class StudioHandler(BaseHTTPRequestHandler):
             if path == "/api/tasks":
                 task = engine.create_task(body)
                 return self._json({"ok": True, "task": task.id})
+            if path == "/api/projects":
+                project = engine.register_project(body)
+                return self._json({"ok": True, "project": project.key})
             if path.startswith("/api/tasks/"):
                 parts = path.split("/")
                 if len(parts) != 5:
@@ -426,6 +435,9 @@ class StudioHandler(BaseHTTPRequestHandler):
                     engine.archive(task_id, bool(body.get("archived", True)))
                 elif action == "assign":
                     engine.assign(task_id, str(body.get("role", "")))
+                elif action == "retarget":
+                    task = engine.retarget(task_id, body)
+                    return self._json({"ok": True, "task": task.id})
                 elif action == "merge-skill":  # 새 스킬 제안을 비슷한 스킬에 합쳐 고쳐 오게
                     engine.merge_skill(task_id, str(body.get("into", "")))
                 else:
@@ -792,7 +804,7 @@ class StudioHandler(BaseHTTPRequestHandler):
             item["waiting"] = engine.waiting_reason(t, tasks)
             item["progress"] = engine.journal.progress(t.id)
             history = store.runs(t.id)
-            item["execution"] = {k:history[-1].get(k) for k in ("requested_provider","requested_model","actual_runtime","runtime_version","provider_model","model_identity","fallback","fallback_reason")} if history else None
+            item["execution"] = {k:history[-1].get(k) for k in ("requested_provider","requested_model","actual_runtime","runtime_version","provider_model","provider_model_source","model_identity","model_identity_reason","ok","error_kind","fallback","fallback_reason")} if history else None
             item["evidence"] = evidence.assess(cfg,store,t) if t.kind in ("build","research") and t.qa else None
             item["usage"] = usage.get(t.id) or dict(EMPTY_USAGE)  # 작업별 사용량·배운 스킬 (작업 카드·진행판)
             summaries.append(item)
@@ -827,6 +839,8 @@ class StudioHandler(BaseHTTPRequestHandler):
                 "title": p.title,
                 "kind": p.kind,
                 "description": p.description,
+                "repo": str(p.repo),
+                "main_branch": p.main_branch,
                 "has_qa": bool(p.qa.get("commands")),
                 "expected_total": p.qa.get("expected_total"),
                 "suite_hash": (suite_hash(cfg, p) or "")[:8],
@@ -885,7 +899,9 @@ class StudioHandler(BaseHTTPRequestHandler):
         if not task:
             raise EngineError("작업을 찾을 수 없습니다.")
         data = task.to_dict()
-        data["status_label"] = STATUS_LABELS.get(task.status, task.status)
+        data["retarget_revision"] = digest(data)
+        data["status_label"] = task.summary()["status_label"]
+        data["needs_plan_input"] = task.needs_plan_input
         data["waiting"] = self.server.engine.waiting_reason(task, store.list())
         data["progress"] = self.server.engine.journal.progress(task_id)
         data["evidence"] = evidence.assess(self.server.cfg,store,task) if task.kind in ("build","research") else None

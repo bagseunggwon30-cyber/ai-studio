@@ -150,7 +150,7 @@ const Data = (() => {
     // 상세 캐시는 작업이 바뀌면 버린다
     for (const t of view.tasks) {
       const d = caches.detail.get(t.id);
-      if (d && d.updated_at !== t.updated_at) caches.detail.delete(t.id);
+      if (d && detailStale(d, t)) caches.detail.delete(t.id);
     }
     caches.diary.delete(view.day);
     // 새 알림 → 'event'
@@ -266,7 +266,16 @@ const Data = (() => {
     emit('change', view);
   }
 
-  function detail(id) { return lazy('detail', id, `/api/tasks/${encodeURIComponent(id)}`); }
+  // 같은 초에 기획 대기→완료가 바뀌거나 오래 걸린 조회가 뒤늦게 도착해도 이전 결과를 쓰지 않는다.
+  function detailStale(d, t) {
+    return d.updated_at !== t.updated_at || (d.status && d.status !== t.status)
+      || (Array.isArray(d.runs) && t.usage?.runs != null && d.runs.length !== t.usage.runs);
+  }
+  function detail(id) {
+    const cached = caches.detail.get(id), t = task(id);
+    if (cached && !cached.error && t && detailStale(cached, t)) caches.detail.delete(id);
+    return lazy('detail', id, `/api/tasks/${encodeURIComponent(id)}`);
+  }
   function report(id) {
     const t = task(id);
     return lazy('report', `${id}|${t ? t.updated_at : ''}`, `/api/tasks/${encodeURIComponent(id)}/report`);
@@ -348,7 +357,11 @@ const Data = (() => {
     try { localStorage.setItem('studio.project', key); } catch (_) { /* 저장 못 해도 괜찮다 */ }
     emit('change', view);
   }
+  function projectDefaults() { return request('GET', '/api/projects/defaults'); }
+  function registerProject(data) { return post('/api/projects', data); }
+  function retarget(id, data) { return post(`/api/tasks/${encodeURIComponent(id)}/retarget`, data); }
   function currentProject() { return view.projects.find((p) => p.key === project) || null; }
+  function statusLabel(t) { return t.needs_plan_input ? '답변 필요' : (STATUS_LABELS[t.status] || t.status); }
 
   // 작업이 어느 프로젝트 것인지 (프로젝트가 둘 이상일 때만 이름을 준다. 하나면 굳이 보이지 않는다)
   function projectTitle(key) {
@@ -427,10 +440,10 @@ const Data = (() => {
     get TEAM() { return team; },
     get BY_ROLE() { return byRole; },
     get BY_ID() { return byId; },
-    STATUS_LABELS, KIND_LABELS,
+    STATUS_LABELS, KIND_LABELS, statusLabel,
     start, refresh, on, get, task, owner, columns, inbox, sheet, unreadAlerts, markAlertsRead,
     detail, report, diff, diary, loadDiary, skill, skillGrades, planCards, editCard, retry, projectTitle,
-    act, directive, setProject, currentProject, setGoal, setStopped, saveLook, addFloor, addTrophy, removeTrophy, play,
+    act, directive, setProject, currentProject, projectDefaults, registerProject, retarget, setGoal, setStopped, saveLook, addFloor, addTrophy, removeTrophy, play,
     teachSkill, studySkill, learnSkill, setSkillScope, removeSkill, setSelfLearning, mcpAdd, mcpAction, mcpOrder, addSchedule, scheduleAction,
     remoteInfo, remoteCheck, remotePair, remoteLan, remoteTailscale, remoteForget, loginOpen, loginDone, aiOptions, setAI, resetAI, orderOutfit, removeLook, restoreLook, lookPreview, hire, dismiss, assign,
     isOnline: () => online,

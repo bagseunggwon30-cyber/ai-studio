@@ -1,0 +1,116 @@
+{
+  "status": "verified",
+  "model_generation_calls": 2,
+  "client_model_turns": 0,
+  "task_id": "T0015",
+  "submissions": 1,
+  "registered_config_used": true,
+  "tool_count": 6,
+  "requested_reviewer": "grok-4.7",
+  "persistent_configuration_changed": false,
+  "approval_calls": 0,
+  "task_status": "awaiting_approval",
+  "attempts": 1,
+  "run_count": 2,
+  "existing_tasks_unchanged": true,
+  "qa_verdict": "pass",
+  "review_verdict": "approve",
+  "result": {
+    "task": {
+      "id": "T0015",
+      "title": "업무일지·회의실·완성작 개선 검토",
+      "kind": "research",
+      "role": "analyst",
+      "project": "studio-docs",
+      "status": "awaiting_approval",
+      "attempts": 1,
+      "qa": {
+        "verdict": "pass",
+        "passed": 6,
+        "total": 6
+      },
+      "review": {
+        "verdict": "approve",
+        "runtime": "grok_text",
+        "actual_runtime": "grok_text",
+        "cross_model": true
+      }
+    },
+    "approval_required": true,
+    "implemented": true,
+    "validated": true,
+    "approved": false,
+    "artifacts": [
+      "reports/connection-check/soyun-live-improvements.md"
+    ],
+    "runs": [
+      {
+        "run_id": "R20261003-221023-c26dee17-T0015-build1",
+        "stage": "build1",
+        "requested_provider": "codex",
+        "requested_model": "gpt-6-luna",
+        "actual_runtime": "codex",
+        "runtime_version": "codex-cli 0.160.0",
+        "provider_model": null,
+        "model_identity": "확인 불가",
+        "usage": {
+          "input_tokens": 469669,
+          "cached_input_tokens": 387328,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 7629,
+          "reasoning_output_tokens": 1664
+        },
+        "duration_s": 197.6,
+        "fallback": false,
+        "fallback_reason": null,
+        "error_kind": null
+      },
+      {
+        "run_id": "R20261003-221343-8abc5181-T0015-review",
+        "stage": "review",
+        "requested_provider": "grok",
+        "requested_model": "grok-4.7",
+        "actual_runtime": "grok_text",
+        "runtime_version": "grok 1.0.41 (4220f3b224a6) [stable]",
+        "provider_model": null,
+        "model_identity": "확인 불가",
+        "usage": {
+          "input_tokens": 9251,
+          "output_tokens": 6374,
+          "cache_read_input_tokens": 1664,
+          "cache_creation_input_tokens": 0
+        },
+        "duration_s": 101.7,
+        "fallback": false,
+        "fallback_reason": null,
+        "error_kind": null
+      }
+    ]
+  },
+  "event_count": 10,
+  "authenticated_result_read": true,
+  "artifact_retrieved": true,
+  "artifact_sha256": "3a2c67487ef95f45d771a3ba8d72d01ed7c4496e8388ffff4c3535cb994f2651",
+  "grok_isolation": {
+    "version": "grok 1.0.41 (4220f3b224a6) [stable]",
+    "active_surfaces": {
+      "mcpServers": 0,
+      "hooks": 0,
+      "plugins": 0,
+      "lspServers": 0,
+      "projectInstructions": 0,
+      "skills": 0
+    },
+    "profile_sha256": "af6ea4a3d4d85ae31f94c67ec66f3de0a57bd3a08917bacdadf8124a25f0ac2e",
+    "mcp_lockdown": true,
+    "api_key_auth_disabled": true,
+    "permission": "deny all; dontAsk",
+    "os_filesystem_sandbox": false,
+    "model_input": "supplied text only",
+    "credential_values_read": false
+  },
+  "reported_generation_calls": 2,
+  "report_artifact_only": true,
+  "nested_report_trusted_suite_limitation": "QA 6/6 covers existing root reports; new nested report additionally passed file evidence and Grok semantic review.",
+  "existing_task_count": 14
+}

@@ -1,0 +1,48 @@
+{
+  "status": "pass",
+  "checks": [
+    "회의실 9개 후보 모두 표시",
+    "질문 2개·위험 1개 바로 표시",
+    "키보드로 마지막 후보 선택 해제",
+    "선택 갱신 후 포커스 유지",
+    "선택 수 동기화",
+    "동적 제목 HTML을 텍스트로 표시",
+    "목록 갱신 후 스크롤 유지",
+    "선택된 8개만 기존 결재 요청으로 전달",
+    "재기획 요청에 입력 의견 전달",
+    "업무일지 12개 전체 기록 표시",
+    "긴 한국어·공백 없는 문자열 줄바꿈",
+    "기록 목록 키보드 스크롤",
+    "날짜 이동과 빈 기록 상태",
+    "Esc 후 호출 버튼으로 포커스 복귀",
+    "완성작 10개 전체 표시",
+    "일곱 번째 작품 보고서 열기",
+    "마지막 게임의 기존 실행 요청 전달",
+    "완성작 빈 상태 안내",
+    "축소한 데스크톱 화면에서 닫기 접근",
+    "브라우저 스크립트 오류 없음"
+  ],
+  "count": 20,
+  "viewport": [
+    1536,
+    1024
+  ],
+  "secondary_viewport": [
+    1024,
+    768
+  ],
+  "mode": "real Edge browser, disposable company, deterministic API fixtures",
+  "production_writes": 0,
+  "model_calls": 0,
+  "actual_godot_launch": false,
+  "screenshots": [
+    "output/playwright/soyun-meeting.png",
+    "output/playwright/soyun-diary.png",
+    "output/playwright/soyun-trophies.png",
+    "output/playwright/soyun-diary-small.png"
+  ],
+  "limitations": [
+    "API fixtures verify frontend request contracts; real production approval/merge was not performed.",
+    "Actual Godot game launch and phone-device flow were not run."
+  ]
+}

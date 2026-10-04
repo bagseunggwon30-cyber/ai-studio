@@ -1,0 +1,61 @@
+{
+  "status": "pass",
+  "date": "2026-10-04",
+  "git_head": "951ff11db14fdcb622dac40bc47bfc64ae8801e8",
+  "working_tree_modified": true,
+  "source_sha256": {
+    "studio/model.py": "77b3477f8287a1bdc66d77ea963f7ee9a83c72c851abd63196de35c530b3a7d4",
+    "studio/engine.py": "a5412720b32d3eb468aa2219eef51c24532169e0f1365af1c775c40fa8f93fb5",
+    "studio/server.py": "58414348e73718e25595e7b3e5f539bdd801cb7d16d9b0717be26a2d309dbbff",
+    "ui/popups.js": "d343c5417905186031967cc6160c9d50066e400982212df51e263db8b78db60e",
+    "ui/popups.css": "c01d7edf689d3d6ff443a57ad6711008a6814550cd50e2ac27171286f1883952",
+    "ui/data.js": "78d1e4152a79068da2c152a934445c802352e5c9b59e56fe96fa19623b47c76a",
+    "ui/app.js": "a169a1fb4a4124460a3451185d9612e044b10895be00ba76ce72405803f9d148",
+    "ui/board.js": "397ea60f877fae693bbb1cfd503c22989a5dca37f9a0046778be23b367902e92",
+    "tests/test_engine.py": "2861f7febefd9598b90f35292686ee412a5dfadd9e9b0472653b529995da4f15",
+    "tools/dev/task_popup_fixture.py": "b6408943ccf9466a91aa79feb60a95357ced2e622dfd3ba27d6b30e20ba29b18",
+    "tools/dev/task_popup_smoke.js": "faa57757f9ae7e8ecf8919fe29c0117af23541d949910dedc570ac6c2a58d079"
+  },
+  "python": {
+    "scope": "server suite and seven planning/build integration tests",
+    "total": 23,
+    "passed": 23,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "duration_s": 45.551,
+    "command": "python -X utf8 -B -m unittest tests.test_server tests.test_engine.EngineFlow.test_plan_question_reply_starts_fresh_readonly_plan tests.test_engine.EngineFlow.test_plan_questions_require_answer_instead_of_plain_retry tests.test_engine.EngineFlow.test_plan_reply_does_not_resume_errors_or_invalid_proposals tests.test_engine.EngineFlow.test_empty_plan_keeps_explanation_and_questions tests.test_engine.EngineFlow.test_empty_plan_always_has_a_reason tests.test_engine.EngineFlow.test_full_flow tests.test_engine.EngineFlow.test_request_changes_reruns"
+  },
+  "progress_board": {
+    "total": 12,
+    "passed": 12
+  },
+  "javascript_syntax": {
+    "ui_files": 10,
+    "smoke_files": 1,
+    "pass": true
+  },
+  "browser": {
+    "report": "task-popup-browser.json",
+    "checks": 44,
+    "passed": 44,
+    "environment": "temporary company, real Edge UI/API, fake runtimes, one stale response simulated"
+  },
+  "production": {
+    "reports": [
+      "task-popup-live.json",
+      "task-popup-live-browser.json"
+    ],
+    "restarted_when_idle": true,
+    "authenticated_writes": 0,
+    "model_calls": 0,
+    "old_task_states_preserved": true
+  },
+  "not_executed": [
+    "full repository regression after this change",
+    "real Codex/Grok replanning"
+  ],
+  "main_merged": false,
+  "github_pushed": false,
+  "raw_logs_published": false
+}

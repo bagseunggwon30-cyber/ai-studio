@@ -40,6 +40,98 @@ class EngineFlow(unittest.TestCase):
         return self.store.get(task_id)
 
     # ---- 지시 → 기획 → 결재 → 구현 → 검증 → 리뷰 → 병합
+    def test_empty_plan_keeps_explanation_and_questions(self):
+        response = {"summary": "현재 프로젝트는 게임이며 AI Studio 화면 소스가 없습니다.", "tasks": [],
+                    "risks": ["다른 프로젝트를 수정할 수 있습니다."],
+                    "questions": ["수정할 프로젝트를 확인해 주세요."], "skills_used": []}
+        self.s.behavior = lambda spec, runtime=None: {"structured": response}
+        plan = self.e.submit_directive("업무일지 화면 수정", "demo")
+        self.e._run_plan(self.store.get(plan.id))
+        plan = self.store.get(plan.id)
+        self.assertEqual(plan.status, "blocked")
+        self.assertEqual(plan.report, response["summary"])
+        self.assertEqual(plan.proposal["questions"], response["questions"])
+        self.assertEqual(plan.proposal["risks"], response["risks"])
+        self.assertEqual(plan.proposal["tasks"], [])
+        self.assertIn(response["questions"][0], plan.blocked_reason)
+        self.assertTrue(plan.summary()["has_proposal"])
+        self.assertEqual(plan.children, [])
+        with self.assertRaises(EngineError):
+            self.e.approve(plan.id)
+
+    def test_plan_question_reply_starts_fresh_readonly_plan(self):
+        response = {"summary": "확인이 필요합니다.", "tasks": [], "risks": [],
+                    "questions": ["어느 화면을 고칠까요?"], "skills_used": []}
+        self.s.behavior = lambda spec, runtime=None: {"structured": response}
+        plan = self.e.submit_directive("화면 개선", "demo")
+        self.e._run_plan(self.store.get(plan.id))
+        plan = self.store.get(plan.id)
+        self.assertTrue(plan.needs_plan_input)
+        self.assertEqual(plan.summary()["status_label"], "답변 필요")
+        self.assertEqual(len(self.store.runs(plan.id)), 1)
+        answer = "현재 demo 프로젝트의 정답 화면을 고쳐 주세요."
+        self.e.request_changes(plan.id, answer)
+        queued = self.store.get(plan.id)
+        self.assertEqual(queued.status, "queued")
+        self.assertTrue(queued.run_requested)
+        self.assertFalse(queued.needs_plan_input)
+        self.assertEqual(queued.feedback[-1]["text"], answer)
+        self.assertEqual(self.e.journal.read(plan.id), {})
+        from tests.helpers import default_behavior
+        prompts = []
+        def clarified(spec, runtime=None):
+            prompts.append(spec.prompt)
+            return default_behavior(spec, runtime)
+        self.s.behavior = clarified
+        self.e._run_plan(queued)
+        planned = self.store.get(plan.id)
+        self.assertEqual(planned.status, "awaiting_approval")
+        self.assertEqual(len(self.store.runs(plan.id)), 2)
+        self.assertIn(answer, prompts[0])
+        self.assertTrue(planned.proposal["tasks"])
+        self.assertEqual(planned.children, [])
+
+    def test_plan_questions_require_answer_instead_of_plain_retry(self):
+        self.s.behavior = lambda spec, runtime=None: {"structured": {
+            "summary": "질문", "tasks": [], "risks": [], "questions": ["대상은?"], "skills_used": []}}
+        plan = self.e.submit_directive("확인", "demo")
+        self.e._run_plan(self.store.get(plan.id))
+        checkpoint = self.e.journal.read(plan.id)
+        with self.assertRaisesRegex(EngineError, "답변"):
+            self.e.retry(plan.id)
+        with self.assertRaises(EngineError):
+            self.e.request_changes(plan.id, "답변", by="supervisor:fixture")
+        self.assertEqual(self.store.get(plan.id).status, "blocked")
+        self.assertEqual(self.e.journal.read(plan.id), checkpoint)
+        self.assertEqual(len(self.store.runs(plan.id)), 1)
+        self.e.journal.write(plan.id, "external-write", status="unknown_outcome", effect="write")
+        with self.assertRaisesRegex(EngineError, "실행 여부 불확실"):
+            self.e.request_changes(plan.id, "답변")
+        self.assertEqual(self.store.get(plan.id).feedback, [])
+
+    def test_plan_reply_does_not_resume_errors_or_invalid_proposals(self):
+        plan = self.e.submit_directive("기획", "demo")
+        self.store.block(plan, "연결 실패")
+        with self.assertRaises(EngineError):
+            self.e.request_changes(plan.id, "답변")
+        plan = self.store.get(plan.id)
+        plan.proposal = {"tasks": [], "questions": ["대상은?"], "problems": ["출력 형식 오류"]}
+        self.store.save(plan)
+        self.assertFalse(plan.needs_plan_input)
+        with self.assertRaises(EngineError):
+            self.e.request_changes(plan.id, "답변")
+        self.assertEqual(self.store.get(plan.id).status, "blocked")
+
+    def test_empty_plan_always_has_a_reason(self):
+        response = {"summary": "", "tasks": [], "risks": [], "questions": [], "skills_used": []}
+        self.s.behavior = lambda spec, runtime=None: {"structured": response}
+        plan = self.e.submit_directive("기획", "demo")
+        self.e._run_plan(self.store.get(plan.id))
+        plan = self.store.get(plan.id)
+        self.assertIn("프로젝트를 확인", plan.blocked_reason)
+        self.assertFalse(plan.blocked_reason.endswith(": "))
+        self.assertIsNotNone(plan.proposal)
+
     def test_full_flow(self):
         plan = self.e.submit_directive("정답 파일을 만들어", "demo")
         self.e._run_plan(self.store.get(plan.id))

@@ -226,9 +226,11 @@ def run_text(runtime, spec, should_stop):
                        runtime.name, spec.model, code, round(duration, 1), final_message=text,
                        usage=known, side_effects="none", structured=parse_json_loose(text) if spec.output_schema else None)
     # Only explicit response metadata, never a requested model or modelUsage key.
-    result.provider_model = next((event["model"] for event in events
-                                  if event.get("type") in ("usage", "response_metadata")
-                                  and isinstance(event.get("model"), str)), None)
+    model_event = next((event for event in events
+                        if event.get("type") in ("usage", "response_metadata")
+                        and isinstance(event.get("model"), str)), None)
+    result.provider_model = model_event["model"] if model_event else None
+    result.provider_model_source = f"grok.{model_event['type']}.model" if model_event else None
     if reason: result.error_kind, result.error = reason, "Grok 텍스트 실행 중단"
     elif unsafe: result.error_kind, result.error = "policy", "예상하지 않은 도구가 노출되어 결과를 차단했습니다."
     elif malformed: result.error_kind, result.error = "schema", "Grok 출력 형식 오류"

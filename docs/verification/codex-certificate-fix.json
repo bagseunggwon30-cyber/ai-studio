@@ -1,0 +1,51 @@
+{
+  "schema": "studio.certificate-fix-verification/v1",
+  "requested_model": "gpt-6-astra",
+  "effort": "medium",
+  "runtime_version": "codex-cli 0.160.0",
+  "ok": true,
+  "error_kind": null,
+  "duration_s": 6.4,
+  "structured_response": {
+    "summary": "구독 연결 정상",
+    "tasks": [],
+    "risks": [],
+    "questions": [],
+    "skills_used": []
+  },
+  "api_key_used": false,
+  "tls_verification_disabled": false,
+  "company_task_created": false,
+  "source_sha256": {
+    "studio/runtimes.py": "336392d911805bad46104393e4cd4f5213420d8ea261675770635bd417a847d5",
+    "studio/engine.py": "6eeddc15680c03d9327502ea0d6b925f582f838f15f1f6b4eb64f176f3ab6ee0",
+    "tests/test_certificates.py": "1db1e4f5a0df0433c52e09144d8157025b709479de041828a3f2b10e367d4163"
+  },
+  "regression": {
+    "command": "python -X utf8 -B -m unittest tests.test_certificates tests.test_runtimes tests.test_util tests.test_engine",
+    "tests": 40,
+    "status": "passed",
+    "duration_s": 95.022
+  },
+  "final_regression": {
+    "command": "python -X utf8 -B -m unittest tests.test_certificates tests.test_runtimes tests.test_util",
+    "tests": 19,
+    "status": "passed",
+    "duration_s": 3.733,
+    "source_sha256": {
+      "studio/runtimes.py": "13e4e68aedbc370c6589e661e78714fb68d9c89f1dbc76f0672c1a015e89bd83",
+      "studio/engine.py": "6eeddc15680c03d9327502ea0d6b925f582f838f15f1f6b4eb64f176f3ab6ee0",
+      "tests/test_certificates.py": "33047ce795c2e70fc5d38f1b570c005b5eee18a713f1b6729ef5d04bc7932a19"
+    }
+  },
+  "application": {
+    "server_restarted": true,
+    "version": "869fbb.7",
+    "stopped": false,
+    "needs_login": null,
+    "original_task": "T0017",
+    "original_task_status": "blocked",
+    "original_task_replayed": false,
+    "reason": "interrupted run has an unknown_outcome checkpoint; automatic replay remains blocked"
+  }
+}

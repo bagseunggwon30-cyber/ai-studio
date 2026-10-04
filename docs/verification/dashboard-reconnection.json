@@ -1,0 +1,17 @@
+{
+  "status": "pass",
+  "date": "2026-10-04",
+  "dashboard_url": "http://127.0.0.1:8765/",
+  "launch": "independent Windows process broker; hidden window; spawn command completed",
+  "current_user_account": true,
+  "auto_run": false,
+  "active_jobs": 0,
+  "queued_jobs": 0,
+  "tasks_preserved_on_final_restart": true,
+  "run_records_preserved_on_final_restart": true,
+  "final_restart_model_calls": 0,
+  "agent_submitted_tasks": 0,
+  "earlier_reconnection_interval": "company records changed while the first host was reachable; not labelled as zero total company model calls",
+  "credentials_changed": false,
+  "permissions_expanded": false
+}

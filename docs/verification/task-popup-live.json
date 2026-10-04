@@ -1,0 +1,15 @@
+{
+  "status": "pass",
+  "server_port": 8765,
+  "source_reload_applied": true,
+  "active_jobs_before_restart": 0,
+  "queued_jobs_before_restart": 0,
+  "auto_run": false,
+  "schedules_enabled": false,
+  "existing_tasks_and_protected_files_unchanged": true,
+  "task_count_unchanged": true,
+  "run_records_unchanged": true,
+  "additional_model_calls": 0,
+  "cancelled_plans_not_resumed": true,
+  "actual_replanning_with_models": "not executed"
+}

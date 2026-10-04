@@ -1,0 +1,87 @@
+{
+  "status": "pass",
+  "date": "2026-10-04",
+  "scope": "project registration and paused target correction",
+  "python": {
+    "command": "python -B -m unittest tests.test_projects tests.test_server tests.test_paths -v",
+    "total": 34,
+    "passed": 34,
+    "skipped": 0,
+    "failed": 0,
+    "seconds": 58.127
+  },
+  "board": {
+    "total": 12,
+    "passed": 12
+  },
+  "javascript_syntax": {
+    "files": 3,
+    "passed": 3
+  },
+  "browser": {
+    "mode": "temporary company / actual Edge UI+API / fake employees",
+    "checks": 24,
+    "passed": 24,
+    "viewports": [
+      [
+        1536,
+        1024
+      ],
+      [
+        1024,
+        768
+      ],
+      [
+        800,
+        600
+      ],
+      [
+        600,
+        900
+      ]
+    ],
+    "script_errors": 0,
+    "real_model_calls": 0
+  },
+  "live": {
+    "dashboard_http": 200,
+    "new_defaults_endpoint": 200,
+    "task_revision_endpoint": 200,
+    "all_task_and_company_trusted_config_hashes_preserved": true,
+    "tasks": 22,
+    "run_records": 35,
+    "additional_model_calls": 0,
+    "auto_run": false,
+    "project_registration_performed": false,
+    "retarget_performed": false,
+    "read_only_ui": {
+      "registration_button": 1,
+      "preset_id": "ai-studio",
+      "retarget_button_T0021": 1,
+      "write_requests": 0
+    },
+    "final_restart_preserved": true
+  },
+  "source_sha256": {
+    "studio/projects.py": "a2a7baff0467153860e7c9531427d45534354e542cd35bf7d150cec9a556ca86",
+    "studio/engine.py": "960d8037656ffd65ef511d68bac86113489cfd3d1b6e9fdd18f8e7f535105c3a",
+    "studio/server.py": "8c4fccbedebb3fbdac8dac0fea568cc6d5a32599efa4e2f97d7ed0d242b1c539",
+    "ui/data.js": "3a75be8b8925622081b4a23a8de3ba5b296354015724af985033f0a4c4828d28",
+    "ui/popups.js": "09358470ec32f81e5c2769e07244eae3003b806bf905f66f3af303ce329b32e1",
+    "ui/popups.css": "32131220b059eebab4e90a838eb46f0758acca2bcc8c3bc08c7f2401fe38360f",
+    "tests/test_projects.py": "db4530eb5c295aa962b629eaeaa1fc16c6dafad70dfebc3aaa9eec1fb62764c6",
+    "tools/dev/project_management_fixture.py": "c013fd1b8b2a048a9d5bc72a7a37597934673e3df2535b764bd080929b09bb47",
+    "tools/dev/project_management_smoke.js": "fd791c267329b22e78dec0a4f8702a9c62ed28be21ee839a6d9ee49a79bed550"
+  },
+  "limits": [
+    "New registrations have no automatic QA. Existing QA configurations are unchanged.",
+    "Relocation creates a paused replacement and preserves the original card, reports, checkpoints and worktree.",
+    "Candidate commits, pending effects, dependency graphs and external-supervisor scope transfers are rejected.",
+    "Full repository regression and real provider execution were not run."
+  ],
+  "fault_injection": {
+    "before_copy": "source remains paused; tested in final Python suite",
+    "after_copy": "old retry denied; same replacement recovered; actual fault injection passed; model calls 0"
+  },
+  "code_state": "951ff11db14fdcb622dac40bc47bfc64ae8801e8 plus preserved and new uncommitted working-tree changes"
+}

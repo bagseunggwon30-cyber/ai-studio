@@ -1,0 +1,76 @@
+{
+  "status": "pass",
+  "code": {
+    "commit": "3e75093ab0f23625e18483f9d4a997437140bfec",
+    "source_sha256": "2d2189a361c55767ecb7abf829fc5c79252d02031875f30010b2ba6fd2665608",
+    "source_files": 401
+  },
+  "source_unchanged_during_run": true,
+  "python": {
+    "total": 282,
+    "passed": 281,
+    "skipped": 1,
+    "failures": 0,
+    "errors": 0,
+    "expected_failures": 0,
+    "unexpected_successes": 0,
+    "skipped_tests": [
+      "tests.test_lifecycle.ChildProcessTests.test_timeout_isolates_and_reaps_child"
+    ],
+    "failed_tests": []
+  },
+  "progress_board": {
+    "pass": true,
+    "total": 12
+  },
+  "javascript_syntax": [
+    {
+      "file": "app.js",
+      "pass": true
+    },
+    {
+      "file": "board.js",
+      "pass": true
+    },
+    {
+      "file": "data.js",
+      "pass": true
+    },
+    {
+      "file": "effects.js",
+      "pass": true
+    },
+    {
+      "file": "looks.js",
+      "pass": true
+    },
+    {
+      "file": "m.js",
+      "pass": true
+    },
+    {
+      "file": "popups.js",
+      "pass": true
+    },
+    {
+      "file": "puppet.js",
+      "pass": true
+    },
+    {
+      "file": "scene.js",
+      "pass": true
+    },
+    {
+      "file": "sound.js",
+      "pass": true
+    }
+  ],
+  "duration_s": 663.1,
+  "model_generation_calls": 0,
+  "real_logins_required": false,
+  "runtime": {
+    "python": "3.12.9",
+    "platform": "win32"
+  },
+  "raw_log_published": false
+}

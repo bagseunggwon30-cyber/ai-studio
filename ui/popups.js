@@ -92,10 +92,10 @@ const Popups = (() => {
   function stopped() { return Data.get().stopped; }
 
   // 행동 버튼: 정지 중이면 잠근다 (SPEC 6.8).
-  function btn(label, kind, run, { needsRun = false, cls = '', iconName = null, aria = null } = {}) {
+  function btn(label, kind, run, { needsRun = false, cls = '', iconName = null, aria = null, disabled = false } = {}) {
     const locked = needsRun && stopped();
     return h('button', {
-      type: 'button', class: `btn ${kind || ''} ${cls}`.trim(), disabled: locked,
+      type: 'button', class: `btn ${kind || ''} ${cls}`.trim(), disabled: locked || disabled,
       title: locked ? '정지 중이에요' : null, 'aria-label': aria,
       onclick: (e) => { e.stopPropagation(); run(e); },
     }, iconName ? icon(iconName) : null, label);
@@ -112,12 +112,19 @@ const Popups = (() => {
   // ---------------------------------------------------------------- 쌓기
   function open(render, opts = {}) {
     if (!stack.length) lastFocus = document.activeElement;
-    stack.push({ render, st: {}, keep: Boolean(opts.keep) });
+    stack.push({ render, st: {}, keep: Boolean(opts.keep), taskId: opts.taskId || null });
     hooks.onOpen();
     draw(true);
   }
 
   function draw(focus = false) {
+    const current = stack[stack.length - 1];
+    const scrolls = new Map();
+    let focusKey = null;
+    if (current && current.el && host.contains(current.el)) {
+      for (const el of current.el.querySelectorAll('[data-scroll-key]')) scrolls.set(el.getAttribute('data-scroll-key'), el.scrollTop);
+      if (current.el.contains(document.activeElement)) focusKey = document.activeElement.getAttribute('data-focus-key');
+    }
     host.replaceChildren();
     if (!stack.length) {
       const wasOpen = !layer.hidden;
@@ -131,9 +138,15 @@ const Popups = (() => {
     top.el.tabIndex = -1;
     if (top.st.busy) top.el.classList.add('busy'); // 효과 도중 새로 그려도 (종이 뒤집기·책장) 누르지 않게
     host.append(top.el);
+    if (top.taskId) top.taskKey = taskRenderKey(top.taskId);
     layer.hidden = false;
+    for (const el of top.el.querySelectorAll('[data-scroll-key]')) el.scrollTop = scrolls.get(el.getAttribute('data-scroll-key')) || 0;
     // 창 자체에 초점을 둔다 (Tab을 누르면 안의 버튼으로). 글을 쓰는 창은 입력칸에.
     if (focus) (top.el.querySelector('[autofocus]') || top.el).focus();
+    else if (focusKey) {
+      const target = [...top.el.querySelectorAll('[data-focus-key]')].find((el) => el.getAttribute('data-focus-key') === focusKey);
+      if (target) target.focus({ preventScroll: true });
+    }
   }
 
   function close() { stack.pop(); draw(true); }
@@ -146,7 +159,13 @@ const Popups = (() => {
     const top = stack[stack.length - 1];
     if (!top || (top.keep && !top.st.loadingAIOptions)) return;
     if (top.hold) { top.dirty = true; return; }
+    if (top.taskId && top.taskKey === taskRenderKey(top.taskId)) return;
     draw();
+  }
+
+  function taskRenderKey(id) {
+    return JSON.stringify([Data.task(id), Data.detail(id), Data.TEAM, Data.get().skills,
+      Data.get().trophies, Data.get().stopped]);
   }
 
   // ---------------------------------------------------------------- 효과 잠금 (5단계)
@@ -231,8 +250,8 @@ const Popups = (() => {
   function soon(title, step) { dialog(title, `${step}단계에서 연결돼요.`, [{ label: '닫기', kind: 'primary' }]); }
 
   function memo(title, placeholder, sendLabel, onSend) {
-    open(() => {
-      const area = h('textarea', { class: 'memo-input', maxlength: '2000', placeholder, 'aria-label': title, autofocus: true });
+    open((st) => {
+      const area = h('textarea', { class: 'memo-input', maxlength: '2000', placeholder, text: st.text || '', 'aria-label': title, 'data-focus-key': 'memo-text', autofocus: true, oninput: (e) => { st.text = e.target.value; } });
       const box = h('div', { class: 'pop dialog paper memo', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
         h('h2', { text: title }), area,
         h('div', { class: 'row-btns' },
@@ -277,23 +296,123 @@ const Popups = (() => {
     const p = Data.owner(t);
     const blocked = t.status === 'blocked';
     return h('button', { type: 'button', class: `note ${NOTE_COLOR[t.kind] || 'yellow'} ${i % 2 ? 'tilt-r' : 'tilt-l'}`,
-      'aria-label': `${t.title}, ${Data.STATUS_LABELS[t.status]}`, onclick: () => taskCard(t.id) },
+      'aria-label': `${t.title}, ${Data.statusLabel(t)}`, onclick: () => taskCard(t.id) },
     h('span', { class: 'pin' }),
     h('span', { class: 'note-title', text: t.title }),
     Data.projectTitle(t.project) ? h('span', { class: 'note-proj', text: Data.projectTitle(t.project) }) : null,
     face(p.id, blocked ? 'worried' : 'normal', 'note-face'),
     stars(t.difficulty || 1),
     t.status === 'done' ? h('span', { class: 'gold-stamp' }, icon('crown')) : null,
-    blocked ? h('span', { class: 'ribbon', text: '막힘' }) : null);
+    blocked ? h('span', { class: 'ribbon', text: t.needs_plan_input ? '답변 필요' : '막힘' }) : null);
+  }
+
+  function chooseProject() {
+    open(() => h('div', { class: 'pop dialog paper project-picker', role: 'dialog', 'aria-modal': 'true', 'aria-label': '작업 대상 선택' },
+      closeBtn(), h('h2', { text: '어느 프로젝트에서 일할까요?' }),
+      h('p', { text: '선택한 프로젝트의 허용된 파일에서만 일해요. 목록에 없는 프로젝트는 아직 작업 대상으로 등록되지 않았어요.' }),
+      h('div', { class: 'project-options' }, Data.get().projects.map((p) => h('button', {
+        type: 'button', class: 'project-option', 'aria-pressed': String(p.key === Data.currentProject()?.key),
+        onclick: () => { close(); Data.setProject(p.key); },
+      }, h('b', { text: p.title }), h('span', { text: p.description || (p.kind === 'godot' ? '게임 프로젝트' : '등록된 제품 프로젝트') }),
+      h('small', { text: `작업 파일: ${(p.default_allowed_paths || []).join(', ') || '프로젝트의 허용 범위'}` })))),
+      btn('프로젝트 등록', 'primary', () => registerProject())));
+  }
+
+  function projectField(st, key, label, multiline = false) {
+    const props = { 'aria-label': label, 'data-focus-key': key, maxlength: multiline ? 7000 : 1000,
+      oninput: (e) => { st[key] = e.target.value; } };
+    if (multiline) props.text = st[key] || '';
+    else { props.type = 'text'; props.value = st[key] || ''; }
+    return h('label', { class: 'project-field' }, h('span', { text: label }), h(multiline ? 'textarea' : 'input', props));
+  }
+
+  function registerProject() {
+    open((st) => {
+      const applyPreset = () => Data.projectDefaults().then((d) => {
+        Object.assign(st, { key: 'ai-studio', title: 'AI Studio', repo: d.repo, main_branch: d.main_branch,
+          description: 'AI Studio 감독 프로그램의 화면과 디자인 개선', paths: d.allowed_paths.join('\n') });
+        if (isTop(st)) draw();
+      }).catch(fail);
+      const submit = async () => {
+        if (st.busy) return;
+        st.busy = true; st.error = ''; hold(st);
+        try {
+          const result = await Data.registerProject({ key: st.key, title: st.title, repo: st.repo,
+            main_branch: st.main_branch, description: st.description || '',
+            allowed_paths: (st.paths || '').split('\n').map(x => x.trim()).filter(Boolean), confirm_scope: Boolean(st.confirmed) });
+          Data.setProject(result.project); closeOwn(st);
+          hooks.notify('하나', '프로젝트를 등록했어요. 작업은 아직 실행하지 않았어요.');
+        } catch (e) { st.error = e.message; }
+        finally { st.busy = false; release(st, true); }
+      };
+      return h('div', { class: 'pop dialog paper project-form', role: 'dialog', 'aria-modal': 'true', 'aria-label': '프로젝트 등록' },
+        closeBtn(), h('h2', { text: '프로젝트 등록' }),
+        h('div', { class: 'project-form-body', 'data-scroll-key': 'register-body', tabindex: '0' },
+          btn('AI Studio 자체 입력', '', applyPreset),
+          projectField(st, 'title', '프로젝트 이름'), projectField(st, 'key', '프로젝트 ID (영문 소문자)'),
+          projectField(st, 'repo', 'Git 폴더 전체 경로'), projectField(st, 'main_branch', '기준 브랜치'),
+          projectField(st, 'description', '설명'), projectField(st, 'paths', '수정 허용 경로 (한 줄에 하나)', true),
+          h('p', { text: '기존 로컬 Git 저장소만 등록합니다. 작업 사본은 커밋 기준으로 만들므로 아직 커밋하지 않은 변경은 포함되지 않습니다.' }),
+          h('label', { class: 'project-confirm' }, h('input', { type: 'checkbox', checked: st.confirmed,
+            'data-focus-key': 'register-confirm', onchange: e => { st.confirmed = e.target.checked; } }),
+            '폴더·브랜치·수정 범위를 확인했습니다. 자동 검증은 아직 없으며 리뷰와 CEO 확인이 필요합니다.'),
+          st.error ? h('p', { class: 'tc-blocked', role: 'alert', text: st.error }) : null),
+        h('div', { class: 'row-btns' }, btn('취소', '', () => close()), btn('확인하고 등록', 'primary', submit)));
+    }, { keep: true });
+  }
+
+  function retargetTask(t) {
+    open((st) => {
+      const targets = Data.get().projects.filter(p => p.key !== t.project);
+      if (!st.project && targets.length) {
+        st.project = targets[0].key;
+        st.paths = (t.allowed_paths || []).join('\n');
+      }
+      const target = targets.find(p => p.key === st.project);
+      const submit = async () => {
+        if (st.busy) return;
+        st.busy = true; st.error = ''; hold(st);
+        try {
+          const result = await Data.retarget(t.id, { project: st.project, revision: t.retarget_revision,
+            allowed_paths: (st.paths || '').split('\n').map(x => x.trim()).filter(Boolean) });
+          closeOwn(st); close(); taskCard(result.task);
+          hooks.notify('하나', '새 대상의 카드를 만들었어요. 내용을 확인한 뒤 재시도하세요.');
+        } catch (e) { st.error = e.message; }
+        finally { st.busy = false; release(st, true); }
+      };
+      return h('div', { class: 'pop dialog paper project-form', role: 'dialog', 'aria-modal': 'true', 'aria-label': '작업 대상 변경' },
+        closeBtn(), h('h2', { text: '작업 대상 변경' }),
+        h('div', { class: 'project-form-body', 'data-scroll-key': 'retarget-body', tabindex: '0' },
+          h('p', { text: `${t.id} · ${t.title}` }),
+          h('p', { text: '이전 카드는 실행을 중단한 상태로 기록·작업 폴더를 보존합니다. 새 카드에는 목표와 수용 기준만 가져오며, 실행 기록과 검증 결과를 재사용하지 않습니다.' }),
+          h('label', { class: 'project-field' }, h('span', { text: '새 작업 대상' }),
+            h('select', { 'aria-label': '새 작업 대상', 'data-focus-key': 'retarget-project', onchange: e => {
+              st.project = e.target.value; st.paths = (targets.find(p => p.key === st.project)?.default_allowed_paths || []).join('\n'); draw();
+            } }, targets.map(p => h('option', { value: p.key, selected: p.key === st.project, text: p.title })))),
+          target ? h('p', { text: `${target.repo || ''}\n기준 브랜치: ${target.main_branch || ''}\n등록 범위: ${(target.default_allowed_paths || []).join(', ')}` }) : h('p', { text: '새 대상을 먼저 등록하세요.' }),
+          btn('프로젝트 등록', '', () => registerProject()),
+          t.kind !== 'plan' ? projectField(st, 'paths', '새 대상에서 수정할 경로 (한 줄에 하나)', true) : null,
+          !target?.has_qa ? h('p', { text: '선택한 프로젝트에는 자동 검증이 없습니다. 리뷰와 CEO 확인이 필요합니다.' }) : null,
+          st.error ? h('p', { class: 'tc-blocked', role: 'alert', text: st.error }) : null),
+        h('div', { class: 'row-btns' }, btn('취소', '', () => close()),
+          btn('대상 변경 · 실행 대기', 'primary', submit, { disabled: !target })));
+    }, { keep: true });
   }
 
   // ---------------------------------------------------------------- 작업 카드
   function taskCard(id) {
-    open(() => {
-      const t = Data.task(id);
-      if (!t) return missing();
+    open((st) => {
+      const summary = Data.task(id);
+      if (!summary) return missing();
+      const detail = Data.detail(id);
+      const t = detail && !detail.error ? { ...summary, ...detail } : summary;
       const p = Data.owner(t);
+      const needsInput = t.needs_plan_input;
       const actions = [];
+      if (t.retarget_revision && ['queued', 'ready', 'blocked'].includes(t.status) && ['plan', 'build', 'research'].includes(t.kind)
+          && !(t.created_by || '').startsWith('supervisor:')) {
+        actions.push(btn('작업 대상 변경', '', () => retargetTask(t)));
+      }
       const act = (action, label) => Data.act(id, action).then(() => hooks.notify(p.name, label)).catch(fail);
       if ((t.status === 'ready' || (t.status === 'queued' && (t.created_by || '').startsWith('supervisor:')))) {
         actions.push(btn('실행', 'primary', () => act('run', `${t.title} 시작할게요!`), { needsRun: true }));
@@ -304,7 +423,8 @@ const Popups = (() => {
           .then(() => { close(); hooks.notify(p.name, '완성작 선반에 올렸어요!'); }).catch(fail), { iconName: 'star' }));
       }
       if (t.status === 'blocked') {
-        actions.push(btn('재시도', 'primary', () => act('retry', '다시 해 볼게요!'), { needsRun: true }));
+        if (t.kind === 'plan' && t.has_proposal) actions.push(btn('설명·질문 보기', needsInput ? 'primary' : '', () => { close(); openTask(t); }));
+        if (!needsInput) actions.push(btn('재시도', 'primary', () => act('retry', '다시 해 볼게요!'), { needsRun: true }));
         if (['look', 'hire'].includes(t.kind) && (t.extra || {}).draw === 'grok') {
           actions.push(btn('Codex로 다시 그리기', 'lav-btn', () => Data.act(id, 'retry', { draw: 'codex' })
             .then(() => hooks.notify(p.name, 'Codex로 다시 그려 올게요!')).catch(fail), { needsRun: true }));
@@ -321,15 +441,17 @@ const Popups = (() => {
         closeBtn(),
         h('div', { class: 'tc-head' },
           face(p.id, t.status === 'blocked' ? 'worried' : 'normal', 'tc-face'),
-          h('div', {},
-            h('h2', { text: t.title }),
-            h('p', { class: 'tc-meta' }, h('span', { class: `chip st-${t.status}`, text: Data.STATUS_LABELS[t.status] }),
+          h('div', { class: 'tc-heading' },
+            h('h2', { text: t.title, title: t.title }),
+            h('p', { class: 'tc-meta' }, h('span', { class: `chip st-${needsInput ? 'input' : t.status}`, text: Data.statusLabel(t) }),
               `${p.title} · ${p.name}`, stars(t.difficulty || 1),
               Data.projectTitle(t.project) ? h('span', { class: 'chip proj', text: Data.projectTitle(t.project) }) : null))),
-        t.blocked_reason ? h('p', { class: 'tc-blocked' }, icon('warn'), t.blocked_reason) : null,
+        h('div', { class: 'tc-body', tabindex: '0', role: 'region', 'aria-label': '작업 내용', 'data-scroll-key': 'task-body', 'data-focus-key': 'task-body' },
+        needsInput ? h('p', { class: 'tc-input-note', text: '기획 결과를 저장했어요. 설명·질문을 확인하고 답변하면 다시 기획할 수 있어요.' }) : null,
+        t.blocked_reason ? h('p', { class: `tc-blocked ${needsInput ? 'tc-clarification' : ''}` }, icon('warn'), h('span', { text: t.blocked_reason })) : null,
         t.waiting ? h('p', { class: 'tc-waiting', text: t.waiting }) : null,
         t.progress && t.progress.last.stage ? h('p', { class: 'tc-waiting', text: `저장 단계: ${t.progress.last.label} · ${t.progress.last.status_label}${t.progress.last.reason ? ' · ' + t.progress.last.reason : ''}` }) : null,
-        t.execution ? h('p', { class: 'tc-waiting', text: `요청: ${t.execution.requested_provider || '미확인'} ${t.execution.requested_model || '계정 기본'} · 실제 실행: ${t.execution.actual_runtime === 'fake' ? '가짜 실행기' : t.execution.actual_runtime || '미확인'} ${t.execution.runtime_version || ''} · 응답 모델: ${t.execution.provider_model || '확인 불가'}${t.execution.fallback ? ' · 대체 실행' : ''}` }) : null,
+        executionInfo(t.execution, st),
         t.progress && t.progress.steps.length ? h('ul', {}, ...t.progress.steps.map(step => h('li', { text: `${step.label}: ${step.status_label}${step.reason ? ' (' + step.reason + ')' : ''}` }))) : null,
         t.progress && t.progress.last.next_action ? h('p', { class: 'tc-blocked', text: t.progress.last.next_action }) : null,
         t.evidence ? h('div', {}, h('h3', { text: '수용 기준별 근거' }), ...(t.evidence.items || []).map(r => h('p', { text: `${r.id}: ${r.text} — ${r.status === 'verified' ? '근거 확인' : '근거 누락 또는 미확인'}` }))) : null,
@@ -339,8 +461,36 @@ const Popups = (() => {
         h('h3', { text: '목표' }), h('p', { class: 'tc-brief', text: t.brief || '—' }),
         t.acceptance && t.acceptance.length ? [h('h3', { text: '수용 기준' }),
           h('ul', { class: 'tc-acc' }, t.acceptance.map((a, i) => h('li', {}, icon(t.evidence?.items?.[i]?.status === 'verified' ? 'check' : 'doc'), a)))] : null,
-        actions.length ? h('div', { class: 'row-btns' }, actions) : null);
-    });
+        ),
+        actions.length ? h('div', { class: 'row-btns tc-actions' }, actions) : null);
+    }, { taskId: id });
+  }
+
+  function executionInfo(e, st) {
+    if (!e || !(e.requested_provider || e.actual_runtime || e.runtime_version)) return null;
+    const providers = { codex: 'Codex', grok: 'Grok', grok_text: 'Grok', claude: 'Claude', fake: '가짜 실행기' };
+    const provider = providers[e.requested_provider] || e.requested_provider || '기록 없음';
+    const program = e.actual_runtime === 'fake' ? '가짜 실행기 (시험용)' :
+      e.runtime_version || providers[e.actual_runtime] || e.actual_runtime || '실행 프로그램 기록 없음';
+    const fake = e.actual_runtime === 'fake' || e.model_identity_reason === 'fake_runtime';
+    const failed = e.ok === false || e.model_identity_reason === 'execution_failed_without_model_id';
+    const identity = fake ? '실제 모델 호출 없음' : e.provider_model ||
+      (failed ? '실행 오류 · 모델 ID 기록 없음' : '로그에 모델 ID가 제공되지 않음');
+    const explanation = fake ? '가짜 실행기로 확인한 결과입니다.' : e.provider_model ?
+      (e.provider_model_source ? '응답 메타데이터에서 확인한 모델입니다.' : '기록에 모델 이름이 있지만 확인 경로는 기록되지 않았습니다.') :
+      failed ? '실행 오류를 먼저 확인해 주세요. 선택한 모델 이름으로 응답 모델을 추정하지 않습니다.' :
+      '선택한 모델로 실행을 요청했습니다. 응답 로그에 모델 ID가 없으며, 이 표시 자체는 연결 오류를 뜻하지 않습니다.';
+    const row = (label, value) => [h('dt', { text: label }), h('dd', { text: value })];
+    return h('section', { class: 'tc-execution', 'aria-label': 'AI 실행 정보' },
+      h('dl', {}, row('선택한 AI', `${provider} · ${e.requested_model || '계정 기본 모델'}`),
+        row('실행 프로그램', program), row('응답 모델', identity)),
+      h('p', { class: 'tc-model-note', text: explanation }),
+      e.provider_model_source ? h('details', { open: Boolean(st.modelProofOpen) }, h('summary', {
+        text: '모델 확인 근거', 'data-focus-key': 'model-proof', onclick: event => {
+          event.preventDefault(); st.modelProofOpen = !st.modelProofOpen; draw();
+        } }),
+        h('p', { text: `응답 필드: ${e.provider_model_source}` })) : null,
+      e.fallback ? h('p', { class: 'tc-model-note', text: `대체 실행${e.fallback_reason ? ': ' + e.fallback_reason : ''}` }) : null);
   }
 
   // 작업별 사용량 (실행 기록으로 센 실제 숫자): 실행 횟수 · 걸린 분 · 토큰(입력+출력)
@@ -637,6 +787,14 @@ const Popups = (() => {
     });
   }
 
+  function replyToPlan(id) {
+    const t = Data.task(id);
+    const d = Data.detail(id);
+    const questions = (d?.proposal?.questions || []).join('\n');
+    memo('기획 질문에 답변', `현재 대상: ${Data.projectTitle(t.project) || t.project}\n${questions}\n답변을 보내면 이 프로젝트에서 다시 기획해요.`, '답변하고 다시 기획',
+      (note) => Data.act(id, 'request-changes', { note }).then(() => { close(); hooks.notify(Data.owner(t).name, '답변을 반영해서 다시 기획할게요.'); }).catch(fail));
+  }
+
   function meeting(id) {
     open((st) => {
       const t = Data.task(id);
@@ -644,36 +802,43 @@ const Popups = (() => {
       const d = Data.detail(id);
       if (!d) return loadingPop('회의실');
       if (d.error) return failPop('회의실', d.error);
-      const cards = (Data.planCards(id) || []).slice(0, 8);
+      const cards = Data.planCards(id) || [];
       const questions = (d.proposal && d.proposal.questions) || [];
       const picked = cards.filter((c) => c.checked).length;
       const pending = t.status === 'awaiting_approval';
+      const waiting = t.status === 'blocked';
+      const needsInput = t.needs_plan_input;
       // 기획안에 작업이 없으면 붙일 것이 없다: 다시 기획만 할 수 있다
-      const say = !pending ? '이 기획안은 이미 정리됐어요.'
+      const say = waiting ? '현재 작업 대상과 질문을 확인해 주세요. 답변을 보내면 기획을 다시 실행해요.' : !pending ? '이 기획안은 이미 정리됐어요.'
         : cards.length ? `${cards.length}단계로 나눴어요. 골라 주세요!` : '나눌 작업이 없어요. 다시 기획해 주세요';
       const producer = Data.BY_ROLE.producer || Data.TEAM[0];
-      const directive = String(t.brief || t.title).split('\n')[0];
+      const directive = String(t.brief || t.title);
       return h('div', { class: 'pop mt', role: 'dialog', 'aria-modal': 'true', 'aria-label': '회의실' },
         h('img', { class: 'mt-bg', src: '/assets/bg/meeting.png', alt: '', draggable: 'false' }),
-        h('div', { class: 'mt-board' },
-          h('p', { class: 'mt-directive', text: `지시: ${directive}`, title: directive }),
-          h('div', { class: 'mt-flow' }, cards.map((c, i) => [i ? h('span', { class: 'arrow', text: '→' }) : null,
-            h('span', { class: `box ${c.checked ? '' : 'off'}` }, face(Data.BY_ROLE[c.role] ? Data.BY_ROLE[c.role].id : 'sol'))]))),
-        sprite('builder', 'call', 'mt-sol', 212), sprite('analyst', 'rest', 'mt-luna', 193),
-        sprite('reviewer', 'rest', 'mt-clo', 177), sprite('producer', 'call', 'mt-hana', 236),
-        h('div', { class: 'mt-cut', 'aria-hidden': 'true' }), // 앞쪽 가구 (의자 등받이·팔걸이·탁자 가장자리)
-        h('p', { class: 'mt-bubble', text: say }),
-        questions.length ? h('button', { type: 'button', class: 'mt-question',
-          onclick: () => dialog('여쭤볼 게 있어요', questions.join('\n'), [{ label: '알겠어요', kind: 'primary' }]) }, '여쭤볼 게 있어요') : null,
-        h('div', { class: `mt-cards n${Math.min(cards.length, 4)} ${cards.length > 4 ? 'two-rows' : ''}` }, cards.map((c, i) => card(t, c, i, pending))),
-        pending ? h('div', { class: 'mt-actions' },
-          cards.length ? btn('퀘스트로 붙이기', 'primary pill', () => {
-            if (!picked) { hooks.notify(producer.name, '카드를 하나 이상 골라 주세요'); return; }
-            attachQuests(st, id, picked, producer);
-          }, { needsRun: true }) : null,
-          btn('다시 기획', 'pill', () => memo('다시 기획', '어떻게 바꿔 볼까요?', '보내기',
-            (note) => Data.act(id, 'request-changes', { note }).then(() => { close(); hooks.notify(producer.name, '다시 나눠 볼게요!'); }).catch(fail)),
-          { needsRun: true })) : null,
+        sprite('producer', 'call', 'mt-hana', 200),
+        h('section', { class: 'mt-panel' },
+          h('header', { class: 'mt-header' }, h('div', {}, h('p', { class: 'panel-kicker', text: '회의실 · 기획안 검토' }),
+            h('h2', { text: t.title })), h('span', { class: 'panel-status', text: pending ? '결재 대기' : Data.statusLabel(t) })),
+          h('div', { class: 'mt-context', tabindex: '0', 'data-scroll-key': 'meeting-context', 'data-focus-key': 'meeting-context' },
+            h('h3', { text: `작업 대상: ${Data.projectTitle(t.project) || t.project}` }), h('p', { text: directive }),
+            d.proposal && d.proposal.summary ? h('p', { class: 'mt-summary', text: `기획 요약: ${d.proposal.summary}` }) : null),
+          h('div', { class: `mt-content ${needsInput ? 'mt-input-content' : ''}` },
+            h('section', { class: 'mt-candidates', hidden: needsInput }, h('h3', { text: `작업 후보 ${cards.length}개` }),
+              h('div', { class: 'mt-cards', tabindex: '0', role: 'region', 'aria-label': '작업 후보 목록', 'data-scroll-key': 'meeting-cards', 'data-focus-key': 'meeting-cards' },
+                cards.length ? cards.map((c, i) => card(t, c, i, pending)) : h('p', { class: 'panel-empty', text: '작업 후보가 없어요. 다시 기획할 수 있어요.' }))),
+            h('section', { class: 'mt-notes', tabindex: '0', 'data-scroll-key': 'meeting-notes', 'data-focus-key': 'meeting-notes', 'aria-label': '확인할 질문과 주의할 점' },
+              h('h3', { text: `확인할 질문 ${questions.length}개` }),
+              questions.length ? h('ol', {}, questions.map((q) => h('li', { text: q }))) : h('p', { text: '기획안에 질문이 없어요.' }),
+              d.proposal && d.proposal.risks && d.proposal.risks.length ? [h('h3', { text: '주의할 점' }), h('ul', {}, d.proposal.risks.map((r) => h('li', { text: r })))] : null)),
+          h('footer', { class: 'mt-footer' },
+            h('div', {}, h('b', { class: 'mt-picked', 'aria-live': 'polite', text: needsInput ? '답변 기다림' : `선택 ${picked} / ${cards.length}` }), h('p', { text: say })),
+            pending ? h('div', { class: 'mt-actions' },
+              btn('다시 기획', '', () => memo('다시 기획', '어떻게 바꿔 볼까요?', '보내기',
+                (note) => Data.act(id, 'request-changes', { note }).then(() => { close(); hooks.notify(producer.name, '다시 나눠 볼게요!'); }).catch(fail)), { needsRun: true }),
+              cards.length ? btn('퀘스트로 붙이기', 'primary', () => {
+                if (!picked) { hooks.notify(producer.name, '카드를 하나 이상 골라 주세요'); return; }
+                attachQuests(st, id, picked, producer);
+              }, { needsRun: true }) : null) : needsInput ? h('div', { class: 'mt-actions' }, btn('답변하고 다시 기획', 'primary', () => replyToPlan(id), { needsRun: true })) : h('p', { class: 'panel-status', text: waiting ? '확인이 필요한 기획안 · 승인할 작업 없음' : '정리된 기획안 · 선택 변경 불가' }))),
         closeBtn());
     });
   }
@@ -689,10 +854,12 @@ const Popups = (() => {
   function card(t, c, i, pending) {
     const p = Data.BY_ROLE[c.role] || Data.BY_ROLE.builder;
     return h('div', { class: `mt-card ${c.checked ? 'on' : ''}` },
-      h('button', { type: 'button', class: 'mt-card-open', 'aria-label': `${c.title} 자세히`, onclick: () => cardDetail(t.id, i) },
-        h('span', { class: 'mt-card-title', text: c.title, title: c.title }), face(p.id, 'normal', 'mt-card-face'), stars(c.difficulty || 1)),
+      h('button', { type: 'button', class: 'mt-card-open', 'data-focus-key': `meeting-card-${i}`, 'aria-label': `${c.title} 자세히`, onclick: () => cardDetail(t.id, i) },
+        h('span', { class: 'mt-card-number', text: `후보 ${i + 1} · ${p.title}` }),
+        h('span', { class: 'mt-card-title', text: c.title }), h('span', { class: 'mt-card-brief', text: c.brief || '목표를 자세히 확인해 주세요.' }),
+        h('span', { class: 'mt-card-owner' }, face(p.id, 'normal', 'mt-card-face'), p.name, stars(c.difficulty || 1))),
       h('button', { type: 'button', class: 'mt-check', role: 'checkbox', 'aria-checked': String(Boolean(c.checked)),
-        'aria-label': `${c.title} 고르기`, disabled: !pending, onclick: () => Data.editCard(t.id, i, { checked: !c.checked }) },
+        'data-focus-key': `meeting-check-${i}`, 'aria-label': `${c.title} 고르기`, disabled: !pending, onclick: () => Data.editCard(t.id, i, { checked: !c.checked }) },
       c.checked ? icon('check') : null));
   }
 
@@ -706,9 +873,11 @@ const Popups = (() => {
         closeBtn(),
         h('div', { class: 'tc-head' }, face(p.id, 'normal', 'tc-face'),
           h('div', {}, input, h('p', { class: 'tc-meta' }, `${p.title} · ${p.name}`, stars(c.difficulty || 1)))),
+        h('div', { class: 'tc-body', tabindex: '0', 'data-scroll-key': 'candidate-body', 'data-focus-key': 'candidate-body' },
         h('h3', { text: '목표' }), h('p', { class: 'tc-brief', text: c.brief || '—' }),
         c.acceptance && c.acceptance.length ? [h('h3', { text: '수용 기준' }), h('ul', { class: 'tc-acc' }, c.acceptance.map((a) => h('li', {}, icon('doc'), a)))] : null,
-        h('div', { class: 'row-btns' },
+        ),
+        h('div', { class: 'row-btns tc-actions' },
           btn('닫기', '', () => close()),
           btn('제목 고치기', 'primary', () => {
             const title = input.value.trim();
@@ -750,9 +919,10 @@ const Popups = (() => {
         h('div', { class: 'dy-book' },
           h('section', { class: 'dy-page left' },
             h('h2', {}, icon('paw'), `${st.day}일차 업무 일지`),
-            d.events.length ? h('ol', { class: 'dy-timeline' }, d.events.slice(0, 8).map((e) => h('li', {},
+            h('p', { class: 'dy-count', text: loaded && !loaded.error ? `기록 ${d.events.length}개 · 시간순` : '기록 확인 중' }),
+            d.events.length ? h('ol', { class: 'dy-timeline', tabindex: '0', 'aria-label': '업무 기록', 'data-scroll-key': 'diary-events', 'data-focus-key': 'diary-events' }, d.events.map((e) => h('li', {},
               h('span', { class: 'time', text: e.time }), face(e.who, 'normal', 'dy-face'),
-              h('span', { class: `line ${ROLE_LINE[e.who] || 'lav'}`, text: `${e.name} · ${e.text}` }))))
+              h('span', { class: `line ${ROLE_LINE[e.who] || 'lav'}` }, h('b', { text: e.name }), h('span', { text: e.text })))))
               : h('p', { class: 'dy-empty', text: loaded ? (loaded.error || '기록이 없어요') : '불러오는 중…' }),
             h('button', { type: 'button', class: 'dy-arrow prev', 'aria-label': '전날', disabled: !exists(st.day - 1), onclick: () => go(st.day - 1) }, icon('left'))),
           h('section', { class: 'dy-page right' },
@@ -761,7 +931,7 @@ const Popups = (() => {
               h('div', { class: 'dy-stickies' },
                 h('div', { class: 'sticky teal' }, h('span', { class: 'ok-badge' }, icon('check')), h('span', { text: '완료' }), h('b', { text: String(sum.done) })),
                 h('div', { class: 'sticky lav' }, icon('doc', 'big'), h('span', { text: '결재' }), h('b', { text: String(sum.approvals) })),
-                h('div', { class: 'sticky yellow' }, icon('bolt', 'big'), h('span', { text: '에너지' }), h('b', { text: String(sum.runs) }))),
+                h('div', { class: 'sticky yellow' }, icon('bolt', 'big'), h('span', { text: '실행' }), h('b', { text: String(sum.runs) }))),
               h('div', { class: 'dy-first' }, icon('crown'), h('span', { text: '첫 시도 합격' }), h('b', { text: `${sum.firstPass[0]}/${sum.firstPass[1]}` })),
               sum.tomorrow ? h('p', { class: 'dy-tomorrow', text: `내일: ${sum.tomorrow}` }) : null,
             ] : h('p', { class: 'dy-empty', text: loaded ? '요약이 없어요' : '불러오는 중…' }),
@@ -952,20 +1122,22 @@ const Popups = (() => {
   function trophies() {
     open(() => {
       const s = Data.get();
-      const slots = Array.from({ length: 6 }, (_, i) => s.trophies[i] || null);
+      const slots = s.trophies;
       return h('div', { class: 'pop tr', role: 'dialog', 'aria-modal': 'true', 'aria-label': '완성작' },
         closeBtn(),
         h('h2', { class: 'tr-sign', text: '완성작' }),
-        h('div', { class: 'tr-shelves' }, slots.map((item) => h('div', { class: `tr-slot ${item ? item.kind : 'empty'}` },
-          !item ? h('span', { class: 'tr-next' }, h('b', { text: '+' }), '다음 작품?')
-            : item.kind === 'game' ? [
+        h('p', { class: 'tr-intro', text: '완료한 작품을 모아 뒀어요. 아래 목록에서 결과를 확인하세요.' }),
+        h('div', { class: 'tr-shelves', tabindex: '0', role: 'region', 'aria-label': '완성작 목록', 'data-scroll-key': 'trophies', 'data-focus-key': 'trophies' }, slots.length ? slots.map((item) => h('article', { class: `tr-slot ${item.kind}` },
+          h('div', { class: 'tr-info' }, h('span', { class: 'panel-kicker', text: item.kind === 'game' ? '게임' : '보고서' }),
+            h('h3', { text: item.title }), h('p', { class: 'tr-meta', text: (Data.task(item.task) || {}).project || item.task })),
+          item.kind === 'game' ? [
               h('span', { class: 'tr-item' }, h('span', { class: 'cart' }, h('span', { class: 'cart-label', text: item.title })), icon('trophy', 'tr-cup')),
               btn('플레이', 'lav-btn', () => Data.play(item.task)
                 .then(() => hooks.notify((Data.BY_ROLE.builder || {}).name || '솔', 'Godot로 게임을 켰어요!')).catch(fail), { iconName: 'play' })]
               : [
                 h('span', { class: 'frame' }, h('span', { class: 'frame-title', text: item.title }),
                   face((Data.BY_ROLE.analyst || { id: 'luna' }).id, 'normal', 'frame-face'), h('span', { class: 'frame-lines' })),
-                btn('열기', 'lav-btn', () => report(item.task), { iconName: 'doc' })]))),
+                btn('열기', 'lav-btn', () => report(item.task), { iconName: 'doc' })])) : h('p', { class: 'panel-empty', text: '아직 완성작이 없어요. 작업을 끝내고 결재하면 여기에 모여요.' })),
         h('p', { class: 'tr-plate', text: `완성 ${s.trophies.length} · 이번 달 목표 ${s.goals.month}` }));
     });
   }
@@ -2205,7 +2377,7 @@ const Popups = (() => {
 
   return {
     init, h, open, close, closeAll, isOpen, refresh, dialog, soon, memo, face, icon, addFloor, jobCard, skillGrades,
-    questBoard, taskCard, inbox, approval, report, meeting, meetingRoom, diary, team, employee, customize, trophies, alerts, openTask, openTarget,
+    chooseProject, questBoard, taskCard, inbox, approval, report, meeting, meetingRoom, diary, team, employee, customize, trophies, alerts, openTask, openTarget,
     skillBoard, skillDetail, skillReview, skillUse, mcpShelf, mcpDetail, schedules, remote, needLogin, aiLoad, wardrobeOrder, lookReview, hireForm, hireReview,
   };
 })();

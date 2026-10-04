@@ -1,0 +1,40 @@
+{
+  "schema": "studio.plan-clarification-verification/v1",
+  "task": "T0018",
+  "cause": "AI Studio UI request was sent to the Core Courier game project; the empty task list caused the planner explanation to be discarded",
+  "registered_projects": [
+    "core-courier",
+    "studio-docs"
+  ],
+  "task_status": "blocked",
+  "response_restored": true,
+  "questions": [
+    "이번 요청을 메인 AI Studio 프로젝트로 옮겨 진행하면 될까요? 해당 저장소 경로와 기준으로 삼을 메인 화면 또는 디자인 규칙 파일을 알려 주세요."
+  ],
+  "employee_run_count": 1,
+  "additional_model_calls": 0,
+  "regression": {
+    "command": "python -X utf8 -B -m unittest tests.test_engine.EngineFlow.test_empty_plan_keeps_explanation_and_questions tests.test_engine.EngineFlow.test_empty_plan_always_has_a_reason tests.test_engine.EngineFlow.test_full_flow",
+    "tests": 3,
+    "passed": true,
+    "duration_s": 10.236
+  },
+  "javascript_syntax_passed": true,
+  "browser": {
+    "actual_application": true,
+    "browser": "msedge",
+    "task_card_opened": true,
+    "explanation_button_clicked": true,
+    "summary_questions_risks_visible": true,
+    "console_errors": 0,
+    "snapshot": ".playwright-cli/page-2026-10-03T19-13-26-550Z.yml"
+  },
+  "requested_ui_redesign_implemented": false,
+  "source_sha256": {
+    "studio/engine.py": "1799b296e5cd6990db5fbc585e66971f13aef1c555b2823fd86e484a77f1cffa",
+    "ui/popups.js": "901cd68a92256fb925a7c9969540f085e3efb79571cf8003fdc3b9e29dc3dec1",
+    "tests/test_engine.py": "f24bbb079171b5dca0e353fe3cafb0b4a2c4b03e48e541c115b5d2788d199ff5"
+  },
+  "server_restart_needed": false,
+  "active_count": 0
+}

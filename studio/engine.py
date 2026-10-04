@@ -9,13 +9,14 @@
 from __future__ import annotations
 
 import shutil
+from copy import deepcopy
 import threading
 import time
 import traceback
 from pathlib import Path
 from typing import Any, Callable
 
-from . import ai, company, evidence, floors, gitops, login, mcp, schedules, scheduler, skills, wardrobe
+from . import ai, company, evidence, floors, gitops, login, mcp, projects, schedules, scheduler, skills, wardrobe
 from .checkpoints import Journal, digest, files_digest, worktree_digest
 from uuid import uuid4
 from .config import JOBS, Config, ProjectConfig, staff_role
@@ -420,7 +421,11 @@ class Engine:
         with self.store.lock:
             task = self._task(task_id)
             if task.status != "awaiting_approval":
-                raise EngineError("결재 대기 중인 작업만 반려할 수 있습니다.")
+                if not task.needs_plan_input or by != "ceo":
+                    raise EngineError("결재 대기 또는 CEO 답변이 필요한 기획만 수정할 수 있습니다.")
+                if any(v.get("status") in ("unknown_outcome", "running") and v.get("effect") != "read_only"
+                       for v in self.journal.read(task.id).values()):
+                    raise EngineError("실행 여부 불확실: 결과 확인 전 다시 기획할 수 없습니다.")
             task.feedback.append({"at": now_iso(), "by": by, "text": note})
             task.attempts = 0
             self.journal.clear(task.id)
@@ -475,6 +480,10 @@ class Engine:
             task = self._task(task_id)
             if task.status != "blocked":
                 raise EngineError("막힘 상태의 작업만 재시도할 수 있습니다.")
+            if any(t.extra.get("retargeted_from") == task.id for t in self.store.list()):
+                raise EngineError("이미 새 대상의 카드가 있습니다. 작업 대상 변경으로 새 카드를 확인하세요.")
+            if task.needs_plan_input:
+                raise EngineError("질문에 답변한 뒤 '답변하고 다시 기획'을 선택하세요.")
             if task.kind != "skill":
                 self._trouble(task, "blocked", task.blocked_reason or "")
             checkpoints = self.journal.read(task.id)
@@ -599,6 +608,77 @@ class Engine:
             self.store.save(task)
         self.store.event("task.assigned", f"{task.id} 담당: {self.cfg.roles[role].name}", task=task.id, role=role)
         return task
+
+    def register_project(self, data: dict, *, by: str = "ceo") -> ProjectConfig:
+        if by != "ceo":
+            raise EngineError("프로젝트 등록은 CEO만 할 수 있습니다.")
+        with self.store.lock:
+            project = projects.register(self.cfg, data)
+            self.store.event("project.registered", f"프로젝트 등록: {project.title}",
+                             project=project.key, allowed_paths=project.default_allowed_paths,
+                             automatic_qa=False, by=by)
+        return project
+
+    def retarget(self, task_id: str, data: dict, *, by: str = "ceo") -> Task:
+        """Preserve old executions and move the instruction into a fresh, paused task."""
+        if by != "ceo":
+            raise EngineError("작업 대상 변경은 CEO만 할 수 있습니다.")
+        with self.store.lock:
+            source = self._task(task_id)
+            target = self._project(str(data.get("project", "")))
+            revision = data.get("revision")
+            request_digest = digest(data)
+            prior = next((t for t in self.store.list() if t.extra.get("retargeted_from") == source.id), None)
+            if prior:
+                if prior.project != target.key or prior.extra.get("retarget_request") != request_digest:
+                    raise EngineError("이미 다른 대상으로 옮긴 작업입니다. 새 카드를 확인하세요.")
+                # A crash between creating the copy and closing the source is recoverable.
+                if source.status in ("queued", "ready", "blocked"):
+                    self.store.transition(source, "cancelled", by=by, note=f"대상 변경: {prior.id}에 기록 보존")
+                return prior
+            if revision != digest(source.to_dict()):
+                raise EngineError("작업 내용이 바뀌었습니다. 카드를 다시 열어 확인하세요.")
+            if source.created_by.startswith("supervisor:"):
+                raise EngineError("외부 감독의 프로젝트 권한은 옮길 수 없습니다. 허용된 대상으로 새 요청을 제출하세요.")
+            if source.status not in ("queued", "ready", "blocked") or source.kind not in ("plan", "build", "research"):
+                raise EngineError("시작 전이거나 막힌 기획·개발·리서치 작업만 대상을 바꿀 수 있습니다.")
+            if source.project == target.key:
+                raise EngineError("현재와 다른 프로젝트를 선택하세요.")
+            if source.children or source.depends_on or source.extra.get("resources"):
+                raise EngineError("연결된 작업이 있는 카드는 개별 이동할 수 없습니다. 새 지시로 기획하세요.")
+            if source.candidate_sha or source.qa or source.review:
+                raise EngineError("후보 변경·검증·리뷰가 있는 작업은 먼저 기존 결과를 검토하세요.")
+            checkpoints = self.journal.read(source.id)
+            if any(v.get("status") in ("unknown_outcome", "running", "committing") for v in checkpoints.values()):
+                raise EngineError("실행 여부가 불확실한 기록이 있습니다. 결과 확인 전 대상을 바꿀 수 없습니다.")
+            if source.worktree:
+                wt = Path(source.worktree)
+                if not wt.exists() or gitops.git(["status", "--porcelain", "--untracked-files=all"], wt).stdout.strip():
+                    raise EngineError("기존 작업 폴더의 변경 파일을 먼저 검토하세요. 파일은 보존했습니다.")
+                if source.base_sha and gitops.head(wt) != source.base_sha:
+                    raise EngineError("기존 작업 폴더에 커밋이 있습니다. 결과를 먼저 검토하세요.")
+            allowed = []
+            if source.kind != "plan":
+                from .supervisor import path_scope
+                allowed = projects.path_list(data.get("allowed_paths"), target)
+                if not all(path_scope(p, target.default_allowed_paths) for p in allowed):
+                    raise EngineError("새 프로젝트에 등록된 수정 허용 범위를 벗어났습니다.")
+            extra = {"retargeted_from": source.id, "source_revision": revision, "retarget_request": request_digest}
+            if "requirements" in source.extra:
+                extra["requirements"] = deepcopy(source.extra["requirements"])
+            # Pause the source first: a crash during copy creation must not let the
+            # original queued/ready task run automatically after restart.
+            source = self.store.block(source, "대상 변경 중입니다. 중단되면 카드를 다시 열어 대상을 확인하세요.", by=by)
+            moved = self.store.create_task(title=source.title, kind=source.kind, role=source.role,
+                project=target.key, status="blocked", brief=source.brief, acceptance=source.acceptance.copy(),
+                allowed_paths=allowed, difficulty=source.difficulty,
+                blocked_reason="작업 대상이 변경됐습니다. 목표와 수정 범위를 확인한 뒤 재시도하세요.",
+                extra=extra,
+                note=f"{source.id}에서 대상 변경 · 기존 실행 근거는 복사하지 않음", created_by=by)
+            self.store.transition(source, "cancelled", by=by, note=f"대상 변경: {moved.id}에 기록 보존")
+            self.store.event("task.retargeted", f"{source.id} → {moved.id}: {target.title}", task=moved.id,
+                             source=source.id, project=target.key, by=by)
+            return moved
 
     # ------------------------------------------------------------ 스스로 배우기 (회고)
     def self_learning(self) -> bool:
@@ -902,6 +982,10 @@ class Engine:
             "actual_runtime": result.runtime,
             "runtime_version": (getattr(runtime,"info",{}).get("version") or None) if isinstance(getattr(runtime,"info",None),dict) else None,
             "provider_model": result.provider_model,
+            "provider_model_source": result.provider_model_source,
+            "model_identity_reason": ("response_metadata" if result.provider_model else
+                "fake_runtime" if result.runtime == "fake" else
+                "execution_failed_without_model_id" if not result.ok else "model_id_not_provided"),
             "model_identity": "확인됨" if result.provider_model else "확인 불가",
             "fallback": bool(fallback_reason) or runtime_name != ({"grok": "grok_text"}.get(requested_provider, requested_provider) or runtime_name),
             "fallback_reason": fallback_reason,
@@ -943,6 +1027,7 @@ class Engine:
             "quota": f"{who}: 구독 사용 한도에 도달했습니다. 한도가 풀린 뒤 재개·재시도하세요. (API로 우회하지 않습니다)",
             "model": f"{who}: 모델을 쓸 수 없습니다 ({run.model}). studio.toml의 역할 모델을 확인하세요. — {run.error[:200]}",
             "timeout": f"{who}: 제한 시간({self.cfg.limit('task_timeout_min')}분)을 넘겨 중단했습니다. 작업을 더 작게 나누세요.",
+            "certificate": f"{who}: 보안 인증서를 확인하지 못해 AI 연결을 중단했습니다. Windows 신뢰 인증서 또는 지정한 인증서 파일을 확인한 뒤 재시도하세요.",
             "stopped": "긴급 정지로 중단됐습니다.",
             "cap": "하루 실행 상한에 도달했습니다. 내일 재시도하거나 studio.toml [limits]를 조정하세요.",
             "not_found": f"{who}: CLI를 찾을 수 없습니다. 점검 화면을 확인하세요.",
@@ -1023,9 +1108,6 @@ class Engine:
             self._fail_run(task, run, role)
             return
         tasks, problems = validate_plan(run.structured or {}, project, self.cfg.limit("max_children_per_plan"))
-        if not tasks:
-            self.store.block(task, "기획안에 쓸 수 있는 작업이 없습니다: " + "; ".join(problems[:5]))
-            return
         s = run.structured or {}
         task.proposal = {
             "summary": str(s.get("summary", ""))[:2000],
@@ -1036,6 +1118,11 @@ class Engine:
         }
         task.report = str(s.get("summary", ""))[:2000]
         self.store.save(task)
+        if not tasks:
+            questions = task.proposal["questions"]
+            detail = "; ".join(problems[:5]) or (questions[0] if questions else task.report)
+            self.store.block(task, "기획안 확인 필요: " + (detail or "작업 후보가 없습니다. 지시와 프로젝트를 확인하세요."))
+            return
         self.store.transition(task, "awaiting_approval", note=f"기획안 결재 요청 · 작업 {len(tasks)}개")
 
     def _approve_plan(self, task: Task, payload: dict[str, Any], by: str) -> Task:

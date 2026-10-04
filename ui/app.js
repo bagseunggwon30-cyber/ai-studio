@@ -98,8 +98,9 @@ function render() {
   input.placeholder = s.stopped ? '정지 중이에요' : '무엇을 시킬까요?';
   const project = Data.currentProject();
   const chip = $('#project-chip');
-  chip.textContent = project ? project.title : '프로젝트 없음';
-  chip.hidden = s.projects.length < 2;
+  chip.textContent = project ? `대상: ${project.title}` : '프로젝트 없음';
+  chip.hidden = !s.projects.length;
+  chip.title = project ? `작업 대상: ${project.title} · 눌러서 선택` : '프로젝트 없음';
   chip.setAttribute('aria-label', `지시할 프로젝트: ${project ? project.title : '없음'} (누르면 바꾸기)`);
 
   // 벽 쪽지·선반은 팝업이 모두 닫혔을 때만 바꾼다 (새로 생긴 것이 떨어지는 모습을 CEO가 보도록).
@@ -373,12 +374,7 @@ const ACTIONS = {
     el.classList.add('hidden');
     if (noticeTarget) Popups.openTarget(noticeTarget);
   },
-  project() {
-    const list = Data.get().projects;
-    if (list.length < 2) return;
-    const i = list.findIndex((p) => p === Data.currentProject());
-    Data.setProject(list[(i + 1) % list.length].key);
-  },
+  project: () => Popups.chooseProject(),
   quests: () => Popups.questBoard(),
   board: () => setView('board'),
   office: () => { if (OFFICE) setView('office'); },

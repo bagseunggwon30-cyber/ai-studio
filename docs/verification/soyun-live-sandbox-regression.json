@@ -1,0 +1,141 @@
+{
+  "status": "fail",
+  "code": {
+    "commit": "3e75093ab0f23625e18483f9d4a997437140bfec",
+    "source_sha256": "2d2189a361c55767ecb7abf829fc5c79252d02031875f30010b2ba6fd2665608",
+    "source_files": 401
+  },
+  "source_unchanged_during_run": true,
+  "python": {
+    "total": 282,
+    "passed": 265,
+    "skipped": 1,
+    "failures": 14,
+    "errors": 2,
+    "expected_failures": 0,
+    "unexpected_successes": 0,
+    "skipped_tests": [
+      "tests.test_lifecycle.ChildProcessTests.test_timeout_isolates_and_reaps_child"
+    ],
+    "failed_tests": [
+      {
+        "test": "tests.test_assets.FakeTint.test_draw_tints_only_fake_company_results",
+        "kind": "failure"
+      },
+      {
+        "test": "tests.test_assets.FakeTint.test_fake_company_order_looks_different",
+        "kind": "failure"
+      },
+      {
+        "test": "tests.test_assets.FakeTint.test_repeat_orders_keep_changing_color",
+        "kind": "failure"
+      },
+      {
+        "test": "tests.test_assets.FakeTint.test_tool_turns_only_the_outfit",
+        "kind": "failure"
+      },
+      {
+        "test": "tests.test_assets.Installed.test_hire_installs_into_data_assets",
+        "kind": "failure"
+      },
+      {
+        "test": "tests.test_assets.Installed.test_look_install_writes_only_data_assets",
+        "kind": "failure"
+      },
+      {
+        "test": "tests.test_assets.Installed.test_old_locations_are_still_found",
+        "kind": "failure"
+      },
+      {
+        "test": "tests.test_assets.Installed.test_remove_made_look",
+        "kind": "failure"
+      },
+      {
+        "test": "tests.test_hire.Hire.test_hire_flow",
+        "kind": "failure"
+      },
+      {
+        "test": "tests.test_hire.Hire.test_new_staff_can_order_outfit_and_limit",
+        "kind": "failure"
+      },
+      {
+        "test": "tests.test_hire.Hire.test_new_staff_can_skip_inheriting",
+        "kind": "failure"
+      },
+      {
+        "test": "tests.test_hire.Hire.test_new_staff_inherits_skills_of_the_same_job",
+        "kind": "failure"
+      },
+      {
+        "test": "tests.test_hire.Hire.test_work_is_shared_and_reassignable",
+        "kind": "failure"
+      },
+      {
+        "test": "tests.test_wardrobe.Wardrobe.test_order_make_approve",
+        "kind": "failure"
+      },
+      {
+        "test": "tests.test_wardrobe.Wardrobe.test_kinds_build_on_the_worn_look",
+        "kind": "error"
+      },
+      {
+        "test": "tests.test_wardrobe.Wardrobe.test_redo_with_note",
+        "kind": "error"
+      }
+    ]
+  },
+  "progress_board": {
+    "pass": true,
+    "total": 12
+  },
+  "javascript_syntax": [
+    {
+      "file": "app.js",
+      "pass": true
+    },
+    {
+      "file": "board.js",
+      "pass": true
+    },
+    {
+      "file": "data.js",
+      "pass": true
+    },
+    {
+      "file": "effects.js",
+      "pass": true
+    },
+    {
+      "file": "looks.js",
+      "pass": true
+    },
+    {
+      "file": "m.js",
+      "pass": true
+    },
+    {
+      "file": "popups.js",
+      "pass": true
+    },
+    {
+      "file": "puppet.js",
+      "pass": true
+    },
+    {
+      "file": "scene.js",
+      "pass": true
+    },
+    {
+      "file": "sound.js",
+      "pass": true
+    }
+  ],
+  "duration_s": 550.1,
+  "model_generation_calls": 0,
+  "real_logins_required": false,
+  "runtime": {
+    "python": "3.12.9",
+    "platform": "win32"
+  },
+  "raw_log_published": false
+}

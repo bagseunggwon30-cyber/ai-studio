@@ -1,0 +1,155 @@
+{
+  "configured_codex_models": [
+    "gpt-6-luna",
+    "gpt-6-sol"
+  ],
+  "codex_catalog": [
+    {
+      "slug": "gpt-6.1-sol",
+      "name": "GPT-6.1-Sol",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
+      "default_effort": "low",
+      "desc": ""
+    },
+    {
+      "slug": "gpt-6-astra",
+      "name": "GPT-6-Astra",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
+      "default_effort": "medium",
+      "desc": "가장 똑똑함 · 어려운 일용 (사용량 많음)"
+    },
+    {
+      "slug": "gpt-6-sol",
+      "name": "GPT-6-Sol",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
+      "default_effort": "medium",
+      "desc": "코딩 주력 · 일상 작업"
+    },
+    {
+      "slug": "gpt-6-luna",
+      "name": "GPT-6-Luna",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "medium",
+      "desc": "빠르고 가벼움 · 쉬운 일용"
+    },
+    {
+      "slug": "gpt-5.6-sol",
+      "name": "GPT-5.6-Sol",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
+      "default_effort": "low",
+      "desc": "이전 세대 · 복잡한 코딩"
+    },
+    {
+      "slug": "gpt-5.6-terra",
+      "name": "GPT-5.6-Terra",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
+      "default_effort": "medium",
+      "desc": "이전 세대 · 균형형"
+    },
+    {
+      "slug": "gpt-5.6-luna",
+      "name": "GPT-5.6-Luna",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "medium",
+      "desc": "이전 세대 · 빠름"
+    },
+    {
+      "slug": "gpt-5.5",
+      "name": "GPT-5.5",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_effort": "medium",
+      "desc": "옛 코딩 모델"
+    }
+  ],
+  "grok_text_catalog": [
+    {
+      "slug": "grok-4.5",
+      "name": "grok-4.5",
+      "desc": "기존 Grok 로그인 · 도구 없는 텍스트",
+      "efforts": [],
+      "default_effort": ""
+    },
+    {
+      "slug": "grok-4.6",
+      "name": "grok-4.6",
+      "desc": "기존 Grok 로그인 · 도구 없는 텍스트",
+      "efforts": [],
+      "default_effort": ""
+    },
+    {
+      "slug": "grok-4.7",
+      "name": "grok-4.7",
+      "desc": "기존 Grok 로그인 · 도구 없는 텍스트",
+      "efforts": [],
+      "default_effort": ""
+    },
+    {
+      "slug": "grok-4.7-build-fast",
+      "name": "grok-4.7-build-fast",
+      "desc": "기존 Grok 로그인 · 도구 없는 텍스트",
+      "efforts": [],
+      "default_effort": ""
+    },
+    {
+      "slug": "grok-build",
+      "name": "grok-build",
+      "desc": "기존 Grok 로그인 · 도구 없는 텍스트",
+      "efforts": [],
+      "default_effort": ""
+    }
+  ],
+  "enabled_schedules": 0,
+  "model_generation_calls": 0
+}

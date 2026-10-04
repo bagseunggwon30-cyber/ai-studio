@@ -5,6 +5,32 @@ from studio.runtimes import classify_error, parse_json_loose, summarize_codex_ev
 
 
 class CodexEvents(unittest.TestCase):
+    def test_response_model_metadata_reads_nested_provider_response(self):
+        from studio.runtimes import response_model_metadata
+        events = [{"type": "session_meta", "model": "configured-model"},
+                  {"type": "response.created", "response": {"model": "initial-response"}},
+                  {"type": "response.completed", "response": {"model": "served-response"}}]
+        self.assertEqual(response_model_metadata(events), ("served-response", "response.completed.response.model"))
+
+    def test_response_model_metadata_reads_explicit_flat_response(self):
+        from studio.runtimes import response_model_metadata
+        self.assertEqual(response_model_metadata([{"type": "response.completed", "model": "served"}]),
+                         ("served", "response.completed.model"))
+
+    def test_local_config_and_assistant_identity_claim_are_not_provider_proof(self):
+        from studio.runtimes import response_model_metadata
+        events = [{"type": "session.created", "model": "configured"}, {"type": "session_meta", "model": "configured"},
+                  {"type": "item.completed", "item": {"type": "agent_message", "text": 'I am served. {"model":"served"}'}},
+                  {"type": "turn.completed", "usage": {"model": "requested"}}]
+        self.assertEqual(response_model_metadata(events), (None, None))
+
+    def test_malformed_model_identity_is_not_recorded(self):
+        from studio.runtimes import response_model_metadata
+        for value in [None, 12, {}, "", "x\nforged", "x" * 201]:
+            with self.subTest(value=value):
+                self.assertEqual(response_model_metadata([{"type": "response.completed", "response": {"model": value}}]),
+                                 (None, None))
+
     def test_summarize(self):
         events = [
             {"type": "thread.started", "thread_id": "x"},

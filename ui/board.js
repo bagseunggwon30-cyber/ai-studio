@@ -746,12 +746,12 @@ const Board = (() => {
     return h('article', {
       class: ['bd-card', `s-${stageKey(t.status)}`, blocked ? 'blocked' : '', lit ? 'flash' : ''].filter(Boolean).join(' '),
       tabindex: '0', role: 'button', 'data-id': t.id, 'data-fk': `card:${t.id}`,
-      'aria-label': `${t.title}, ${Data.STATUS_LABELS[t.status] || t.status}, ${p.name}`,
+      'aria-label': `${t.title}, ${Data.statusLabel(t)}, ${p.name}`,
       onclick: open,
       onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } },
     },
     h('span', { class: 'bd-card-top' }, h('span', { class: 'bd-kind', text: Data.KIND_LABELS[t.kind] || t.kind }),
-      blocked ? h('span', { class: 'bd-flag', text: '막힘' }) : null, h('span', { class: 'bd-id', text: t.id })),
+      blocked ? h('span', { class: 'bd-flag', text: t.needs_plan_input ? '답변 필요' : '막힘' }) : null, h('span', { class: 'bd-id', text: t.id })),
     h('b', { class: 'bd-title', text: t.title, title: t.title }),
     h('span', { class: 'bd-who' }, h('span', { class: 'bd-who-main' }, Popups.face(p.id, blocked ? 'worried' : 'normal', 'bd-face-mini'), h('span', { class: 'bd-name', text: p.name })),
       proj ? h('span', { class: 'bd-proj', text: proj, title: proj }) : null),
@@ -820,7 +820,7 @@ const Board = (() => {
     }
     // 기획은 회의실에서 퀘스트를 고르는 결재라 이름을 그렇게
     if (t.status === 'awaiting_approval') return b(t.kind === 'plan' ? '퀘스트 고르기' : '결재하기', 'approve', () => Popups.openTask(t));
-    if (t.status === 'blocked') return b('도와주기', 'help', () => Popups.taskCard(t.id));
+    if (t.status === 'blocked') return b(t.needs_plan_input ? '질문 보기' : '도와주기', 'help', () => Popups.taskCard(t.id));
     return null;
   }
 

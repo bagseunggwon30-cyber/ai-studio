@@ -1,0 +1,79 @@
+{
+  "status": "pass",
+  "date": "2026-10-04",
+  "code_state": "951ff11 plus preserved and new working-tree changes",
+  "python": {
+    "command": "python -X utf8 -B -m unittest tests.test_runtimes tests.test_grok_text tests.test_supervisor.ModelIdentityTests tests.test_server -q",
+    "total": 41,
+    "passed": 41,
+    "skipped": 0,
+    "failed": 0,
+    "seconds": 46.54
+  },
+  "browser": {
+    "checks": 24,
+    "passed": 24,
+    "viewports": [
+      [
+        1536,
+        1024
+      ],
+      [
+        1024,
+        768
+      ],
+      [
+        800,
+        600
+      ],
+      [
+        600,
+        900
+      ]
+    ],
+    "mode": "actual Edge UI/API with six controlled execution-record examples; no employee execution",
+    "script_errors": 0,
+    "writes": 0,
+    "refresh_checks": {
+      "unchanged_card_node_retained": true,
+      "new_model_metadata_visible": true,
+      "open_proof_retained_after_update": true
+    }
+  },
+  "controlled_runtime": {
+    "model_source_record_persisted": true,
+    "real_calls": 0
+  },
+  "live": {
+    "all_task_company_trusted_config_hashes_preserved": true,
+    "tasks": 22,
+    "run_records": 35,
+    "additional_model_calls": 0,
+    "auto_run": false,
+    "read_only_ui": {
+      "labels": [
+        "선택한 AI",
+        "실행 프로그램",
+        "응답 모델"
+      ],
+      "missing_model_reason_visible": true,
+      "writes": 0
+    }
+  },
+  "source_sha256": {
+    "AGENTS.md": "c252b957c9711af2a6553792e06cc57d5a2d055f98940ec6bbdd27adbb6e34fb",
+    "studio/runtimes.py": "667c764cb838e340958ae8748b43917e7edd15838f6d1261e509046f1481dce9",
+    "studio/engine.py": "d4f44281aa9e7734a2221e6f1441526ac09cd835ad7e1dd0bfac7eb021b6949d",
+    "studio/server.py": "460b309f7cb4626bf2f9951970dffb65f80a12ce575d116eb4b45ffe096c7bb1",
+    "studio/grok_text.py": "0f13856d4acbfc01334ea5608aacbaf9173068b50998d14e745ac072e41bae81",
+    "ui/popups.js": "1797810a3d9ed244b37895ffb62477378ec1da4e71995ce8ce92411cf167042e",
+    "ui/popups.css": "391259537169a19add3948806f32f5a232dee9f4c03424380c7c32d87c645c19",
+    "tests/test_runtimes.py": "bb0fb2d0c6af96591634807e3e5953cbb2906f372ce4dbcbacd58807b0f1b102",
+    "tools/dev/model_info_fixture.py": "f9ecc8001ca75d603f631e38d8e1dee01991557444cc0384295574bf6c09cb50",
+    "tools/dev/model_info_smoke.js": "eb25ba0b1a330092e0a99c06b5260bd1272876c81a7b690dc10b9c626281e444"
+  },
+  "limits": [
+    "Missing model IDs cannot be independently confirmed; do not replace with configured values.",
+    "No real provider calls or full repository regression were performed."
+  ]
+}
