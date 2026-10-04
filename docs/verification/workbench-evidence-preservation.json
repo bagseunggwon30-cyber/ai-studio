@@ -1,0 +1,29 @@
+{
+  "status": "pass",
+  "baseline": "6b8bfa15dde1f186a10a5b27e846c21bf9748b4a",
+  "branch": "codex/workbench-evidence-20261004",
+  "protected_files_checked": 1939,
+  "protected_changes": [],
+  "changed_tracked_files": [
+    "docs/HANDOFF.md",
+    "docs/WORKBENCH.md",
+    "studio/engine.py",
+    "studio/evidence.py",
+    "studio/server.py",
+    "studio/workbench.py",
+    "tests/test_workbench.py",
+    "tools/dev/workbench_fixture.py",
+    "tools/dev/workbench_regression.py",
+    "tools/dev/workbench_smoke.js",
+    "ui/data.js",
+    "ui/popups.js",
+    "ui/workbench.css",
+    "ui/workbench.js"
+  ],
+  "main": "6b8bfa15dde1f186a10a5b27e846c21bf9748b4a",
+  "source_sha256": "7a6c0c9e8434c791f81c98054664bd0845f29ee2e19a4ff2c5250bdd2f850943",
+  "source_files": 391,
+  "javascript_files_checked": 15,
+  "real_model_calls": 0,
+  "production_writes": 0
+}

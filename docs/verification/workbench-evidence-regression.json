@@ -1,0 +1,17 @@
+{
+  "at": "2026-10-04T21:31:36+09:00",
+  "command": "python tools/dev/workbench_regression.py",
+  "discovery": "unittest discover -s tests -t .",
+  "status": "pass",
+  "total": 358,
+  "passed": 357,
+  "failures": [],
+  "errors": [],
+  "skipped": [
+    {
+      "test": "tests.test_lifecycle.ChildProcessTests.test_timeout_isolates_and_reaps_child",
+      "reason": "POSIX process-group regression"
+    }
+  ],
+  "real_model_calls": 0
+}

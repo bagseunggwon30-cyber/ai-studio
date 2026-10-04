@@ -1,0 +1,92 @@
+{
+  "status": "pass",
+  "phases": [
+    {
+      "status": "pass",
+      "phase": "altered-receipt",
+      "count": 6,
+      "checks": [
+        "격리 미리보기만 검사",
+        "실제 모델 호출 없는 기존 가짜 회사",
+        "변경된 근거로 API 승인 불가",
+        "근거 변경 시 화면 승인 잠금",
+        "근거 변경 이유 표시",
+        "브라우저 실행 오류 없음"
+      ],
+      "errors": [],
+      "writes": [],
+      "run": "Wa168910d5e6f41608c9b832f53cf56e2",
+      "task": "T0002",
+      "usage": {
+        "total": 4,
+        "current": 2,
+        "previous": 2,
+        "planned_initial": 2
+      },
+      "real_model_calls": 0,
+      "production_writes": 0
+    },
+    {
+      "status": "pass",
+      "phase": "altered-snapshot",
+      "count": 6,
+      "checks": [
+        "격리 미리보기만 검사",
+        "실제 모델 호출 없는 기존 가짜 회사",
+        "변경된 근거로 API 승인 불가",
+        "근거 변경 시 화면 승인 잠금",
+        "근거 변경 이유 표시",
+        "브라우저 실행 오류 없음"
+      ],
+      "errors": [],
+      "writes": [],
+      "run": "Wa168910d5e6f41608c9b832f53cf56e2",
+      "task": "T0002",
+      "usage": {
+        "total": 4,
+        "current": 2,
+        "previous": 2,
+        "planned_initial": 2
+      },
+      "real_model_calls": 0,
+      "production_writes": 0
+    },
+    {
+      "status": "pass",
+      "phase": "restore-and-approve",
+      "count": 11,
+      "checks": [
+        "격리 미리보기만 검사",
+        "실제 모델 호출 없는 기존 가짜 회사",
+        "원본 근거 복구 뒤 동일 후보 승인 가능",
+        "기록 다시 확인은 모델 재호출 없음",
+        "같은 실행이 기존 승인 뒤 완료",
+        "최신 후보의 모든 노드 실제 완료",
+        "결과정리의 승인 후보·근거 일치",
+        "완료 뒤 이전 후보 이력 보존",
+        "승인·완료 뒤 추가 모델 호출 없음",
+        "승인 중복 클릭도 한 번만 전송",
+        "브라우저 실행 오류 없음"
+      ],
+      "errors": [],
+      "writes": [
+        "/api/tasks/T0002/approve"
+      ],
+      "run": "Wa168910d5e6f41608c9b832f53cf56e2",
+      "task": "T0002",
+      "usage": {
+        "total": 4,
+        "current": 2,
+        "previous": 2,
+        "planned_initial": 2
+      },
+      "real_model_calls": 0,
+      "production_writes": 0
+    }
+  ],
+  "checks": 23,
+  "restored_receipt": true,
+  "restored_snapshot": true,
+  "real_model_calls": 0,
+  "production_writes": 0
+}

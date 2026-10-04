@@ -38,7 +38,8 @@ class WorkbenchTests(unittest.TestCase):
         return self.w.start(body), body
 
     def build_graph(self):
-        return graph(node("a", "input", text="docs/answer.txt에 42를 저장"), node("b", "implement", acceptance=["정답은 42"]),
+        return graph(node("a", "input", text="docs/answer.txt에 42를 저장"), node("b", "implement", acceptance=["정답은 42"],
+                     evidence=[[{"type": "test", "name": "answer_is_42"}, {"type": "file", "path": "docs/answer.txt"}]]),
                      node("c", "test"), node("d", "review"), node("e", "approve"), node("f", "summary"))
 
     def test_catalog_read_does_not_initialize_data_or_call_models(self):

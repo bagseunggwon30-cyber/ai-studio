@@ -406,6 +406,10 @@ class Engine:
             task = self._task(task_id)
             if task.status != "awaiting_approval":
                 raise EngineError("결재 대기 중인 작업만 승인할 수 있습니다.")
+            if "candidate_sha" in payload and payload["candidate_sha"] != task.candidate_sha:
+                raise EngineError("후보가 바뀌었습니다. 최신 근거를 확인한 뒤 승인하세요.")
+            if "revision" in payload and payload["revision"] != task.extra.get("workflow_revision", 1):
+                raise EngineError("작업 버전이 바뀌었습니다. 최신 후보를 확인하세요.")
             if task.kind == "plan":
                 return self._approve_plan(task, payload, by)
             if task.kind == "skill":
@@ -430,6 +434,16 @@ class Engine:
                 if any(v.get("status") in ("unknown_outcome", "running") and v.get("effect") != "read_only"
                        for v in self.journal.read(task.id).values()):
                     raise EngineError("실행 여부 불확실: 결과 확인 전 다시 기획할 수 없습니다.")
+            if task.extra.get("workflow_run") and task.kind in ("build", "research"):
+                from copy import deepcopy
+                versions = task.extra.setdefault("workflow_history", [])
+                versions.append(deepcopy({"revision": task.extra.get("workflow_revision", 1), "at": now_iso(),
+                                         "candidate_sha": task.candidate_sha, "qa": task.qa, "review": task.review,
+                                         "requirements": task.extra.get("requirements"), "runs": task.runs,
+                                         "evidence": evidence.assess(self.cfg, self.store, task)}))
+                task.extra["workflow_revision"] = task.extra.get("workflow_revision", 1) + 1
+                task.qa = None
+                task.review = None
             task.feedback.append({"at": now_iso(), "by": by, "text": note})
             task.attempts = 0
             self.journal.clear(task.id)
@@ -445,6 +459,56 @@ class Engine:
                 self.store.transition(task, "ready", by=by, note="수정 요청")
         self.wake()
         return task
+
+    @staticmethod
+    def validate_evidence_scope(requirements, paths):
+        from .supervisor import path_scope
+        for req in requirements:
+            for ref in req["evidence"]:
+                if ref["type"] not in ("test", "file", "screenshot"):
+                    raise EngineError("작업대 근거는 신뢰 테스트·파일·이미지만 지원합니다.")
+                if "path" in ref and not path_scope(ref["path"], paths):
+                    raise EngineError("근거 파일은 확인한 허용 경로 안에서 지정하세요.")
+
+    def set_workflow_evidence(self, task_id, raw, candidate_sha):
+        from copy import deepcopy
+        from .supervisor import requirements
+        with self.store.lock:
+            task = self._task(task_id)
+            if not task.extra.get("workflow_run") or task.kind not in ("build", "research") or task.status not in ("awaiting_approval", "blocked"):
+                raise EngineError("현재 작업대 후보의 근거만 지정할 수 있습니다.")
+            if not task.candidate_sha or candidate_sha != task.candidate_sha:
+                raise EngineError("후보가 바뀌었습니다. 최신 후보를 확인한 뒤 근거를 지정하세요.")
+            clean = requirements(raw)
+            if [r["text"] for r in clean] != task.acceptance:
+                raise EngineError("완료 기준을 바꿀 수 없습니다. 기준마다 근거만 지정하세요.")
+            self.validate_evidence_scope(clean, task.extra.get("scope_paths", task.allowed_paths))
+            if task.extra.get("requirements") == clean:
+                return task
+            task.extra.setdefault("workflow_evidence_history", []).append(deepcopy({"at": now_iso(), "candidate_sha": task.candidate_sha,
+                                                                                    "requirements": task.extra.get("requirements")}))
+            task.extra["requirements"] = clean
+            self.store.save(task)
+            self.store.event("task.evidence_configured", "CEO가 현재 후보의 완료 기준 근거를 지정했습니다.", task=task.id)
+            self.wake()
+            return task
+
+    def approval_status(self, task):
+        reasons = [] if task.status == "awaiting_approval" else ["결재 대기 중인 작업만 승인할 수 있습니다."]
+        coverage = None
+        if task.kind in ("build", "research"):
+            coverage = evidence.assess(self.cfg, self.store, task)
+            if coverage["strict"]:
+                if not coverage["complete"]:
+                    reasons.extend(coverage["reasons"])
+                review = task.review or {}
+                if review.get("candidate_sha") != task.candidate_sha or review.get("verdict") != "approve":
+                    reasons.append("현재 후보의 검토 승인 근거가 없습니다.")
+            qa = task.qa or {}
+            if not task.candidate_sha or qa.get("candidate_sha") != task.candidate_sha or qa.get("verdict") not in ("pass", "none"):
+                reasons.append("현재 후보의 검증 통과 기록이 없습니다.")
+        return {"allowed": not reasons, "reasons": list(dict.fromkeys(reasons)), "evidence": coverage,
+                "candidate_sha": task.candidate_sha, "revision": task.extra.get("workflow_revision", 1)}
 
     def merge_skill(self, task_id: str, into: str, by: str = "ceo") -> Task:
         """새 스킬 제안을 따로 저장하지 않고, 비슷한 기존 스킬에 합쳐 고쳐 오게 돌려보낸다 (스킬이 겹겹이 쌓이지 않게).
@@ -2048,7 +2112,9 @@ class Engine:
             qa["snapshot_digest"] = files_digest(qa_dir/"snapshot")
             receipt = read_json(qa_dir/"evidence.json",{}) or {}
             if receipt:
-                atomic_write_json(qa_dir/"evidence.json",{**receipt,"snapshot_digest":qa["snapshot_digest"]})
+                receipt = {**receipt,"snapshot_digest":qa["snapshot_digest"]}
+                atomic_write_json(qa_dir/"evidence.json",receipt)
+                qa["evidence_digest"] = digest(receipt)
             self.journal.write(task.id,"verification",status="complete" if qa.get("verdict") in ("pass","none") else "failed",result=qa,snapshot_digest=files_digest(qa_dir/"snapshot"),reason="timeout" if "시간" in qa.get("reason","") else qa.get("verdict"))
         if self._cancelled(task.id):
             self._cleanup_worktree(self._task(task.id)); return True
@@ -2070,7 +2136,7 @@ class Engine:
         if review["verdict"] == "stopped" or self._should_stop(task.id):
             self.store.block(task,"감독 프로그램 정지로 리뷰가 중단됐습니다."); return True
         coverage = evidence.assess(self.cfg,self.store,task)
-        if coverage["strict"] and not coverage["complete"]:
+        if coverage["strict"] and not coverage["complete"] and not task.extra.get("workflow_run"):
             self.store.block(task,"수용 기준의 검증 근거가 누락됐거나 접근할 수 없습니다."); return True
         if review["verdict"] in ("approve","unavailable"):
             if coverage["strict"] and review["verdict"] != "approve":
@@ -2180,6 +2246,8 @@ class Engine:
         if qa.get("suite_hash") != suite_hash(self.cfg,project):
             raise EngineError("신뢰 테스트가 변경됐습니다. 다시 검증하세요.")
         coverage = evidence.assess(self.cfg,self.store,task)
+        if task.extra.get("workflow_run") and not self.approval_status(task)["allowed"]:
+            raise EngineError("승인 불가: " + " / ".join(self.approval_status(task)["reasons"]))
         if coverage["strict"] and (not coverage["complete"] or (task.review or {}).get("candidate_sha") != task.candidate_sha or (task.review or {}).get("verdict") != "approve"):
             raise EngineError("수용 기준 근거 또는 현재 후보의 리뷰가 유효하지 않습니다.")
         main_head = gitops.head(project.repo, project.main_branch)

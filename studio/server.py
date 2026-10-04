@@ -259,7 +259,7 @@ class StudioHandler(BaseHTTPRequestHandler):
             if path == "/api/workbench/ledger":
                 return self._json({"runs": self.server.engine.workbench.ledger()})
             if path.startswith("/api/workbench/runs/") and path.count("/") == 4:
-                return self._json(self.server.engine.workbench.run(path.split("/")[4]))
+                return self._json(self.server.engine.workbench.describe_run(path.split("/")[4]))
             if path.startswith("/api/tasks/") and path.endswith("/diff"):
                 return self._json(self._diff(path.split("/")[3]))
             if path.startswith("/api/tasks/") and path.endswith("/report"):
@@ -450,6 +450,8 @@ class StudioHandler(BaseHTTPRequestHandler):
                     engine.approve(task_id, body)
                 elif action == "request-changes":
                     engine.request_changes(task_id, str(body.get("note", "")))
+                elif action == "evidence":
+                    engine.set_workflow_evidence(task_id, body.get("requirements"), body.get("candidate_sha"))
                 elif action == "retry":
                     if body.get("draw"):
                         engine.redraw_with(task_id, str(body.get("draw")))  # 그리는 AI를 바꿔 다시 (Grok → Codex)
@@ -832,6 +834,7 @@ class StudioHandler(BaseHTTPRequestHandler):
             history = store.runs(t.id)
             item["execution"] = {k:history[-1].get(k) for k in ("requested_provider","requested_model","actual_runtime","runtime_version","provider_model","provider_model_source","model_identity","model_identity_reason","ok","error_kind","fallback","fallback_reason")} if history else None
             item["evidence"] = evidence.assess(cfg,store,t) if t.kind in ("build","research") and t.qa else None
+            item["approval"] = engine.approval_status(t)
             item["usage"] = usage.get(t.id) or dict(EMPTY_USAGE)  # 작업별 사용량·배운 스킬 (작업 카드·진행판)
             summaries.append(item)
         status = engine.status()
@@ -931,6 +934,7 @@ class StudioHandler(BaseHTTPRequestHandler):
         data["waiting"] = self.server.engine.waiting_reason(task, store.list())
         data["progress"] = self.server.engine.journal.progress(task_id)
         data["evidence"] = evidence.assess(self.server.cfg,store,task) if task.kind in ("build","research") else None
+        data["approval"] = self.server.engine.approval_status(task)
         data["runs_detail"] = store.runs(task_id)
         data["events"] = store.recent_events(100, task_id)
         project = self.server.cfg.projects.get(task.project)

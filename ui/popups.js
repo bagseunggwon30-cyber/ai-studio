@@ -613,6 +613,7 @@ const Popups = (() => {
       if (!t) return missing();
       const p = Data.owner(t);
       const done = t.status !== 'awaiting_approval';
+      const approvalBlocked = t.approval?.allowed === false;
       const passed = t.qa && t.qa.verdict === 'pass' && t.qa.total;
       const qa = passed ? `품질 검사 ${t.qa.passed}/${t.qa.total} 합격` : '자동 검사 없음 · 직접 확인';
       // 리뷰: 다른 회사 모델(클로 = Claude)이 봤으면 교차 검증, Codex가 대신 봤으면 대리 검토 (SPEC 6.5)
@@ -636,8 +637,9 @@ const Popups = (() => {
               icon('doc', 'big'), h('span', { text: `바뀐 파일 ${files}개` }), h('span', { class: 'more', text: '보기' })),
             btn('진행 단계·완료 근거', 'paper-btn', () => taskCard(id)),
             h('div', { class: 'ap-actions' },
-              h('button', { type: 'button', class: `stamp-btn ${st.stamped ? 'stamped' : ''}`, disabled: stopped() || done || st.stamped,
-                title: stopped() ? '정지 중에는 승인할 수 없어요' : null,
+              approvalBlocked && !done ? h('p', { class: 'ap-proof-note', role: 'status', text: '승인 불가: ' + t.approval.reasons.join(' / ') }) : null,
+              h('button', { type: 'button', class: `stamp-btn ${st.stamped ? 'stamped' : ''}`, disabled: stopped() || done || st.stamped || approvalBlocked,
+                title: stopped() ? '정지 중에는 승인할 수 없어요' : approvalBlocked ? t.approval.reasons.join('\n') : null,
                 onclick: (e) => {
                   const tool = e.currentTarget;
                   const peek = tool.closest('.ap').querySelector('.ap-peek .face');

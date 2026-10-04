@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from tests.helpers import TempStudio
+from tests.helpers import TempStudio, default_behavior
 from studio.server import StudioServer
 
 
@@ -17,6 +17,17 @@ def main():
     parser.add_argument("--port", type=int, default=8798)
     args = parser.parse_args()
     company = TempStudio()
+    builds = 0
+    def behavior(spec, runtime):
+        nonlocal builds
+        result = default_behavior(spec, runtime)
+        if spec.role == "builder":
+            builds += 1
+            result["files"]["docs/revision.txt"] = f"Preview candidate {builds}\n"
+            if "계약파일을 추가" in spec.prompt:
+                result["files"]["docs/contract.txt"] = "CEO requested contract\n"
+        return result
+    company.behavior = behavior
     server = None
     try:
         company.cfg.fake_runtimes = True

@@ -10,7 +10,7 @@ import re
 from copy import deepcopy
 from uuid import uuid4
 
-from . import mcp
+from . import evidence, mcp
 from .checkpoints import digest
 from .util import atomic_write_json, now_iso
 
@@ -31,7 +31,7 @@ OPERATIONS = {
     "requirements": {"title": "요구정리", "mode": "model", "input": "text", "output": "plan", "params": {},
                      "job": "producer", "description": "기존 읽기 전용 기획을 한 번 요청합니다. 기획 결재 후 만든 카드는 진행판에서 별도로 실행합니다."},
     "implement": {"title": "구현", "mode": "model", "input": "text", "output": "candidate",
-                  "params": {"acceptance": []}, "job": "builder",
+                  "params": {"acceptance": [], "evidence": []}, "job": "builder",
                   "description": "기존 구현→신뢰 검증→읽기 전용 검토를 한 번 수행합니다. 실패 자동 재시도 없음. 병합은 CEO 결재로만 합니다."},
     "test": {"title": "테스트", "mode": "code", "input": "candidate", "output": "candidate", "params": {},
              "description": "구현 작업의 실제 신뢰 검증 기록과 후보 SHA를 확인합니다. 별도 테스트 명령은 실행하지 않습니다."},
@@ -79,10 +79,27 @@ def _params(operation, value):
             if not isinstance(out[key], list) or len(out[key]) > 12:
                 raise WorkbenchError("수용 기준은 12개 이내 목록이어야 합니다.")
             out[key] = [_text(v, "수용 기준", 500, True) for v in out[key]]
+        elif key == "evidence":
+            if not isinstance(out[key], list) or len(out[key]) > 12 or any(not isinstance(refs, list) for refs in out[key]):
+                raise WorkbenchError("기준별 근거는 12개 이내 목록이어야 합니다.")
         else:
             validated = _text(out[key], key)
             out[key] = out[key] if key in ("prefix", "suffix") else validated
+    if operation == "implement":
+        requirements_for(out)
     return out
+
+
+def requirements_for(params):
+    """Explicit criterion bindings; notes are never interpreted as code or proof."""
+    from .supervisor import requirements
+    texts, refs = params["acceptance"], params.get("evidence", [])
+    if len(refs) > len(texts):
+        raise WorkbenchError("근거 목록이 완료 기준보다 많습니다.")
+    if not texts:
+        return []
+    return requirements([{"id": f"A{i+1}", "text": text, "evidence": refs[i] if i < len(refs) else []}
+                         for i, text in enumerate(texts)])
 
 
 def builtin_nodes():
@@ -367,6 +384,8 @@ class Workbench:
             for key in expanded["order"]:
                 n = next(n for n in expanded["nodes"] if n["id"] == key)
                 op = n["definition"]["spec"]["operation"]
+                if op == "implement":
+                    self.engine.validate_evidence_scope(requirements_for(n["params"]), scope)
                 steps.append({"node": key, "title": n["definition"]["title"], "operation": op, "mode": OPERATIONS[op]["mode"],
                               "description": OPERATIONS[op]["description"]})
                 jobs = ["producer"] if op == "requirements" else ["builder", "reviewer"] if op == "implement" else []
@@ -384,6 +403,12 @@ class Workbench:
                     "uses_models": has_model, "steps": steps, "models": models, "max_model_calls": len(models),
                     "policy": "실패 자동 재시도·대체 재호출·회고 자동 생성 없음. 기획 결재의 자식 카드는 별도 수동 실행. 병합은 기존 CEO 결재로만.",
                     "context": {"repo": str(project.repo), "main_branch": project.main_branch, "qa": project.qa} if has_model else {}}
+            if body.get("flow_id"):
+                latest = self._catalog()["flows"].get(_id(body["flow_id"]))
+                flow = next((row for row in [latest, *(latest or {}).get("history", [])] if row and row["version"] == body.get("flow_version")), None)
+                if not flow:
+                    raise WorkbenchError("업무 묶음의 저장 버전이 바뀌었습니다. 최신 묶음을 다시 확인하세요.")
+                plan["flow"] = {"id": flow["id"], "version": flow["version"]}
             plan["hash"] = digest(plan)
             return plan
 
@@ -437,7 +462,54 @@ class Workbench:
     def ledger(self):
         with self.store.lock:
             rows = [self.run(key) for key in reversed(self._doc("workbench-ledger", {"ids": []})["ids"])]
-            return [{k: r[k] for k in ("id", "title", "created_at", "status", "error")} | {"nodes": len(r["nodes"]), "uses_models": r["snapshot"]["uses_models"]} for r in rows]
+            return [{k: r[k] for k in ("id", "title", "created_at", "status", "error")} |
+                    {"nodes": len(r["nodes"]), "uses_models": r["snapshot"]["uses_models"],
+                     "revision": r.get("revision", 1), "previous_versions": len(r.get("versions", [])),
+                     "flow": r["snapshot"].get("flow"),
+                     "usage": self._usage(r)} for r in rows]
+
+    def _usage(self, run):
+        tasks = {s["task"] for s in run["nodes"].values() if s.get("task")}
+        records = [r for r in self.store.runs() if r.get("task") in tasks]
+        previous = {rid for v in run.get("versions", []) for rid in v.get("run_ids", [])}
+        return {"total": len(records), "current": sum(r.get("run_id") not in previous for r in records),
+                "previous": sum(r.get("run_id") in previous for r in records), "planned_initial": run["snapshot"]["max_model_calls"]}
+
+    def describe_run(self, key):
+        with self.store.lock:
+            run = self.run(key)
+            tasks = {s["task"] for s in run["nodes"].values() if s.get("task")}
+            run["current_tasks"] = {task: self._task_output(self.engine._task(task)) for task in tasks}
+            run["usage"] = self._usage(run)
+            return run
+
+    def _sync_versions(self, run):
+        incoming = {e["to"]: e["from"] for e in run["snapshot"]["graph"]["edges"]}
+        for node in run["snapshot"]["graph"]["nodes"]:
+            if node["definition"]["spec"]["operation"] not in ("implement", "requirements"):
+                continue
+            key, state = node["id"], run["nodes"][node["id"]]
+            if not state.get("task"):
+                continue
+            task = self.engine._task(state["task"])
+            revision, old_revision = task.extra.get("workflow_revision", 1), state.get("revision", 1)
+            old_output = state.get("output") or {}
+            old_sha = old_output.get("candidate_sha")
+            if revision == old_revision and not (old_sha and old_sha != task.candidate_sha):
+                continue
+            affected = [k for k in run["nodes"] if k == key or self._ancestor(key, k, incoming)]
+            run.setdefault("versions", []).append({"node": key, "task": task.id, "revision": old_revision,
+                                                    "candidate_sha": old_sha, "at": now_iso(),
+                                                    "run_ids": deepcopy(old_output.get("runs", [])),
+                                                    "nodes": {k: deepcopy(run["nodes"][k]) for k in affected}})
+            for k in affected:
+                linked = run["nodes"][k].get("task")
+                run["nodes"][k] = {"status": "pending", "inputs": None, "output": None, "error": "", "task": linked}
+            run["nodes"][key].update(status="running", revision=revision)
+            run["revision"] = max(revision, run.get("revision", 1))
+            run["status"], run["error"] = "running", ""
+            self._event(run, "candidate_revised", f"현재 v{revision}을 다시 확인합니다. 이전 후보·근거는 장부에 보관했습니다.", key)
+            self._persist(run)
 
     def recover(self):
         with self.store.lock:
@@ -490,12 +562,15 @@ class Workbench:
         with self.store.lock:
             for key in self._doc("workbench-ledger", {"ids": []})["ids"]:
                 run = self.run(key)
+                if run["status"] in LIVE | {"blocked"}:
+                    self._sync_versions(run)
                 if run["status"] in LIVE:
                     self._advance(run)
 
     def _advance(self, run, observe_only=False):
         if self.engine._stop.is_set() or self.engine._shutdown.is_set():
             return
+        self._sync_versions(run)
         before = digest(run)
         old_status = run["status"]
         graph = run["snapshot"]["graph"]
@@ -503,6 +578,14 @@ class Workbench:
         incoming = {e["to"]: e["from"] for e in graph["edges"]}
         for key in graph["order"]:
             n, state = by_id[key], run["nodes"][key]
+            op = n["definition"]["spec"]["operation"]
+            if state["status"] == "succeeded" and op == "test" and state.get("task"):
+                task = self.engine._task(state["task"])
+                coverage = evidence.assess(self.engine.cfg, self.store, task)
+                if task.extra.get("workflow_run") and not coverage["complete"]:
+                    for successor in graph["order"]:
+                        if successor == key or self._ancestor(key, successor, incoming):
+                            run["nodes"][successor].update(status="pending", output=None, error="")
             if state["status"] in ("succeeded", "blocked", "skipped", "cancelled"):
                 continue
             source = run["nodes"].get(incoming.get(key))
@@ -512,7 +595,6 @@ class Workbench:
             if source and source["status"] != "succeeded":
                 continue
             state["inputs"] = deepcopy(source["output"] if source else n["params"].get("text"))
-            op = n["definition"]["spec"]["operation"]
             try:
                 if op in ("implement", "requirements"):
                     if not state["task"]:
@@ -539,6 +621,9 @@ class Workbench:
                         qa = task.qa or {}
                         if qa.get("candidate_sha") != task.candidate_sha or qa.get("verdict") not in ("pass", "none"):
                             raise WorkbenchError("현재 후보와 일치하는 검증 통과 증거가 없습니다.")
+                        coverage = evidence.assess(self.engine.cfg, self.store, task)
+                        if coverage["strict"] and not coverage["complete"]:
+                            raise WorkbenchError("승인 불가: " + " / ".join(coverage["reasons"]))
                         state["output"] = self._task_output(task)
                         self._complete(run, key, state)
                     elif op == "review":
@@ -572,6 +657,12 @@ class Workbench:
                             raise WorkbenchError("입력 조건을 만족하지 않습니다. 최소 길이와 필수 문구를 확인하세요.")
                         state["output"] = text
                     elif op == "summary":
+                        if isinstance(text, dict) and text.get("task"):
+                            task = self.engine._task(text["task"])
+                            if task.extra.get("workflow_run") and task.kind in ("build", "research"):
+                                coverage = evidence.assess(self.engine.cfg, self.store, task)
+                                if task.status != "done" or text.get("candidate_sha") != task.candidate_sha or task.merged_sha != task.candidate_sha or not coverage["complete"]:
+                                    raise WorkbenchError("완료 불가: 승인한 최신 후보와 기준별 근거를 다시 확인하세요.")
                         state["output"] = {"result": text, "recorded_at": now_iso(), "model_used": False}
                     self._complete(run, key, state)
             except (ValueError, RuntimeError, OSError) as exc:
@@ -595,7 +686,10 @@ class Workbench:
         from .supervisor import path_scope
         inputs = _text(state["inputs"], "작업 입력", 4000, True)
         snapshot = run["snapshot"]
-        current = self.plan({"title": snapshot["title"], "graph": self.graph_only(snapshot["graph"]), "project": snapshot["project"], "allowed_paths": snapshot["allowed_paths"]})
+        body = {"title": snapshot["title"], "graph": self.graph_only(snapshot["graph"]), "project": snapshot["project"], "allowed_paths": snapshot["allowed_paths"]}
+        if snapshot.get("flow"):
+            body.update(flow_id=snapshot["flow"]["id"], flow_version=snapshot["flow"]["version"])
+        current = self.plan(body)
         if current["hash"] != run["plan_hash"]:
             raise WorkbenchError("실행 확인 이후 프로젝트·모델·도구 설정이 바뀌었습니다. 새 계획을 확인하세요.")
         state["status"] = "dispatching"
@@ -603,6 +697,9 @@ class Workbench:
         marker = {"workflow_run": run["id"], "workflow_node": n["id"], "scope_paths": run["snapshot"]["allowed_paths"],
                   "workflow_no_retry": True,
                   "workflow_models": [{k: v for k, v in m.items() if k != "node"} for m in snapshot["models"] if m["node"] == n["id"]]}
+        if op == "implement":
+            marker.update(requirements=requirements_for(n["params"]), workflow_revision=1, workflow_history=[])
+            self.engine.validate_evidence_scope(marker["requirements"], snapshot["allowed_paths"])
         reviewer = next((m["role"] for m in marker["workflow_models"] if m["job"] == "reviewer"), None)
         marker["workflow_reviewer"] = reviewer
         prior = next((t for t in self.store.list() if t.extra.get("workflow_run") == run["id"] and t.extra.get("workflow_node") == n["id"]), None)
@@ -640,9 +737,11 @@ class Workbench:
             self._persist(run)
             return run
 
-    @staticmethod
-    def _task_output(task):
+    def _task_output(self, task):
         return {"task": task.id, "status": task.status, "candidate_sha": task.candidate_sha, "merged_sha": task.merged_sha,
                 "report": task.report, "proposal": task.proposal, "qa": task.qa, "review": task.review,
                 "runs": task.runs, "children": task.children, "history": task.history,
+                "revision": task.extra.get("workflow_revision", 1),
+                "evidence": evidence.assess(self.engine.cfg, self.store, task) if task.kind in ("build", "research") else None,
+                "approval": self.engine.approval_status(task), "requirements": task.extra.get("requirements"),
                 "note": "기획 결재로 생성한 자식 카드는 진행판에서 별도로 확인하고 실행하세요." if task.kind == "plan" else ""}

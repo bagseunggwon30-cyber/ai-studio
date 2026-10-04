@@ -342,6 +342,7 @@ const Data = (() => {
   }
 
   function act(id, action, body = {}) {
+    if (action === 'approve' && task(id)?.approval) body = { ...body, candidate_sha: task(id).candidate_sha, revision: task(id).approval.revision };
     if (action === 'approve' && task(id) && task(id).kind === 'plan') body = planPayload(id);
     if (action === 'archive') body = { archived: !(task(id) || {}).archived };
     return post(`/api/tasks/${encodeURIComponent(id)}/${action}`, body);
