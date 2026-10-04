@@ -1,0 +1,87 @@
+{
+  "at": "2026-10-04T18:42:43+09:00",
+  "command": "python tools/dev/workbench_regression.py",
+  "discovery": "unittest discover -s tests -t .",
+  "status": "fail",
+  "total": 344,
+  "passed": 326,
+  "failures": [
+    {
+      "test": "tests.test_assets.FakeTint.test_draw_tints_only_fake_company_results",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_assets.py\", line 384, in test_draw_tints_only_fake_company_results\n    tinted = draw()\n             ^^^^^^\n  File \"S:\\AI\\ai studio\\tests\\test_assets.py\", line 376, in draw\n    self.assertTrue(ok, self.store.get(t.id).blocked_reason)\nAssertionError: False is not true : 연습용 그림의 옷 색을 바꾸지 못했어요: 2026-10-04T18.31.11.log'.\n   at: copy (core/io/dir_access.cpp:429)\nERROR: Failed to open log file for writing: user://logs/godot.log\n   at: rotate_file (core/io/logger.cpp:169)\nERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n\n"
+    },
+    {
+      "test": "tests.test_assets.FakeTint.test_fake_company_order_looks_different",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_assets.py\", line 401, in test_fake_company_order_looks_different\n    self.assertEqual(t.status, \"awaiting_approval\", t.blocked_reason)\nAssertionError: 'blocked' != 'awaiting_approval'\n- blocked\n+ awaiting_approval\n : 얼굴 참고 그림을 만들지 못했어요: 2026-10-04T18.31.14.log'.\n   at: copy (core/io/dir_access.cpp:429)\nERROR: Failed to open log file for writing: user://logs/godot.log\n   at: rotate_file (core/io/logger.cpp:169)\nERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n\n"
+    },
+    {
+      "test": "tests.test_assets.FakeTint.test_repeat_orders_keep_changing_color",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_assets.py\", line 348, in test_repeat_orders_keep_changing_color\n    self.assertTrue(ok, log)\nAssertionError: False is not true : Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org\n\n옷 색 210도 돌림: 픽셀 8개 (평균 색상 215도)\nERROR: Failed to open 'user://logs/godot2026-10-04T18.31.16.log'.\n   at: copy (core/io/dir_access.cpp:429)\nERROR: Failed to open log file for writing: user://logs/godot.log\n   at: rotate_file (core/io/logger.cpp:169)\nERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n\n"
+    },
+    {
+      "test": "tests.test_assets.FakeTint.test_tool_turns_only_the_outfit",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_assets.py\", line 327, in test_tool_turns_only_the_outfit\n    self.assertTrue(ok, log)\nAssertionError: False is not true : Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org\n\n옷 색 210도 돌림: 픽셀 32개 (평균 색상 215도)\nERROR: Failed to open 'user://logs/godot2026-10-04T18.31.17.log'.\n   at: copy (core/io/dir_access.cpp:429)\nERROR: Failed to open log file for writing: user://logs/godot.log\n   at: rotate_file (core/io/logger.cpp:169)\nERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n\n"
+    },
+    {
+      "test": "tests.test_assets.Installed.test_hire_installs_into_data_assets",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_assets.py\", line 201, in test_hire_installs_into_data_assets\n    self.assertEqual(self.store.get(t.id).status, \"awaiting_approval\", self.store.get(t.id).blocked_reason)\nAssertionError: 'blocked' != 'awaiting_approval'\n- blocked\n+ awaiting_approval\n : 얼굴 참고 그림을 만들지 못했어요: 2026-10-04T18.31.19.log'.\n   at: copy (core/io/dir_access.cpp:429)\nERROR: Failed to open log file for writing: user://logs/godot.log\n   at: rotate_file (core/io/logger.cpp:169)\nERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n\n"
+    },
+    {
+      "test": "tests.test_assets.Installed.test_look_install_writes_only_data_assets",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_assets.py\", line 137, in test_look_install_writes_only_data_assets\n    t = self.make_look()\n        ^^^^^^^^^^^^^^^^\n  File \"S:\\AI\\ai studio\\tests\\test_assets.py\", line 128, in make_look\n    self.assertEqual(t.status, \"awaiting_approval\", t.blocked_reason)\nAssertionError: 'blocked' != 'awaiting_approval'\n- blocked\n+ awaiting_approval\n : 얼굴 참고 그림을 만들지 못했어요: 2026-10-04T18.31.20.log'.\n   at: copy (core/io/dir_access.cpp:429)\nERROR: Failed to open log file for writing: user://logs/godot.log\n   at: rotate_file (core/io/logger.cpp:169)\nERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n\n"
+    },
+    {
+      "test": "tests.test_assets.Installed.test_old_locations_are_still_found",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_assets.py\", line 178, in test_old_locations_are_still_found\n    t = self.make_look()\n        ^^^^^^^^^^^^^^^^\n  File \"S:\\AI\\ai studio\\tests\\test_assets.py\", line 128, in make_look\n    self.assertEqual(t.status, \"awaiting_approval\", t.blocked_reason)\nAssertionError: 'blocked' != 'awaiting_approval'\n- blocked\n+ awaiting_approval\n : 얼굴 참고 그림을 만들지 못했어요: 2026-10-04T18.31.22.log'.\n   at: copy (core/io/dir_access.cpp:429)\nERROR: Failed to open log file for writing: user://logs/godot.log\n   at: rotate_file (core/io/logger.cpp:169)\nERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n\n"
+    },
+    {
+      "test": "tests.test_assets.Installed.test_remove_made_look",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_assets.py\", line 225, in test_remove_made_look\n    t = self.make_look()\n        ^^^^^^^^^^^^^^^^\n  File \"S:\\AI\\ai studio\\tests\\test_assets.py\", line 128, in make_look\n    self.assertEqual(t.status, \"awaiting_approval\", t.blocked_reason)\nAssertionError: 'blocked' != 'awaiting_approval'\n- blocked\n+ awaiting_approval\n : 얼굴 참고 그림을 만들지 못했어요: 2026-10-04T18.31.24.log'.\n   at: copy (core/io/dir_access.cpp:429)\nERROR: Failed to open log file for writing: user://logs/godot.log\n   at: rotate_file (core/io/logger.cpp:169)\nERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n\n"
+    },
+    {
+      "test": "tests.test_certificates.CertificateFailures.test_permanent_certificate_failure_terminates_waiting_child",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_certificates.py\", line 100, in test_permanent_certificate_failure_terminates_waiting_child\n    self.assertLess(duration, 5)\nAssertionError: 15.437000000005355 not less than 5\n"
+    },
+    {
+      "test": "tests.test_hire.Hire.test_hire_flow",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_hire.py\", line 70, in test_hire_flow\n    self.assertEqual(t.status, \"awaiting_approval\", t.blocked_reason)\nAssertionError: 'blocked' != 'awaiting_approval'\n- blocked\n+ awaiting_approval\n : 얼굴 참고 그림을 만들지 못했어요: 2026-10-04T18.34.34.log'.\n   at: copy (core/io/dir_access.cpp:429)\nERROR: Failed to open log file for writing: user://logs/godot.log\n   at: rotate_file (core/io/logger.cpp:169)\nERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n\n"
+    },
+    {
+      "test": "tests.test_hire.Hire.test_new_staff_can_order_outfit_and_limit",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_hire.py\", line 146, in test_new_staff_can_order_outfit_and_limit\n    self.hire_mina()\n  File \"S:\\AI\\ai studio\\tests\\test_hire.py\", line 55, in hire_mina\n    self.assertEqual(t.status, \"awaiting_approval\", t.blocked_reason)\nAssertionError: 'blocked' != 'awaiting_approval'\n- blocked\n+ awaiting_approval\n : 얼굴 참고 그림을 만들지 못했어요: 2026-10-04T18.34.36.log'.\n   at: copy (core/io/dir_access.cpp:429)\nERROR: Failed to open log file for writing: user://logs/godot.log\n   at: rotate_file (core/io/logger.cpp:169)\nERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n\n"
+    },
+    {
+      "test": "tests.test_hire.Hire.test_new_staff_can_skip_inheriting",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_hire.py\", line 117, in test_new_staff_can_skip_inheriting\n    t = self.hire_mina({\"inherit_skills\": False})\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"S:\\AI\\ai studio\\tests\\test_hire.py\", line 55, in hire_mina\n    self.assertEqual(t.status, \"awaiting_approval\", t.blocked_reason)\nAssertionError: 'blocked' != 'awaiting_approval'\n- blocked\n+ awaiting_approval\n : 얼굴 참고 그림을 만들지 못했어요: 2026-10-04T18.34.37.log'.\n   at: copy (core/io/dir_access.cpp:429)\nERROR: Failed to open log file for writing: user://logs/godot.log\n   at: rotate_file (core/io/logger.cpp:169)\nERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n\n"
+    },
+    {
+      "test": "tests.test_hire.Hire.test_new_staff_inherits_skills_of_the_same_job",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_hire.py\", line 103, in test_new_staff_inherits_skills_of_the_same_job\n    t = self.hire_mina()\n        ^^^^^^^^^^^^^^^^\n  File \"S:\\AI\\ai studio\\tests\\test_hire.py\", line 55, in hire_mina\n    self.assertEqual(t.status, \"awaiting_approval\", t.blocked_reason)\nAssertionError: 'blocked' != 'awaiting_approval'\n- blocked\n+ awaiting_approval\n : 얼굴 참고 그림을 만들지 못했어요: 2026-10-04T18.34.39.log'.\n   at: copy (core/io/dir_access.cpp:429)\nERROR: Failed to open log file for writing: user://logs/godot.log\n   at: rotate_file (core/io/logger.cpp:169)\nERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n\n"
+    },
+    {
+      "test": "tests.test_hire.Hire.test_work_is_shared_and_reassignable",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_hire.py\", line 123, in test_work_is_shared_and_reassignable\n    self.hire_mina()\n  File \"S:\\AI\\ai studio\\tests\\test_hire.py\", line 55, in hire_mina\n    self.assertEqual(t.status, \"awaiting_approval\", t.blocked_reason)\nAssertionError: 'blocked' != 'awaiting_approval'\n- blocked\n+ awaiting_approval\n : 얼굴 참고 그림을 만들지 못했어요: 2026-10-04T18.34.41.log'.\n   at: copy (core/io/dir_access.cpp:429)\nERROR: Failed to open log file for writing: user://logs/godot.log\n   at: rotate_file (core/io/logger.cpp:169)\nERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n\n"
+    },
+    {
+      "test": "tests.test_wardrobe.Wardrobe.test_order_make_approve",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_wardrobe.py\", line 62, in test_order_make_approve\n    self.assertEqual(t.status, \"awaiting_approval\", t.blocked_reason)\nAssertionError: 'blocked' != 'awaiting_approval'\n- blocked\n+ awaiting_approval\n : 얼굴 참고 그림을 만들지 못했어요: 2026-10-04T18.41.43.log'.\n   at: copy (core/io/dir_access.cpp:429)\nERROR: Failed to open log file for writing: user://logs/godot.log\n   at: rotate_file (core/io/logger.cpp:169)\nERROR: Failed to read the root certificate store.\n   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)\n\n"
+    }
+  ],
+  "errors": [
+    {
+      "test": "tests.test_wardrobe.Wardrobe.test_kinds_build_on_the_worn_look",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_wardrobe.py\", line 97, in test_kinds_build_on_the_worn_look\n    self.e.approve(coat.id)\n  File \"S:\\AI\\ai studio\\studio\\engine.py\", line 408, in approve\n    raise EngineError(\"결재 대기 중인 작업만 승인할 수 있습니다.\")\nstudio.engine.EngineError: 결재 대기 중인 작업만 승인할 수 있습니다.\n"
+    },
+    {
+      "test": "tests.test_wardrobe.Wardrobe.test_redo_with_note",
+      "trace": "Traceback (most recent call last):\n  File \"S:\\AI\\ai studio\\tests\\test_wardrobe.py\", line 128, in test_redo_with_note\n    self.e.request_changes(t.id, \"단추를 금색으로\")\n  File \"S:\\AI\\ai studio\\studio\\engine.py\", line 429, in request_changes\n    raise EngineError(\"결재 대기 또는 CEO 답변이 필요한 기획만 수정할 수 있습니다.\")\nstudio.engine.EngineError: 결재 대기 또는 CEO 답변이 필요한 기획만 수정할 수 있습니다.\n"
+    }
+  ],
+  "skipped": [
+    {
+      "test": "tests.test_lifecycle.ChildProcessTests.test_timeout_isolates_and_reaps_child",
+      "reason": "POSIX process-group regression"
+    }
+  ],
+  "real_model_calls": 0
+}

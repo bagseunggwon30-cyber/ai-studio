@@ -1,0 +1,93 @@
+{
+  "at": "2026-10-04T18:57:03+09:00",
+  "status": "complete",
+  "branch": "codex/node-workbench-20261004",
+  "baseline_commit": "43a0616",
+  "implementation_commit": "2b6079fd49897d540e5fb1565e9a69fd4a3953ba",
+  "source_sha256": {
+    "docs/WORKBENCH.md": "a437e8f0ae765490ff7a9c62b6f3da1b0d2949131018bcfdf740c8a4533bfede",
+    "studio/engine.py": "8693a65247b5e340f05f016d0d29a717462e3bd597c5c518cb987e45097eb540",
+    "studio/mcp.py": "398f8ecaa266a24c26fbb1366113cdebbe4adf1a4af080da1501a61bfe5b346c",
+    "studio/server.py": "a8d8a9da61041542d8a4a35b5a82af9e879bbb23f32cdd6343ee4643bdd5235e",
+    "studio/workbench.py": "cc9fd93cf97c91f1ba7f185e4c196a2825124fd88554f66ab820eef20e10206b",
+    "tests/test_workbench.py": "e603f7b3c7b72bd7b8e170ef33e09f12d1cc846e6b28b4539bd5862910eabbd7",
+    "tools/dev/workbench_fixture.py": "b0c7b76a77a94828b5bf3c571be01673c68cc892da9364ea849778c52058fe72",
+    "tools/dev/workbench_regression.py": "cdb5c2fc06b07800f937ba95b08ae33d3c58fcf70fa882af7361e5225af1c840",
+    "tools/dev/workbench_smoke.js": "cfea1c29484e1fd06e1123bdc3db471f38a32445c5968e2af202ebcda316e3b0",
+    "ui/app.js": "435db297f49a4f8f1868861039ac62b1d96f6dee13d6832f11c2c03e4b26670a",
+    "ui/board.js": "3219673b6876c4a54ed952278cd49912ab3355ce1d1d38bf2588f895bf7a52ab",
+    "ui/data.js": "fb0cb7c070f930b92b5844ef1b6ddbcd257d9bcc0efa379514f8851731844710",
+    "ui/index.html": "e55e0e9724e7465283acf9f9a7f3dbe325cf89143b198b43bdfb4b5bd77932ca",
+    "ui/workbench.css": "9d68679e95d55565ff8097d9a1d64e0738584e7d4b68a083034ef1377473dfd3",
+    "ui/workbench.js": "6660d0d68d0982637fa9bdd8a875978c2fec906b01886a4d9bae4350d5889c91"
+  },
+  "regression": {
+    "at": "2026-10-04T18:51:44+09:00",
+    "command": "python tools/dev/workbench_regression.py",
+    "discovery": "unittest discover -s tests -t .",
+    "status": "pass",
+    "total": 345,
+    "passed": 344,
+    "failures": [],
+    "errors": [],
+    "skipped": [
+      {
+        "test": "tests.test_lifecycle.ChildProcessTests.test_timeout_isolates_and_reaps_child",
+        "reason": "POSIX process-group regression"
+      }
+    ],
+    "real_model_calls": 0
+  },
+  "browser": {
+    "status": "pass",
+    "checks": 60,
+    "script_errors": 0,
+    "evidence": "workbench-browser.json"
+  },
+  "pointer_keyboard": {
+    "status": "pass",
+    "checks": 2,
+    "evidence": "workbench-keyboard.json"
+  },
+  "syntax": {
+    "python": "pass",
+    "ui_js_files": 11,
+    "js": "pass",
+    "git_diff_check": "pass"
+  },
+  "existing_js_simulations": [
+    "board:12 pass",
+    "puppet:31 pass",
+    "body:pass",
+    "scene:pass"
+  ],
+  "preservation": {
+    "status": "pass",
+    "protected_files": 1709,
+    "changed": [],
+    "new_protected_files": [],
+    "baseline_commit": "43a0616",
+    "original_head": "951ff11db14fdcb622dac40bc47bfc64ae8801e8",
+    "branch": "codex/node-workbench-20261004",
+    "real_model_calls": 0,
+    "production_submissions": 0,
+    "production_cancellations": 0,
+    "production_restarts": 0,
+    "permissions_or_credentials_changed": false,
+    "at": "2026-10-04T18:57:03+09:00"
+  },
+  "real_model_calls": 0,
+  "production_submissions": 0,
+  "production_cancellations": 0,
+  "production_server_restarts": 0,
+  "preview_closed": true,
+  "unexecuted": [
+    "real-model generation for this feature",
+    "production company submissions/approvals",
+    "phone device checks",
+    "main merge",
+    "remote push",
+    "deployment"
+  ],
+  "remaining_condition": "Safe restart of the existing older server and page refresh to load the new backend/UI."
+}

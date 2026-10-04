@@ -1,0 +1,7 @@
+{
+  "command": "python studio.py doctor",
+  "exit_code": 0,
+  "output": "[ OK ] Python: 3.12.9 (32bit)\n[ OK ] Git: git version 2.53.0.windows.2\n[ OK ] Codex CLI: codex-cli 0.160.0 · Codex 앱\n[ OK ] Codex 로그인: ChatGPT 구독 로그인\n[ OK ] Codex 옵션: 12개 모두 있음\n[ OK ] 개인 Codex 스킬: 87개 막음 (직원에게 안 보임)\n[주의] Claude: 현재 사용 불가 · 기획/리뷰는 Codex로 진행합니다.\n[ OK ] Grok CLI (그림·텍스트, 선택): grok 1.0.41 (4220f3b224a6) [stable] · grok.com 로그인\n[ OK ] Grok 텍스트 도구 차단: MCP·훅·플러그인·상속 지침·스킬 없음\n[ OK ] API 키·경로 환경변수: 없음\n[ OK ] Godot: 4.7.2.stable.official.ed1daf0bf\n[ OK ] 프로젝트 Core Courier: main @ 5600705 · 신뢰 테스트 8개 (e02c0022)\n[ OK ] 자가 점검 Core Courier: 결함 구현 1개를 모두 잡아냄 · 2026-09-28T04:45\n[ OK ] 프로젝트 Studio Docs: main @ 0dc6d42 · 신뢰 테스트 형식 검사 (d9b13abc)\n\n종합: [주의]\n",
+  "stderr": "",
+  "real_model_calls": 0
+}

@@ -1,0 +1,8 @@
+{
+  "status": "pass",
+  "checks": [
+    "포인터 드래그로 노드 이동",
+    "노트 창 Tab/Shift+Tab 초점 순환·Escape 닫기"
+  ],
+  "real_model_calls": 0
+}
