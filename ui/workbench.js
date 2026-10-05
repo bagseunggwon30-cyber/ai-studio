@@ -529,8 +529,9 @@ const Workbench = (() => {
     main.replaceChildren(h('div', { class: 'wb-work-title' }, h('h2', { text: active ? active.title : draft.title }),
       h('p', { text: active ? `업무 묶음 · 현재 후보 v${active.revision || 1}` : draft.id ? `업무 묶음 · 저장 v${draft.version}` : '새 업무 묶음' })),
       h('div', { class: 'wb-run-bar', hidden: !active }));
+      main.querySelector('.wb-work-title').append(main.querySelector('.wb-run-bar'));
     const settings = h('details', { class: 'wb-work-settings' }, h('summary', { text: active ? '실행 기록·사본' : '이름·범위·흐름 설정' }));
-    main.append(settings);
+    main.querySelector('.wb-work-title').append(settings);
     if (active) {
       settings.append(h('div', { class: 'wb-toolbar' }, button('수정용 사본 꺼내기', () => copyRun()), button('내 작업대로 돌아가기', () => { active = null; detailOpen = false; renderEditor(); renderDrawer(); renderDetail(); remember(); })));
     } else {
@@ -550,7 +551,7 @@ const Workbench = (() => {
       }, '모델 작업 대상')),
       field('파일 변경 허용 범위 (한 줄에 하나)', textarea(draft.allowed_paths.join('\n'), 2000, val => { draft.allowed_paths = val.split('\n').map(p => p.trim()).filter(Boolean); draft.scope_touched = true; edited(); }, { rows: 2, name: 'scope' }))));
     }
-    if (!active) main.append(h('div', { class: 'wb-primary-actions' }, button('서랍에 저장', saveFlow, { 'data-save-flow': '1' }),
+    if (!active) main.querySelector('.wb-work-title').append(h('div', { class: 'wb-primary-actions' }, button('서랍에 저장', saveFlow, { 'data-save-flow': '1' }),
       button('실행 계획 확인', prepare, { class: 'wb-btn primary', 'data-prepare': '1' })));
     main.append(h('div', { class: 'wb-graph-scroll', tabindex: 0, 'aria-label': '노드 연결도 · 노드는 방향키로도 이동할 수 있어요' },
       h('div', { class: 'wb-canvas' })), h('details', { class: 'wb-connection-settings' }, h('summary', { text: '노드 연결 편집·상태' }), h('div', { class: 'wb-connections' })));

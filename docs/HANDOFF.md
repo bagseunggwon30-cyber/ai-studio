@@ -1,5 +1,11 @@
 # 인수인계 — 다른 세션·다른 계정에서 이어서 작업하기
 
+## 2026-10-05 final independent integration verification
+
+- Integrated source `05a41da` excludes unrelated prototype `7ce7ada`. Final exact discovery: 384 IDs, 383 pass, 1 POSIX-only skip; initial failures and diagnostic-only isolated reruns preserved. Product/test source hash stayed identical throughout unit verification.
+- Final cached Edge MOCK goal→stored skill→existing CEO plan approval→execution→validated media→reusable bundle passed; supervisor recovery/QA/tamper/cancel passed after correcting only its explicit fake planner criterion. Startup own preview closed, real calls/auth reads/install/production restart 0. Protected 1,759 unchanged/missing 0.
+- Evidence and precise future source/session/payload/unknown-cost approval contract: [verification/grok-planner-integration.md](verification/grok-planner-integration.md). Default live supplier remains disconnected. Root owns authorized main fast-forward/push/matching CI after local report commit.
+
 ## 2026-10-05 Grok executor + model-backed workbench planner
 
 - Feature branch `codex/grok-planner-integration-20261005`: pinned/approved stdlib transport, durable one-use request journal, async owned workers, GET-only known video recheck, task/artifact acceptance and structured model planner through existing Engine CEO approval are implemented. Default connection remains disabled; no parent-session dependency or rule template labeled AI.

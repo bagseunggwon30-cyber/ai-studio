@@ -401,3 +401,9 @@
 
 #workbench-screen .wb-detail.wb-provider-detail { position: fixed; left: auto; top: auto; right: 24px; bottom: 36px; z-index: 25; max-width: calc(100vw - 24px); max-height: min(640px, calc(100dvh - 160px)); }
 @media (max-width: 900px) { #workbench-screen .wb-detail.wb-provider-detail { right: 12px; bottom: 20px; } }
+
+/* Keep heading metadata below wrapped titles without changing the board. */
+#workbench-screen .wb-work-title .wb-run-bar,
+#workbench-screen .wb-work-title .wb-primary-actions { position: static; width: auto; margin-top: 12px; }
+
+#workbench-screen .wb-work-title .wb-work-settings { position: static; margin-top: 10px; max-width: 100%; }

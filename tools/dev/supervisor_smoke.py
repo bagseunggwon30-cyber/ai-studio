@@ -18,7 +18,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from tests.helpers import TempStudio
+from tests.helpers import TempStudio, default_behavior
 from studio import mcp
 from studio.engine import Engine, EngineError
 from studio.runtimes import make_runtime, RunResult, GrokTextRuntime
@@ -73,6 +73,14 @@ def run(real=False, allow_model_calls=0, client_kind="stdio", grok_review_only=F
     company = TempStudio()
     server = thread = None
     model_calls = []
+    if not real:
+        def smoke_behavior(spec, runtime=None):
+            result = default_behavior(spec, runtime)
+            if spec.role == "producer":
+                result["structured"]["tasks"] = [result["structured"]["tasks"][0]]
+                result["structured"]["tasks"][0]["acceptance"] = ["정답은 42"]
+            return result
+        company.behavior = smoke_behavior
     engine = company.engine
     engine.set_self_learning(False)
     for role in company.cfg.roles:
@@ -132,6 +140,7 @@ def run(real=False, allow_model_calls=0, client_kind="stdio", grok_review_only=F
                     "reason":plan.blocked_reason}
         engine.approve(tid, {"selected":[0]})  # CEO fixture; temporary project only.
         child = company.store.get(company.store.get(tid).children[0])
+        assert child.acceptance == [r["text"] for r in child.extra["requirements"]]
         engine.request_run(child.id)
         with mock.patch.object(engine,"_review",side_effect=RuntimeError("verification interruption before review")):
             engine._work(company.store.get(child.id))
@@ -140,6 +149,8 @@ def run(real=False, allow_model_calls=0, client_kind="stdio", grok_review_only=F
             return {"status":"blocked", "phase":"implementation", "model_calls":len(model_calls),
                     "reason":before.blocked_reason}
         qid = before.qa["qa_id"]
+        candidate = before.candidate_sha
+        assert before.qa["candidate_sha"] == candidate
         # Recreate store/engine, then validate and reuse completed writer and QA receipts.
         recovered_store = Store(company.cfg.data_dir)
         recovered = Engine(company.cfg,recovered_store,runtime_factory=factory)
@@ -155,7 +166,10 @@ def run(real=False, allow_model_calls=0, client_kind="stdio", grok_review_only=F
         artifact = client.call("task_artifact", project="demo", task=child.id, path="docs/answer.txt")
         assert base64.b64decode(artifact["content"]).strip() == b"42"
         assert result["evidence"]["complete"] and status["validated"] and not status["approved"]
-        assert recovered_store.get(child.id).qa["qa_id"] == qid
+        resumed = recovered_store.get(child.id)
+        assert resumed.qa["qa_id"] == qid
+        assert resumed.candidate_sha == resumed.qa["candidate_sha"] == resumed.review["candidate_sha"] == candidate
+        assert resumed.acceptance == [r["text"] for r in resumed.extra["requirements"]]
         snapshot = recovered_store.qa_dir / qid / "snapshot/docs/answer.txt"
         atomic_write_text(snapshot,"tampered\n")
         tampered = client.call("task_result", project="demo", task=child.id)
@@ -169,7 +183,7 @@ def run(real=False, allow_model_calls=0, client_kind="stdio", grok_review_only=F
         assert not Path(before.worktree).exists()
         report = {"status":"pass", "company":"temporary", "models":"real Grok review; fake planning/build" if real and grok_review_only else "real" if real else "fake",
                   "model_calls":len(model_calls), "stdio_tools":sorted(set(client.operations)),
-                  "request_replay_same_task":True, "qa_receipt_reused_after_restart":True,
+                  "request_replay_same_task":True, "qa_receipt_reused_after_restart":True, "criterion_contract_preserved":True, "candidate_review_binding_preserved":True,
                   "artifact_sha256":artifact["sha256"], "candidate_sha":result["evidence"]["candidate_sha"],
                   "evidence_verified":True, "tamper_blocks_approval":True,
                   "cancel_cleans_worktree_and_reservations":True, "event_count":len(events["events"]),

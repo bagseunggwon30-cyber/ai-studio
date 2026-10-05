@@ -1,0 +1,51 @@
+{
+  "javascript": [
+    {
+      "file": "ui\\app.js",
+      "pass": true
+    },
+    {
+      "file": "ui\\board.js",
+      "pass": true
+    },
+    {
+      "file": "ui\\data.js",
+      "pass": true
+    },
+    {
+      "file": "ui\\effects.js",
+      "pass": true
+    },
+    {
+      "file": "ui\\looks.js",
+      "pass": true
+    },
+    {
+      "file": "ui\\m.js",
+      "pass": true
+    },
+    {
+      "file": "ui\\popups.js",
+      "pass": true
+    },
+    {
+      "file": "ui\\puppet.js",
+      "pass": true
+    },
+    {
+      "file": "ui\\scene.js",
+      "pass": true
+    },
+    {
+      "file": "ui\\sound.js",
+      "pass": true
+    },
+    {
+      "file": "ui\\workbench.js",
+      "pass": true
+    }
+  ],
+  "board_exit": 0,
+  "board_output": "  ✓ 칸 나누기: 단계별 칸, 막힘은 작업 중 칸 맨 위, 취소·보관은 안 보임\n  ✓ 완료 칸: 기획 카드는 빼고 최근 5개만, 개수는 전체\n  ✓ 프로젝트 거르기\n  ✓ 지시별 진행: 기획에서 나온 퀘스트를 세고, 나머지는 따로 맡긴 일 (보관한 기획의 퀘스트 포함)\n  ✓ 보드 앞면: 모두 끝났으면 가장 최근 지시, 일이 없으면 없음\n  ✓ 바뀐 단계: 처음 읽을 때는 알리지 않고, 바뀐 것·새 일만\n  ✓ 표정: 결재·완료는 기쁨, 막힘은 걱정\n  ✓ 기본 캐릭터 설정 파일이 규격에 맞고 그림 파일이 있다\n  ✓ 캐릭터 설정 검사: 이상한 파일 이름·판·숫자는 막거나 상자 안으로\n  ✓ 기본 캐릭터의 뼈대(rig)가 검사를 통과해 cfg.rig가 된다 (눈 조각은 뼈대 좌표의 blink 층으로)\n  ✓ 뼈대가 없으면 rig null (경고 없음), 잘못된 뼈대는 rig null + rigBad (예전 CSS 움직임 + 경고), 나머지 설정은 그대로\n  ✓ 인형 엔진이 없어도(node·읽기 실패) cleanMascot이 깨지지 않는다\n진행판 점검 통과 (12개)\n",
+  "real_model_calls": 0
+}

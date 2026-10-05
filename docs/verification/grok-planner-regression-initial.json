@@ -1,0 +1,821 @@
+{
+  "at": "2026-10-05T16:49:33+09:00",
+  "command": "python tools/dev/workbench_regression_grouped.py",
+  "discovery": "unittest discover -s tests -t .",
+  "status": "fail",
+  "total": 360,
+  "passed": 357,
+  "failures": [
+    {
+      "test": "tests.test_grok_text.GrokText.test_login_failure_is_classified_without_exposing_cli_details",
+      "trace": "Traceback (most recent call last):\n  File \"C:\\Users\\bark\\AppData\\Local\\Temp\\ais-main-integration-71ed9959ff384ada98d19a66df32133a\\tests\\test_grok_text.py\", line 105, in test_login_failure_is_classified_without_exposing_cli_details\n    self.assertEqual(result.error_kind,\"login\")\nAssertionError: 'timeout' != 'login'\n- timeout\n+ login\n\n"
+    },
+    {
+      "test": "tests.test_engine.EngineFlow.test_emergency_stop_kills_running",
+      "trace": "Traceback (most recent call last):\n  File \"C:\\Users\\bark\\AppData\\Local\\Temp\\ais-main-integration-71ed9959ff384ada98d19a66df32133a\\tests\\test_engine.py\", line 365, in test_emergency_stop_kills_running\n    self.assertLess(time.monotonic() - started, 3)\nAssertionError: 3.1559999999990396 not less than 3\n"
+    }
+  ],
+  "errors": [],
+  "skipped": [
+    {
+      "test": "tests.test_lifecycle.ChildProcessTests.test_timeout_isolates_and_reaps_child",
+      "reason": "POSIX process-group regression"
+    }
+  ],
+  "exact_discovery_match": false,
+  "discovery_total": 384,
+  "modules": [
+    {
+      "at": "2026-10-05T16:36:43+09:00",
+      "status": "pass",
+      "total": 8,
+      "case_ids": [
+        "tests.test_certificates.CertificateFailures.test_auth_diagnostics_are_not_login_failures",
+        "tests.test_certificates.CertificateFailures.test_only_cli_certificate_errors_trigger_stop",
+        "tests.test_certificates.CertificateFailures.test_permanent_certificate_failure_terminates_waiting_child",
+        "tests.test_certificates.CertificateFailures.test_runtime_uses_bundle_only_during_child_execution",
+        "tests.test_certificates.CertificateFailures.test_task_reports_certificate_failure_without_login_or_size_advice",
+        "tests.test_certificates.WindowsTrust.test_empty_trust_store_fails_before_dispatch",
+        "tests.test_certificates.WindowsTrust.test_exports_trusted_roots_and_removes_bundle_after_failure",
+        "tests.test_certificates.WindowsTrust.test_preserves_explicit_ca_and_non_windows_environment"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_certificates",
+      "exit_code": 0
+    },
+    {
+      "status": "interrupted",
+      "total": 0,
+      "case_ids": [],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_company",
+      "exit_code": 3221225477
+    },
+    {
+      "at": "2026-10-05T16:38:07+09:00",
+      "status": "pass",
+      "total": 35,
+      "case_ids": [
+        "tests.test_design_kit.ColorAndContrast.test_color_reads_every_form",
+        "tests.test_design_kit.ColorAndContrast.test_color_rejects_bad_input_in_easy_korean",
+        "tests.test_design_kit.ColorAndContrast.test_contrast_known_values",
+        "tests.test_design_kit.ColorAndContrast.test_contrast_table_marks_and_warns_similar",
+        "tests.test_design_kit.ColorAndContrast.test_contrast_with_alpha_and_errors",
+        "tests.test_design_kit.ColorAndContrast.test_delta_e_matches_reference",
+        "tests.test_design_kit.ColorAndContrast.test_hsl_round_trip",
+        "tests.test_design_kit.ColorAndContrast.test_ratio_never_rounds_up_across_a_line",
+        "tests.test_design_kit.ImageInfo.test_more_than_100k_colors",
+        "tests.test_design_kit.ImageInfo.test_only_allowed_folders_and_png",
+        "tests.test_design_kit.ImageInfo.test_palette_gray_and_other_color_types",
+        "tests.test_design_kit.ImageInfo.test_pixel_art_checks",
+        "tests.test_design_kit.ImageInfo.test_rgba_all_filters_and_merged_transparent",
+        "tests.test_design_kit.ImageInfo.test_rgba_text_report",
+        "tests.test_design_kit.ImageInfo.test_size_and_pixel_limits",
+        "tests.test_design_kit.ImageInfo.test_symlink_out_of_the_folder_is_refused",
+        "tests.test_design_kit.ImageInfo.test_time_budget",
+        "tests.test_design_kit.ImageInfo.test_unsupported_and_broken_pngs",
+        "tests.test_design_kit.PaletteTool.test_bad_input",
+        "tests.test_design_kit.PaletteTool.test_dark_accent_stays_close_to_base_when_it_already_works",
+        "tests.test_design_kit.PaletteTool.test_guarantees_hold_for_every_scheme_and_mode",
+        "tests.test_design_kit.PaletteTool.test_same_input_same_output",
+        "tests.test_design_kit.PaletteTool.test_scheme_shapes_extras_and_text",
+        "tests.test_design_kit.ScaleGridFit.test_char_widths",
+        "tests.test_design_kit.ScaleGridFit.test_grid_rejects_bad_input",
+        "tests.test_design_kit.ScaleGridFit.test_grid_sums_to_width",
+        "tests.test_design_kit.ScaleGridFit.test_scale_rejects_bad_input",
+        "tests.test_design_kit.ScaleGridFit.test_space_scale",
+        "tests.test_design_kit.ScaleGridFit.test_text_fit_max_lines_and_suggestions",
+        "tests.test_design_kit.ScaleGridFit.test_text_fit_rejects_bad_input",
+        "tests.test_design_kit.ScaleGridFit.test_text_fit_widths_and_lines",
+        "tests.test_design_kit.ScaleGridFit.test_type_scale",
+        "tests.test_design_kit.ServerIntegration.test_initialize_list_and_call_every_tool",
+        "tests.test_design_kit.ServerIntegration.test_no_network_environment_or_subprocess",
+        "tests.test_design_kit.ServerIntegration.test_runs_over_stdio_with_allow_folders"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_design_kit",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:38:14+09:00",
+      "status": "pass",
+      "total": 8,
+      "case_ids": [
+        "tests.test_ai.AILoading.test_failed_grok_review_keeps_request_and_fallback_cause",
+        "tests.test_ai.AILoading.test_grok_is_read_only_and_uses_confirmed_catalog",
+        "tests.test_ai.AILoading.test_grok_planning_never_inherits_mcp_and_is_not_a_fallback",
+        "tests.test_ai.AILoading.test_options",
+        "tests.test_ai.AILoading.test_rules",
+        "tests.test_ai.AILoading.test_run_uses_new_model",
+        "tests.test_ai.AILoading.test_saved_value_survives_restart_and_resets",
+        "tests.test_ai.GrokCatalog.test_native_cli_model_ids_keep_decimal_version"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_ai",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:38:21+09:00",
+      "status": "pass",
+      "total": 3,
+      "case_ids": [
+        "tests.test_dismiss.Dismiss.test_dismiss_hands_over_work_and_cleans_up",
+        "tests.test_dismiss.Dismiss.test_dismiss_twice_is_refused",
+        "tests.test_dismiss.Dismiss.test_founders_and_busy_staff_are_refused"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_dismiss",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:38:29+09:00",
+      "status": "pass",
+      "total": 4,
+      "case_ids": [
+        "tests.test_floors.Floors.test_broken_file_means_one_floor",
+        "tests.test_floors.Floors.test_count_capacity_and_add",
+        "tests.test_floors.Floors.test_screen_coordinates_match_desks",
+        "tests.test_floors.Floors.test_seats_follow_founders_then_roster"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_floors",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:38:47+09:00",
+      "status": "pass",
+      "total": 4,
+      "case_ids": [
+        "tests.test_grok.Grok.test_image_run_finds_session_image_and_limits_tools",
+        "tests.test_grok.Grok.test_keys_are_stripped_and_draw_ai_is_checked",
+        "tests.test_grok.Grok.test_login_and_missing_image",
+        "tests.test_grok.Grok.test_text_work_is_refused_and_session_ids_are_checked"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_grok",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:39:57+09:00",
+      "status": "pass",
+      "total": 11,
+      "case_ids": [
+        "tests.test_grok_everywhere.ApiTests.test_grok_endpoints_keep_existing_security_and_do_not_initialize",
+        "tests.test_grok_everywhere.ContractTests.test_env_drops_secrets_and_overrides",
+        "tests.test_grok_everywhere.ContractTests.test_fixed_argv_no_prompt_flags_or_post_retry",
+        "tests.test_grok_everywhere.ContractTests.test_paths_and_media",
+        "tests.test_grok_everywhere.ContractTests.test_strict_session_and_json",
+        "tests.test_grok_everywhere.ContractTests.test_typed_plan_unknown_cost_and_always_blocked",
+        "tests.test_grok_everywhere.MockWorkbenchTests.test_denied_disconnected_missing_input",
+        "tests.test_grok_everywhere.MockWorkbenchTests.test_known_video_get_only_wait_failed_then_complete_and_no_revival",
+        "tests.test_grok_everywhere.MockWorkbenchTests.test_mock_research_image_video_in_existing_ledger_and_duplicate_click",
+        "tests.test_grok_everywhere.MockWorkbenchTests.test_timeout_invalid_missing_escape_and_restart_fail_closed",
+        "tests.test_grok_everywhere.MockWorkbenchTests.test_typed_artifact_reference_is_reusable_without_text_coercion"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_grok_everywhere",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:40:25+09:00",
+      "status": "pass",
+      "total": 11,
+      "case_ids": [
+        "tests.test_assets.FakeTint.test_draw_tints_only_fake_company_results",
+        "tests.test_assets.FakeTint.test_fake_company_order_looks_different",
+        "tests.test_assets.FakeTint.test_hue_differs_by_task",
+        "tests.test_assets.FakeTint.test_repeat_orders_keep_changing_color",
+        "tests.test_assets.FakeTint.test_tool_turns_only_the_outfit",
+        "tests.test_assets.Installed.test_hire_installs_into_data_assets",
+        "tests.test_assets.Installed.test_look_install_writes_only_data_assets",
+        "tests.test_assets.Installed.test_old_locations_are_still_found",
+        "tests.test_assets.Installed.test_remove_made_look",
+        "tests.test_assets.Shipped.test_hide_and_restore",
+        "tests.test_assets.Shipped.test_not_wearing_stays"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_assets",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:41:12+09:00",
+      "status": "fail",
+      "total": 9,
+      "case_ids": [
+        "tests.test_grok_text.GrokText.test_cancellation_removes_private_login_link",
+        "tests.test_grok_text.GrokText.test_login_failure_is_classified_without_exposing_cli_details",
+        "tests.test_grok_text.GrokText.test_mcp_and_write_permissions_are_refused",
+        "tests.test_grok_text.GrokText.test_missing_inspection_contract_fails_closed",
+        "tests.test_grok_text.GrokText.test_native_schema_single_json_is_supported",
+        "tests.test_grok_text.GrokText.test_text_process_is_isolated_and_identity_is_not_inferred",
+        "tests.test_grok_text.GrokText.test_timeout_reaps_process_and_removes_login_link",
+        "tests.test_grok_text.GrokText.test_tool_exposure_or_malformed_output_is_not_accepted",
+        "tests.test_grok_text.GrokText.test_unsafe_inherited_surface_prevents_inference"
+      ],
+      "failures": [
+        {
+          "test": "tests.test_grok_text.GrokText.test_login_failure_is_classified_without_exposing_cli_details",
+          "trace": "Traceback (most recent call last):\n  File \"C:\\Users\\bark\\AppData\\Local\\Temp\\ais-main-integration-71ed9959ff384ada98d19a66df32133a\\tests\\test_grok_text.py\", line 105, in test_login_failure_is_classified_without_exposing_cli_details\n    self.assertEqual(result.error_kind,\"login\")\nAssertionError: 'timeout' != 'login'\n- timeout\n+ login\n\n"
+        }
+      ],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_grok_text",
+      "exit_code": 1
+    },
+    {
+      "at": "2026-10-05T16:41:31+09:00",
+      "status": "pass",
+      "total": 2,
+      "case_ids": [
+        "tests.test_job_card.JobCard.test_card_comes_from_role_doc_and_settings",
+        "tests.test_job_card.JobCard.test_skill_report_splits_before_and_after_learning"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_job_card",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:43:25+09:00",
+      "status": "pass",
+      "total": 14,
+      "case_ids": [
+        "tests.test_lifecycle.ChildProcessTests.test_already_stopped_does_not_launch",
+        "tests.test_lifecycle.ChildProcessTests.test_slow_termination_is_reaped_before_return",
+        "tests.test_lifecycle.ChildProcessTests.test_timeout_isolates_and_reaps_child",
+        "tests.test_lifecycle.EngineLifecycleTests.test_cancel_during_staging_is_terminal",
+        "tests.test_lifecycle.EngineLifecycleTests.test_shutdown_after_passing_qa_prevents_review",
+        "tests.test_lifecycle.EngineLifecycleTests.test_shutdown_before_agent_does_not_construct_runtime",
+        "tests.test_lifecycle.EngineLifecycleTests.test_shutdown_during_staging_prevents_qa",
+        "tests.test_lifecycle.EngineLifecycleTests.test_shutdown_reaches_qa_and_blocks_review",
+        "tests.test_lifecycle.EngineLifecycleTests.test_shutdown_reaches_runtime_predicate",
+        "tests.test_lifecycle.EngineLifecycleTests.test_shutdown_reports_worker_still_alive",
+        "tests.test_lifecycle.ProcessLockTests.test_concurrent_processes_and_owner_crash",
+        "tests.test_lifecycle.ProcessLockTests.test_same_process_contenders_and_nonowner_release",
+        "tests.test_lifecycle.ProcessLockTests.test_stale_task_cannot_erase_cancellation",
+        "tests.test_lifecycle.ServerShutdownTests.test_worker_join_precedes_lock_release"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [
+        {
+          "test": "tests.test_lifecycle.ChildProcessTests.test_timeout_isolates_and_reaps_child",
+          "reason": "POSIX process-group regression"
+        }
+      ],
+      "module": "tests.test_lifecycle",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:43:48+09:00",
+      "status": "pass",
+      "total": 5,
+      "case_ids": [
+        "tests.test_hire.Hire.test_hire_flow",
+        "tests.test_hire.Hire.test_new_staff_can_order_outfit_and_limit",
+        "tests.test_hire.Hire.test_new_staff_can_skip_inheriting",
+        "tests.test_hire.Hire.test_new_staff_inherits_skills_of_the_same_job",
+        "tests.test_hire.Hire.test_work_is_shared_and_reassignable"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_hire",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:43:49+09:00",
+      "status": "pass",
+      "total": 3,
+      "case_ids": [
+        "tests.test_paths.PathRules.test_check_paths",
+        "tests.test_paths.PathRules.test_globs",
+        "tests.test_paths.PathRules.test_normalize"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_paths",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:44:51+09:00",
+      "status": "pass",
+      "total": 20,
+      "case_ids": [
+        "tests.test_mcp.McpShelf.test_basic_builtins_default_equip",
+        "tests.test_mcp.McpShelf.test_builtins_default_equip_and_reviewer_is_excluded",
+        "tests.test_mcp.McpShelf.test_check_starts_the_builtin_over_stdio",
+        "tests.test_mcp.McpShelf.test_clock_knows_summer_time",
+        "tests.test_mcp.McpShelf.test_custom_mcp_with_token",
+        "tests.test_mcp.McpShelf.test_dismissed_staff_is_unequipped",
+        "tests.test_mcp.McpShelf.test_git_history_reads_only_registered_repos",
+        "tests.test_mcp.McpShelf.test_godot_docs",
+        "tests.test_mcp.McpShelf.test_prompt_block_shows_when_to_use_builtins_only",
+        "tests.test_mcp.McpShelf.test_records_server_finds_skills_and_tasks",
+        "tests.test_mcp.McpShelf.test_step_thinking",
+        "tests.test_mcp.McpShelf.test_team_memory",
+        "tests.test_mcp.McpShelf.test_web_reader_blocks_local_addresses",
+        "tests.test_mcp.RuntimeWiring.test_claude_gets_temp_config_that_is_deleted",
+        "tests.test_mcp.RuntimeWiring.test_codex_args_keep_tokens_off_the_command_line",
+        "tests.test_mcp.RuntimeWiring.test_codex_gets_tokens_only_in_env",
+        "tests.test_mcp.StaffTools.test_bad_code_is_not_accepted",
+        "tests.test_mcp.StaffTools.test_order_review_approve_install",
+        "tests.test_mcp.StaffTools.test_review_rejects_twice_blocks",
+        "tests.test_mcp.StaffTools.test_scan_and_clean"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_mcp",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:45:01+09:00",
+      "status": "fail",
+      "total": 27,
+      "case_ids": [
+        "tests.test_engine.EngineFlow.test_bom_in_a_changed_file_is_explained_to_the_worker",
+        "tests.test_engine.EngineFlow.test_cancel_running_task",
+        "tests.test_engine.EngineFlow.test_daily_cap",
+        "tests.test_engine.EngineFlow.test_emergency_stop_kills_running",
+        "tests.test_engine.EngineFlow.test_empty_plan_always_has_a_reason",
+        "tests.test_engine.EngineFlow.test_empty_plan_keeps_explanation_and_questions",
+        "tests.test_engine.EngineFlow.test_full_flow",
+        "tests.test_engine.EngineFlow.test_invalid_actions",
+        "tests.test_engine.EngineFlow.test_login_error_also_stops_and_asks",
+        "tests.test_engine.EngineFlow.test_merge_refused_if_main_moved_then_retry",
+        "tests.test_engine.EngineFlow.test_merge_refused_if_qa_does_not_match_candidate",
+        "tests.test_engine.EngineFlow.test_no_window_without_opener",
+        "tests.test_engine.EngineFlow.test_out_of_scope_changes_reverted",
+        "tests.test_engine.EngineFlow.test_plan_question_reply_starts_fresh_readonly_plan",
+        "tests.test_engine.EngineFlow.test_plan_questions_require_answer_instead_of_plain_retry",
+        "tests.test_engine.EngineFlow.test_plan_reply_does_not_resume_errors_or_invalid_proposals",
+        "tests.test_engine.EngineFlow.test_qa_fail_then_fix_with_feedback",
+        "tests.test_engine.EngineFlow.test_qa_fail_twice_blocks",
+        "tests.test_engine.EngineFlow.test_qa_feedback_mentions_bom_only_when_found",
+        "tests.test_engine.EngineFlow.test_quota_blocks_and_stops_company",
+        "tests.test_engine.EngineFlow.test_quota_opens_login_window_once_and_login_done_resumes",
+        "tests.test_engine.EngineFlow.test_recover_blocks_stale_running",
+        "tests.test_engine.EngineFlow.test_request_changes_reruns",
+        "tests.test_engine.EngineFlow.test_review_changes_then_approve",
+        "tests.test_engine.EngineFlow.test_reviewer_fallback",
+        "tests.test_engine.EngineFlow.test_reviewer_unavailable_still_goes_to_ceo",
+        "tests.test_engine.EngineFlow.test_worker_git_commit_is_absorbed"
+      ],
+      "failures": [
+        {
+          "test": "tests.test_engine.EngineFlow.test_emergency_stop_kills_running",
+          "trace": "Traceback (most recent call last):\n  File \"C:\\Users\\bark\\AppData\\Local\\Temp\\ais-main-integration-71ed9959ff384ada98d19a66df32133a\\tests\\test_engine.py\", line 365, in test_emergency_stop_kills_running\n    self.assertLess(time.monotonic() - started, 3)\nAssertionError: 3.1559999999990396 not less than 3\n"
+        }
+      ],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_engine",
+      "exit_code": 1
+    },
+    {
+      "at": "2026-10-05T16:45:03+09:00",
+      "status": "pass",
+      "total": 5,
+      "case_ids": [
+        "tests.test_qr.Qr.test_format_and_version_bits",
+        "tests.test_qr.Qr.test_matrix_shape_and_function_patterns",
+        "tests.test_qr.Qr.test_reads_back",
+        "tests.test_qr.Qr.test_reed_solomon_matches_the_standard_example",
+        "tests.test_qr.Qr.test_svg"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_qr",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:45:14+09:00",
+      "status": "pass",
+      "total": 16,
+      "case_ids": [
+        "tests.test_projects.ProjectAPI.test_defaults_are_read_only",
+        "tests.test_projects.ProjectAPI.test_registration_and_retarget_require_session_and_origin",
+        "tests.test_projects.ProjectManagement.test_dirty_worktree_is_preserved_and_move_is_denied",
+        "tests.test_projects.ProjectManagement.test_external_supervisor_tasks_cannot_expand_project_access",
+        "tests.test_projects.ProjectManagement.test_fixture_canonicalizes_allocated_temp_directory",
+        "tests.test_projects.ProjectManagement.test_interruption_while_copying_keeps_source_paused",
+        "tests.test_projects.ProjectManagement.test_new_target_pipeline_uses_new_repo_and_reports_qa_none",
+        "tests.test_projects.ProjectManagement.test_plan_copy_discards_old_proposal_and_survives_recovery_paused",
+        "tests.test_projects.ProjectManagement.test_register_persists_without_mutating_existing_config_or_repo",
+        "tests.test_projects.ProjectManagement.test_registration_rejects_bad_inputs_and_does_not_overwrite",
+        "tests.test_projects.ProjectManagement.test_registration_requires_ceo",
+        "tests.test_projects.ProjectManagement.test_retarget_preserves_records_pauses_new_card_and_is_idempotent",
+        "tests.test_projects.ProjectManagement.test_retarget_preserves_strict_requirements_but_no_evidence_result",
+        "tests.test_projects.ProjectManagement.test_self_registration_protects_company_and_runtime_data",
+        "tests.test_projects.ProjectManagement.test_stale_revision_and_target_scope_rejected",
+        "tests.test_projects.ProjectManagement.test_uncertain_candidate_running_and_dependencies_cannot_move"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_projects",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:45:14+09:00",
+      "status": "pass",
+      "total": 6,
+      "case_ids": [
+        "tests.test_qa.BomFiles.test_at_most_twenty_files_are_listed",
+        "tests.test_qa.BomFiles.test_bom_does_not_change_the_verdict",
+        "tests.test_qa.BomFiles.test_no_bom_means_no_key",
+        "tests.test_qa.BomFiles.test_reports_only_changed_text_files_with_a_bom",
+        "tests.test_qa.BomFiles.test_selftest_overrides_skip_the_check",
+        "tests.test_qa.BomFiles.test_without_base_or_with_a_bad_base_it_stays_silent"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_qa",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:45:19+09:00",
+      "status": "pass",
+      "total": 13,
+      "case_ids": [
+        "tests.test_runtimes.CliFlags.test_missing_flags_reads_help_text_exactly",
+        "tests.test_runtimes.CodexEvents.test_classify",
+        "tests.test_runtimes.CodexEvents.test_failed_turn",
+        "tests.test_runtimes.CodexEvents.test_local_config_and_assistant_identity_claim_are_not_provider_proof",
+        "tests.test_runtimes.CodexEvents.test_malformed_model_identity_is_not_recorded",
+        "tests.test_runtimes.CodexEvents.test_parse_json_loose",
+        "tests.test_runtimes.CodexEvents.test_response_model_metadata_reads_explicit_flat_response",
+        "tests.test_runtimes.CodexEvents.test_response_model_metadata_reads_nested_provider_response",
+        "tests.test_runtimes.CodexEvents.test_summarize",
+        "tests.test_runtimes.HostSkills.test_personal_skill_files_are_found_and_blocked",
+        "tests.test_runtimes.HostSkills.test_reads_of_personal_skill_files_are_named",
+        "tests.test_runtimes.OutputSchemas.test_every_output_schema_is_strict_mode_safe",
+        "tests.test_runtimes.OutputSchemas.test_skill_report_field_is_in_every_json_output"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_runtimes",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:45:31+09:00",
+      "status": "pass",
+      "total": 12,
+      "case_ids": [
+        "tests.test_remote.FirewallReading.test_a_block_on_another_network_kind_does_not_count",
+        "tests.test_remote.FirewallReading.test_any_profile_and_single_rule_object",
+        "tests.test_remote.FirewallReading.test_not_windows_or_unreadable_says_unchecked",
+        "tests.test_remote.FirewallReading.test_private_network_with_an_allow_rule_is_clean",
+        "tests.test_remote.FirewallReading.test_public_block_is_found_and_the_fix_is_narrow",
+        "tests.test_remote.FirewallReading.test_quotes_in_names_cannot_break_out_of_the_command",
+        "tests.test_remote.Remote.test_firewall_check_route_reads_once_a_minute_and_is_local_only",
+        "tests.test_remote.Remote.test_pairing_and_phone_actions",
+        "tests.test_remote.Remote.test_qr_svg_is_local_only",
+        "tests.test_remote.Remote.test_same_wifi_server_serves_only_the_phone_page",
+        "tests.test_remote.Remote.test_tailscale_host_gets_only_the_phone_page",
+        "tests.test_remote.Remote.test_wrong_codes_lock_for_a_minute"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_remote",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:45:34+09:00",
+      "status": "pass",
+      "total": 7,
+      "case_ids": [
+        "tests.test_schedules.AutoStart.test_actions",
+        "tests.test_schedules.AutoStart.test_last_run_follows_the_time_given_not_the_wall_clock",
+        "tests.test_schedules.AutoStart.test_research_runs_by_itself",
+        "tests.test_schedules.AutoStart.test_tick_starts_once_and_does_not_pile_up",
+        "tests.test_schedules.AutoStart.test_validation",
+        "tests.test_schedules.AutoStart.test_waits_while_stopped_or_out_of_energy",
+        "tests.test_schedules.Timing.test_daily_weekdays_weekly_hours"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_schedules",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:46:28+09:00",
+      "status": "pass",
+      "total": 16,
+      "case_ids": [
+        "tests.test_server.ServerSecurity.test_bad_host_rejected",
+        "tests.test_server.ServerSecurity.test_bad_input",
+        "tests.test_server.ServerSecurity.test_board_files_and_mascot",
+        "tests.test_server.ServerSecurity.test_game_screen_api",
+        "tests.test_server.ServerSecurity.test_index_has_token_and_csp",
+        "tests.test_server.ServerSecurity.test_login_routes",
+        "tests.test_server.ServerSecurity.test_login_script",
+        "tests.test_server.ServerSecurity.test_post_bad_origin_rejected",
+        "tests.test_server.ServerSecurity.test_post_needs_token",
+        "tests.test_server.ServerSecurity.test_post_ok",
+        "tests.test_server.ServerSecurity.test_rejected_post_still_answers",
+        "tests.test_server.ServerSecurity.test_skill_api",
+        "tests.test_server.ServerSecurity.test_state",
+        "tests.test_server.ServerSecurity.test_state_reads_events_before_tasks",
+        "tests.test_server.ServerSecurity.test_task_usage",
+        "tests.test_server.ServerSecurity.test_ui_files"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_server",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:46:33+09:00",
+      "status": "pass",
+      "total": 16,
+      "case_ids": [
+        "tests.test_skill_strength.SkillStrength.test_design_only_skill_attaches_to_design_work_only",
+        "tests.test_skill_strength.SkillStrength.test_design_with_other_kinds_narrows_to_design_work_of_those_kinds",
+        "tests.test_skill_strength.SkillStrength.test_fake_runtime_reports_skills_with_a_body",
+        "tests.test_skill_strength.SkillStrength.test_is_design_text_reads_the_work_text",
+        "tests.test_skill_strength.SkillStrength.test_most_relevant_skills_get_the_full_body",
+        "tests.test_skill_strength.SkillStrength.test_parse_applied",
+        "tests.test_skill_strength.SkillStrength.test_parse_applied_reads_common_formatting",
+        "tests.test_skill_strength.SkillStrength.test_prompts_ask_for_applied_skills_where_the_model_looks",
+        "tests.test_skill_strength.SkillStrength.test_runs_record_offered_and_applied_skills",
+        "tests.test_skill_strength.SkillStrength.test_scope_limits_where_a_skill_is_used",
+        "tests.test_skill_strength.SkillStrength.test_similar_skill_is_flagged_and_can_be_merged",
+        "tests.test_skill_strength.SkillStrength.test_skill_headings_cannot_imitate_prompt_sections",
+        "tests.test_skill_strength.SkillStrength.test_skills_without_design_behave_as_before",
+        "tests.test_skill_strength.SkillStrength.test_study_kind_attaches_only_chosen_skills_once",
+        "tests.test_skill_strength.SkillStrength.test_study_proposal_scope_is_kept_and_can_be_changed",
+        "tests.test_skill_strength.SkillStrength.test_study_result_keeps_design_kind"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_skill_strength",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:46:49+09:00",
+      "status": "pass",
+      "total": 8,
+      "case_ids": [
+        "tests.test_skills.Skills.test_bad_input_is_rejected",
+        "tests.test_skills.Skills.test_frontmatter_quotes_yaml_special_text",
+        "tests.test_skills.Skills.test_learn_forget_and_prompt",
+        "tests.test_skills.Skills.test_prompt_budget",
+        "tests.test_skills.Skills.test_skill_file_is_claude_format_and_round_trips",
+        "tests.test_skills.Skills.test_skill_task_does_not_block_project",
+        "tests.test_skills.Skills.test_study_flow",
+        "tests.test_skills.Skills.test_study_output_that_cannot_be_used_blocks"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_skills",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:47:12+09:00",
+      "status": "pass",
+      "total": 10,
+      "case_ids": [
+        "tests.test_supervisor_mcp_http.McpCLI.test_client_config_has_no_token_values_and_uses_absolute_entrypoint",
+        "tests.test_supervisor_mcp_http.McpCLI.test_stdio_entrypoint_needs_no_company_initialization_or_credentials_for_metadata",
+        "tests.test_supervisor_mcp_http.McpHTTP.test_authentication_cannot_use_dashboard_token_or_session_id",
+        "tests.test_supervisor_mcp_http.McpHTTP.test_content_negotiation_and_query_token_are_rejected",
+        "tests.test_supervisor_mcp_http.McpHTTP.test_fake_qa_artifact_is_retrieved_without_approval_or_real_models",
+        "tests.test_supervisor_mcp_http.McpHTTP.test_host_origin_and_mobile_boundary",
+        "tests.test_supervisor_mcp_http.McpHTTP.test_http_and_stdio_share_idempotency_status_result_and_cancel",
+        "tests.test_supervisor_mcp_http.McpHTTP.test_initialize_list_notifications_and_stateless_http",
+        "tests.test_supervisor_mcp_http.McpHTTP.test_protocol_and_malformed_input_errors_do_not_reflect_secrets",
+        "tests.test_supervisor_mcp_http.McpHTTP.test_readonly_grant_scope_and_no_approval_tools"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_supervisor_mcp_http",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:47:13+09:00",
+      "status": "pass",
+      "total": 6,
+      "case_ids": [
+        "tests.test_supervisor_readonly_check.ReadonlyCheck.test_config_failure_names_only_approved_fields_never_values_or_extra_keys",
+        "tests.test_supervisor_readonly_check.ReadonlyCheck.test_configuration_conflict_stops_before_client_or_credential",
+        "tests.test_supervisor_readonly_check.ReadonlyCheck.test_diagnose_cannot_start_mcp_authenticate_or_enter_write_mode",
+        "tests.test_supervisor_readonly_check.ReadonlyCheck.test_missing_changed_or_ambiguous_probe_never_creates_task",
+        "tests.test_supervisor_readonly_check.ReadonlyCheck.test_only_reads_existing_probe_and_never_publishes_record",
+        "tests.test_supervisor_readonly_check.ReadonlyCheck.test_readonly_cli_hides_failure_and_does_not_run_write_mode"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_supervisor_readonly_check",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:47:18+09:00",
+      "status": "pass",
+      "total": 4,
+      "case_ids": [
+        "tests.test_supervisor_setup.PassiveHost.test_host_reuses_supervisor_api_but_denies_dashboard_writes",
+        "tests.test_supervisor_setup.Registration.test_conflicting_mcp_is_not_overwritten_or_credential_issued",
+        "tests.test_supervisor_setup.Registration.test_dpapi_round_trip_never_stores_plaintext",
+        "tests.test_supervisor_setup.Registration.test_registration_preserves_other_settings_and_reuses_token"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_supervisor_setup",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:47:20+09:00",
+      "status": "pass",
+      "total": 2,
+      "case_ids": [
+        "tests.test_util.AtomicWrite.test_replace_waits_for_open_reader",
+        "tests.test_util.WorkerEnvironment.test_worker_never_inherits_external_supervisor_authority"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_util",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:47:45+09:00",
+      "status": "pass",
+      "total": 9,
+      "case_ids": [
+        "tests.test_self_learning.SelfLearning.test_ceo_asks_to_improve_a_skill",
+        "tests.test_self_learning.SelfLearning.test_ceo_change_request_also_makes_reviewer_reflect",
+        "tests.test_self_learning.SelfLearning.test_nothing_to_learn_ends_quietly",
+        "tests.test_self_learning.SelfLearning.test_plan_redo_makes_producer_reflect",
+        "tests.test_self_learning.SelfLearning.test_redo_note_reaches_reflection",
+        "tests.test_self_learning.SelfLearning.test_reflection_updates_skill_and_keeps_history",
+        "tests.test_self_learning.SelfLearning.test_smooth_work_is_not_reflected",
+        "tests.test_self_learning.SelfLearning.test_switch_and_daily_cap",
+        "tests.test_self_learning.SelfLearning.test_trouble_is_recorded_and_reflection_proposes_new_skill"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_self_learning",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:48:24+09:00",
+      "status": "pass",
+      "total": 26,
+      "case_ids": [
+        "tests.test_supervisor.ModelIdentityTests.test_grok_negative_login_is_not_reported_as_authenticated",
+        "tests.test_supervisor.ModelIdentityTests.test_grok_text_is_fail_closed_and_never_infers_requested_model",
+        "tests.test_supervisor.ModelIdentityTests.test_mcp_rejects_large_or_malformed_result_without_truncated_json",
+        "tests.test_supervisor.ParallelTests.test_budget_reservation_and_runtime_error_release",
+        "tests.test_supervisor.ParallelTests.test_builtin_shared_memory_is_a_conflict",
+        "tests.test_supervisor.ParallelTests.test_completed_worker_releases_mcp_but_candidate_keeps_file_scope",
+        "tests.test_supervisor.ParallelTests.test_filename_glob_conflict_is_conservative",
+        "tests.test_supervisor.ParallelTests.test_grok_text_does_not_reserve_an_unusable_employee_mcp",
+        "tests.test_supervisor.ParallelTests.test_independent_parallel_conflicts_wait_cancel_releases",
+        "tests.test_supervisor.ParallelTests.test_same_external_resource_conflicts_across_projects",
+        "tests.test_supervisor.RecoveryTests.test_changed_suite_invalidates_cached_qa",
+        "tests.test_supervisor.RecoveryTests.test_plan_receipt_reused_after_restart",
+        "tests.test_supervisor.RecoveryTests.test_restart_after_completed_write_receipt_reuses_model",
+        "tests.test_supervisor.RecoveryTests.test_restart_after_qa_reuses_build_and_verification",
+        "tests.test_supervisor.RecoveryTests.test_resumed_review_changes_continue_to_next_build",
+        "tests.test_supervisor.RecoveryTests.test_uncertain_operation_keeps_conflicting_jobs_waiting",
+        "tests.test_supervisor.RecoveryTests.test_write_disconnect_never_replayed_or_discarded",
+        "tests.test_supervisor.SupervisorTests.test_claude_free_pipeline_result_and_missing_evidence",
+        "tests.test_supervisor.SupervisorTests.test_crash_after_atomic_task_before_response",
+        "tests.test_supervisor.SupervisorTests.test_http_and_stdio_bridge",
+        "tests.test_supervisor.SupervisorTests.test_idempotency_concurrent_restart_conflict",
+        "tests.test_supervisor.SupervisorTests.test_invalid_operation_is_rejected_without_server_error",
+        "tests.test_supervisor.SupervisorTests.test_missing_criterion_blocks_and_cancel_ownership",
+        "tests.test_supervisor.SupervisorTests.test_plan_scope_approval_and_children",
+        "tests.test_supervisor.SupervisorTests.test_scope_and_approval_cannot_be_bypassed",
+        "tests.test_supervisor.SupervisorTests.test_source_receipt_and_tampered_snapshot"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_supervisor",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:48:48+09:00",
+      "status": "pass",
+      "total": 4,
+      "case_ids": [
+        "tests.test_wardrobe.Wardrobe.test_image_failure_blocks",
+        "tests.test_wardrobe.Wardrobe.test_kinds_build_on_the_worn_look",
+        "tests.test_wardrobe.Wardrobe.test_order_make_approve",
+        "tests.test_wardrobe.Wardrobe.test_redo_with_note"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_wardrobe",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T16:48:52+09:00",
+      "status": "pass",
+      "total": 21,
+      "case_ids": [
+        "tests.test_workbench.WorkbenchApiTests.test_workbench_api_token_origin_and_graph_validation",
+        "tests.test_workbench.WorkbenchTests.test_catalog_read_does_not_initialize_data_or_call_models",
+        "tests.test_workbench.WorkbenchTests.test_drafts_can_save_missing_input_but_cannot_execute",
+        "tests.test_workbench.WorkbenchTests.test_duplicate_clicks_and_lost_response_create_one_run_and_task",
+        "tests.test_workbench.WorkbenchTests.test_engine_pipeline_evidence_ceo_approval_and_outputs",
+        "tests.test_workbench.WorkbenchTests.test_finite_code_processing_and_condition_failure",
+        "tests.test_workbench.WorkbenchTests.test_flow_pins_old_node_version_and_keeps_immutable_run_graph",
+        "tests.test_workbench.WorkbenchTests.test_grok_disabled_and_halt_keeps_existing_task",
+        "tests.test_workbench.WorkbenchTests.test_mcp_secrets_never_read_or_appear_in_plan",
+        "tests.test_workbench.WorkbenchTests.test_model_settings_change_after_dispatch_fails_before_call",
+        "tests.test_workbench.WorkbenchTests.test_models_need_explicit_approval_node_and_acceptance",
+        "tests.test_workbench.WorkbenchTests.test_notes_version_and_folder_survive_engine_reload",
+        "tests.test_workbench.WorkbenchTests.test_plan_approval_preserves_scope_and_children_require_manual_run",
+        "tests.test_workbench.WorkbenchTests.test_plan_confirmation_scope_and_settings_are_required",
+        "tests.test_workbench.WorkbenchTests.test_plan_scope_rejection_creates_no_partial_children",
+        "tests.test_workbench.WorkbenchTests.test_project_scope_changes_block_before_model_invocation",
+        "tests.test_workbench.WorkbenchTests.test_recovery_never_resubmits_or_starts_pending_tasks",
+        "tests.test_workbench.WorkbenchTests.test_review_failure_is_not_automatically_retried_or_approved",
+        "tests.test_workbench.WorkbenchTests.test_typed_cycles_duplicates_and_dangling_edges_rejected",
+        "tests.test_workbench.WorkbenchTests.test_uncertain_dispatch_boundary_and_corrupt_storage_fail_closed",
+        "tests.test_workbench.WorkbenchTests.test_unknown_code_and_bad_types_are_rejected"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_workbench",
+      "exit_code": 0
+    },
+    {
+      "status": "interrupted",
+      "total": 0,
+      "case_ids": [],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_workbench_evidence",
+      "exit_code": 3221225477
+    },
+    {
+      "at": "2026-10-05T16:49:33+09:00",
+      "status": "pass",
+      "total": 15,
+      "case_ids": [
+        "tests.test_workbench_planner.ExecutorTests.test_async_pending_status_http_and_cancel_remain_responsive",
+        "tests.test_workbench_planner.ExecutorTests.test_cancel_before_process_registration_does_not_spawn",
+        "tests.test_workbench_planner.ExecutorTests.test_cancel_late_completion_never_revives",
+        "tests.test_workbench_planner.ExecutorTests.test_controlled_media_transport_links_tasks_usage_artifacts_and_ceo_acceptance",
+        "tests.test_workbench_planner.ExecutorTests.test_fixed_isolated_process_contract_and_stripped_environment",
+        "tests.test_workbench_planner.ExecutorTests.test_forged_provider_fields_cannot_bypass_build_qa",
+        "tests.test_workbench_planner.ExecutorTests.test_one_use_durable_paid_dedup_and_unknown_cost",
+        "tests.test_workbench_planner.ExecutorTests.test_pinned_research_annotation_projection_drops_opaque_and_signed_fields",
+        "tests.test_workbench_planner.ExecutorTests.test_reused_grant_blocks_second_async_node_before_submission",
+        "tests.test_workbench_planner.ExecutorTests.test_unknown_video_structured_id_get_no_regeneration_and_config_binding",
+        "tests.test_workbench_planner.PlannerTests.test_duplicate_json_nonfinite_excess_and_failed_response_do_not_retry",
+        "tests.test_workbench_planner.PlannerTests.test_goal_to_engine_approval_execution_and_idempotent_saved_bundle",
+        "tests.test_workbench_planner.PlannerTests.test_invalid_schema_cycles_missing_skills_types_and_executors_block_without_execution",
+        "tests.test_workbench_planner.PlannerTests.test_planner_selected_existing_engine_build_qa_and_ceo_approval",
+        "tests.test_workbench_planner.PlannerTests.test_scope_types_payload_and_prompt_injection_are_data"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_workbench_planner",
+      "exit_code": 0
+    }
+  ],
+  "real_model_calls": 0
+}

@@ -56,6 +56,15 @@ let browser, fixture, page;
     }
     await page.screenshot({ path: path.join(out, kind + '-mock.png'), fullPage: true, animations: 'disabled' });
   }
+  async function checkHeading() {
+    const boxes = await page.evaluate(() => {
+      const rect = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return {top:r.top,bottom:r.bottom,left:r.left,right:r.right}; };
+      return {title:rect('.wb-work-title h2'), metadata:rect('.wb-work-title p'), run:rect('.wb-run-bar'), settings:rect('.wb-work-settings')};
+    });
+    if (boxes.metadata.top < boxes.title.bottom || boxes.run.top < boxes.metadata.bottom || boxes.settings.top < boxes.run.bottom) throw new Error('Heading metadata overlap: ' + JSON.stringify(boxes));
+    return boxes;
+  }
+  report.headingDesktop = await checkHeading();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: path.join(out, 'narrow-mock.png'), fullPage: true, animations: 'disabled' });
   report.narrowOverflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
@@ -146,6 +155,7 @@ let browser, fixture, page;
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: '목표로 AI 기획', exact: true }).click();
   await page.getByRole('button', { name: '이전 기획 다시 열기', exact: true }).click();
+  report.headingNarrow = await checkHeading();
   if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('Planner narrow overflow');
   await page.screenshot({ path: path.join(out, 'planner-reopen-narrow-mock.png'), fullPage: true, animations: 'disabled' });
   if (report.narrowOverflow || errors.length) throw new Error('Browser errors or viewport overflow');

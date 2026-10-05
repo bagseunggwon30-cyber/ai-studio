@@ -1,0 +1,89 @@
+{
+  "simulation": true,
+  "real_model_calls": 0,
+  "media": [
+    {
+      "kind": "image",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "kind": "video",
+      "width": 320,
+      "duration": 1.409634,
+      "played": true
+    }
+  ],
+  "errors": [],
+  "headingDesktop": {
+    "title": {
+      "top": -14,
+      "bottom": 86,
+      "left": 52,
+      "right": 422
+    },
+    "metadata": {
+      "top": 96,
+      "bottom": 120.796875,
+      "left": 52,
+      "right": 422
+    },
+    "run": {
+      "top": 132.796875,
+      "bottom": 197.578125,
+      "left": 52,
+      "right": 422
+    },
+    "settings": {
+      "top": 207.578125,
+      "bottom": 234.171875,
+      "left": 52,
+      "right": 422
+    }
+  },
+  "narrowOverflow": false,
+  "invalidConnectionRejected": true,
+  "planDetailsVerified": true,
+  "keyboardFocusContained": true,
+  "mockUiExecutionRecorded": true,
+  "duplicateClickSingleRun": true,
+  "planner": {
+    "simulation": true,
+    "id": "8055dd1471144eeebcf1b846f45fc970",
+    "task": "T0005",
+    "run": "W8055dd1471144eeebcf1b846f45fc970",
+    "task_status": "done",
+    "approval_wait": true,
+    "double_click": "one proposal and execution",
+    "close_reopen": true,
+    "saved_bundle": true,
+    "selected_stored_skill": "mock-saved-image-brief",
+    "real_model_calls": 0
+  },
+  "headingNarrow": {
+    "title": {
+      "top": 158.265625,
+      "bottom": 238.265625,
+      "left": 28,
+      "right": 328
+    },
+    "metadata": {
+      "top": 248.265625,
+      "bottom": 273.0625,
+      "left": 28,
+      "right": 328
+    },
+    "run": {
+      "top": 285.0625,
+      "bottom": 349.84375,
+      "left": 28,
+      "right": 328
+    },
+    "settings": {
+      "top": 359.84375,
+      "bottom": 386.4375,
+      "left": 28,
+      "right": 328
+    }
+  }
+}

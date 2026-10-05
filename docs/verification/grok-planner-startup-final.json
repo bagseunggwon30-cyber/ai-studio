@@ -1,0 +1,39 @@
+{
+  "status": "pass",
+  "routes": [
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/workbench.js",
+      "status": 200
+    },
+    {
+      "path": "/api/workbench",
+      "status": 200
+    },
+    {
+      "path": "/api/workbench/ledger",
+      "status": 200
+    },
+    {
+      "path": "/api/grok-everywhere/catalog",
+      "status": 200
+    }
+  ],
+  "tasks": 0,
+  "real_model_calls": 0,
+  "auth_contents_read": 0,
+  "production_restarts": 0,
+  "owned_server_closed": true,
+  "source": {
+    "commit": "05a41dae5a82674e6a2d3d6ef43ddbdda2d23824",
+    "source_sha256": "9abf24a1aa37e9709544559106a2d259657b1b69beceb7301274e7125e6e621c",
+    "source_files": 438
+  },
+  "initial_wrapper_failures": [
+    "TempStudio UI initially absent (owned server closed in finally)",
+    "Config.ui_dir is read-only; corrected by copying integrated UI into owned TempStudio"
+  ]
+}
