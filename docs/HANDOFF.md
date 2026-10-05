@@ -1,5 +1,12 @@
 # 인수인계 — 다른 세션·다른 계정에서 이어서 작업하기
 
+## 2026-10-05 Grok Everywhere 안전 경계와 기존 작업대 모의 통합
+
+- codex/grok-everywhere-adapter-20261005: 조사·이미지·영상 재사용 기능, 해시로 묶인 실제 요청/고정 옵션 계획, 기존 작업/일지/장부와 산출물 참조, 읽을 수 있는 MOCK 미디어 상세를 추가했다. 실제 공급자 실행은 항상 차단; 임시 FakeRuntime 회사만 모의 주입 가능. 영상은 같은 구조화 request_id의 명시적 GET만 재확인하며 자동 재제출 없음. 비용 unknown, 실제 모델 미확인, 모의 작업은 blocked로 보존하고 done/승인으로 바꾸지 않는다.
+- 전체369 중368통과/POSIX전용1스킵, discovery ID 정확히 일치. 관련73·최신계약11통과. 실제 Edge PNG/WebM 디코딩·계획/서랍/UI모의실행·390px 넘침0·pageerror0. 보호1759파일 변경0; 기존 Grok 텍스트/런타임/엔진 해시 유지. 실제 호출/인증파일 읽기/운영재시작/병합/push0; doctor 실행 안 함.
+- 실제 설치·직접 세션 접근·외부 전송·알 수 없는 비용에 대한 별도 승인과 live transport 구현/검증이 남았다. 중앙 AI 자동 기획자는 미구현이다. [구현과 검증](verification/grok-everywhere.md), [전체 회귀](verification/grok-everywhere-regression-final.json), [브라우저](verification/grok-everywhere-browser.json), [보존](verification/grok-everywhere-preservation.json).
+
+
 ## 2026-10-05 실제 실행 기록에 따른 노드·연결선 효과
 
 - `codex/workbench-current-flow-20261005`, 기준 `7ce7ada`. 기존 기능/대표 화면/거절된 별도 3D 시제품을 보존하고 종이 노드 작업면의 CSS/SVG 효과만 구현했다. 폴더 모양·재질·배치, 엔진/QA/결재 코드는 그대로다. main `6b8bfa1` 병합/push/배포/운영 서버 재시작 없음.

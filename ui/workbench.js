@@ -510,7 +510,13 @@ const Workbench = (() => {
         const enabled = tab === 'flows' || n.capability.enabled;
         return h('article', { class: `wb-library ${!enabled ? 'disabled' : ''}`, 'data-library': n.id },
           h('div', {}, h('strong', { text: n.title }), h('small', { text: tab === 'nodes' ? `${MODE[n.capability.mode]} · v${n.version}` : `${n.graph.nodes.length}개 노드 · v${n.version}` })),
-          tab === 'nodes' ? h('p', { text: enabled ? n.note.purpose : n.capability.reason }) : null,
+          tab === 'nodes' ? h('p', { text: enabled || catalog.operations[n.spec.operation]?.provider ? n.note.purpose : n.capability.reason }) : null,
+          tab === 'nodes' && catalog.operations[n.spec.operation]?.provider ? h('dl', {},
+            h('dt', { text: '필수 입력' }), h('dd', { text: '연결된 텍스트 요청 · 외부 미디어 없음' }),
+            h('dt', { text: '산출물' }), h('dd', { text: catalog.operations[n.spec.operation].output }),
+            h('dt', { text: '조건' }), h('dd', { text: `${catalog.operations[n.spec.operation].provider.model} · 비용 알 수 없음 · 연결 설정 및 별도 승인 필요` }),
+            !enabled ? h('dd', { text: n.capability.reason }) : null,
+            n.capability.simulation ? h('dd', { text: 'MOCK / 모의 실행 · 실제 생성 아님' }) : null) : null,
           h('div', { class: 'wb-library-actions' }, tab === 'nodes' ? button('꺼내기', () => addNode(n), { disabled: !enabled || Boolean(active), 'aria-label': `${n.title} 꺼내기` }) : button('불러오기', () => loadFlow(n)),
             button(tab === 'nodes' ? '노트 보기·편집' : '이름·폴더 편집', () => tab === 'nodes' ? editNote(n) : editFlowMeta(n))));
       }) : h('p', { class: 'wb-empty', text: '이 폴더는 비어 있어요. 기능이나 작업 묶음을 저장해 보세요.' })),
@@ -854,6 +860,7 @@ const Workbench = (() => {
 
   function renderDetail() {
     if (active) return renderRunDetail();
+    detailPane.classList.remove('wb-provider-detail');
     const el = detailPane, n = draft.graph.nodes.find(n => n.id === selected);
     if (!n) { el.replaceChildren(h('h2', { text: '기능 상세' }), h('p', { class: 'wb-empty', text: '노드를 선택하면 노트와 실행 입력을 볼 수 있어요.' })); return; }
     const d = definition(n), op = catalog.operations[d.spec.operation];
@@ -876,17 +883,38 @@ const Workbench = (() => {
       h('dl', {}, Object.entries(NOTE).map(([key, label]) => [h('dt', { text: label }), h('dd', { text: d.note[key] || '작성하지 않음' })])));
   }
 
+  function providerPreview(output, previous) {
+    if (!output?.artifact_refs?.length) return null;
+    const refs = JSON.stringify(output.artifact_refs);
+    if (previous?.dataset.providerRefs === refs) return previous;
+    return h('div', { class: 'wb-provider-artifacts', 'data-provider-refs': refs }, ...output.artifact_refs.map((ref, i) => h('figure', {},
+      ref.kind === 'video' ? h('video', { controls: true, preload: 'metadata', src: `/api/workbench/runs/${encodeURIComponent(ref.run)}/artifacts/${encodeURIComponent(ref.node)}/${i}` })
+        : h('img', { alt: 'MOCK / 모의 이미지 · 실제 생성 아님', src: `/api/workbench/runs/${encodeURIComponent(ref.run)}/artifacts/${encodeURIComponent(ref.node)}/${i}` }),
+      h('figcaption', { text: `MOCK / 모의 실행 · 재사용 참조: ${ref.run}/${ref.node}/${ref.path}` }))));
+  }
+
   function renderRunDetail() {
     if (!active) return;
     const el = detailPane, g = graph(), n = g.nodes.find(n => n.id === selected) || g.nodes[0];
     if (!n) return;
     selected = n.id;
     const state = nodeState(n.id), d = definition(n);
+    const isProvider = d.spec.operation.startsWith('grok_');
+    el.classList.toggle('wb-provider-detail', isProvider);
     const task = active.current_tasks?.[state.task] || state.output || (['test', 'review', 'approve'].includes(d.spec.operation) ? taskForNode(n) : null);
     const scroll = el.scrollTop, focus = el.contains(document.activeElement) ? document.activeElement.dataset.wbFocus : null;
     const opened = new Set([...el.querySelectorAll('details[open]')].map(item => item.className));
+    const media = providerPreview(state.output, el.querySelector('.wb-provider-artifacts'));
     el.replaceChildren(...children([h('h2', { text: d.title }), h('p', { class: `wb-kind s-${state.status}`, text: `${STATUS[state.status]} · 실행 당시 v${n.ref.version}` }),
-      proofPanel(task),
+      isProvider ? h('div', {}, h('h3', { text: 'MOCK / 모의 실행 · 실제 생성 아님' }),
+        h('p', { text: '비용 알 수 없음 · 실제 공급자 미연결 · 실제 작업 완료/승인 아님' }),
+        state.output?.answer ? h('p', { text: state.output.answer }) : null,
+        state.task ? button('연결된 작업·일지·산출물 보기', () => hooks.task(state.task)) : null) : proofPanel(task),
+      state.output?.simulation ? h('p', { class: 'wb-hint', text: state.output.label }) : null,
+      state.provider_request_id && state.status === 'waiting' ? button('같은 영상 요청 GET 확인 · 재생성 없음', async () => {
+        await Data.workbenchPost(`runs/${active.id}/provider-get/${n.id}`, {}); await openRun(active.id);
+      }) : null,
+      media,
       h('details', { class: 'wb-advanced' }, h('summary', { text: '노드 입력·출력·실행 명세' }),
         state.error ? h('p', { class: 'wb-error', text: state.error }) : null,
         state.task ? h('div', { class: 'wb-task-link' }, h('p', { text: `기존 작업 ${state.task}` }), button(state.status === 'waiting' ? '기존 결재 창 열기' : '작업·일지·산출물 보기', () => hooks.task(state.task), { 'data-wb-focus': 'task' })) : null,
@@ -1071,6 +1099,8 @@ const Workbench = (() => {
       h('h3', { text: '처리 순서' }), h('ol', {}, plan.steps.map(s => h('li', {}, h('strong', { text: `${s.title} · ${MODE[s.mode]}` }), h('p', { text: s.description })))),
       h('h3', { text: '파일 변경 허용 범위' }), h('pre', { text: plan.allowed_paths.join('\n') || '없음 · 글 처리만 수행' }),
       plan.models.length ? h('div', {}, h('h3', { text: '기존 직원·선택한 모델' }), ...plan.models.map(m => h('p', { text: `${m.title} · ${m.effective_runtime} / ${m.effective_model || '기본 모델'} · ${m.sandbox} · 도구 ${m.mcp.map(s => s.name).join(', ') || '없음'}` }))) : null,
+      plan.provider_requests?.length ? h('div', {}, h('h3', { text: 'MOCK / 모의 실행 · 실제 생성 아님' }),
+        ...plan.provider_requests.map(p => h('p', { text: `${p.kind} · 요청 모델 ${p.model}(실제 모델 미확인) · 요청: ${p.input} · 옵션: ${JSON.stringify(p.options)} · 외부 미디어 없음 · 외부 전송 없음(모의) · 실제 연결 비용 알 수 없음` }))) : null,
       h('p', { class: 'wb-hint', text: plan.policy }),
         plan.uses_models && Data.get().studio.fake ? h('p', { class: 'wb-hint', text: '현재 연습용 회사입니다. 기존 가짜 실행기를 사용하며 실제 모델을 호출하지 않습니다.' }) : null]));
     const confirmed = h('input', { type: 'checkbox', name: 'plan-confirm' }), allowModels = h('input', { type: 'checkbox', name: 'model-confirm' });

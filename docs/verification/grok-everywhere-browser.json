@@ -1,0 +1,24 @@
+{
+  "simulation": true,
+  "real_model_calls": 0,
+  "media": [
+    {
+      "kind": "image",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "kind": "video",
+      "width": 320,
+      "duration": 1.404022,
+      "played": true
+    }
+  ],
+  "errors": [],
+  "narrowOverflow": false,
+  "invalidConnectionRejected": true,
+  "planDetailsVerified": true,
+  "keyboardFocusContained": true,
+  "mockUiExecutionRecorded": true,
+  "duplicateClickSingleRun": true
+}

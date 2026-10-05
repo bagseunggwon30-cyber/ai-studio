@@ -1,0 +1,23 @@
+{
+  "checked": 1759,
+  "missing": [],
+  "changed": [],
+  "unexpected_changes": [],
+  "intentional_ui_changes": [
+    "ui/workbench.css",
+    "ui/workbench.js"
+  ],
+  "credential_files_read": 0,
+  "real_model_calls": 0,
+  "main_head": "6b8bfa15dde1f186a10a5b27e846c21bf9748b4a",
+  "branch": "codex/grok-everywhere-adapter-20261005",
+  "source_unchanged": [
+    "studio/grok_text.py",
+    "studio/runtimes.py",
+    "studio/engine.py"
+  ],
+  "source_intentional_changes": [
+    "ui/workbench.js",
+    "ui/workbench.css"
+  ]
+}

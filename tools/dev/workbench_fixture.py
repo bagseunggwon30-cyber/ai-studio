@@ -11,12 +11,16 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from tests.helpers import TempStudio, default_behavior
 from studio.server import StudioServer
+from studio import grok_everywhere
+from studio.util import atomic_copy
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8798)
     parser.add_argument("--flow-gates", action="store_true", help="Pause the existing fake builder/reviewer until temporary release files appear")
+    parser.add_argument("--grok-mock", action="store_true", help="Isolated MOCK research/image/video samples; no supplier connection")
+    parser.add_argument("--mock-video", type=Path, help="Locally recorded WebM sample for the isolated mock preview")
     args = parser.parse_args()
     company = TempStudio()
     gate_stop = threading.Event()
@@ -41,6 +45,44 @@ def main():
     try:
         company.cfg.fake_runtimes = True
         shutil.copytree(ROOT / "ui", company.root / "ui")
+        if args.grok_mock:
+            source_png = ROOT / "ui" / "assets" / "portraits.png"
+            if not args.mock_video:
+                raise ValueError("--grok-mock requires a locally recorded --mock-video sample")
+            video = args.mock_video.resolve()
+            atomic_copy(source_png, company.store.dir / "mock-image.png")
+            atomic_copy(video, company.store.dir / "mock-video.webm")
+            def mock_provider(request):
+                kind = request["kind"]
+                value = {"ok": True, "module": "search" if kind == "research" else kind, "operation": "web" if kind == "research" else "generate",
+                         "auth_kind": "session", "model": grok_everywhere.MODELS[kind], "cost_usd": None, "artifacts": []}
+                if kind == "research":
+                    value.update(answer="MOCK 조사 결과 · 실제 외부 조사 없음", citations=[], response_status="completed")
+                if kind == "video":
+                    value["request_id"] = "mock-video-preview"
+                return {"simulation": True, "provider_result": value,
+                        "selected_artifacts": [] if kind == "research" else ["mock-image.png" if kind == "image" else "mock-video.webm"]}
+            company.engine.workbench.attach_grok_mock(mock_provider)
+            from uuid import uuid4
+            for kind in grok_everywhere.MODELS:
+                nodes = [{"id": "input", "ref": {"id": "builtin-input", "version": 1}, "params": {"text": "MOCK 미리보기 요청"}},
+                         {"id": "provider", "ref": {"id": "builtin-grok_" + kind, "version": 1}},
+                         {"id": "summary", "ref": {"id": "builtin-summary", "version": 1}}]
+                for i, item in enumerate(nodes):
+                    item["position"] = {"x": 400 + i * 285, "y": 45}
+                body = {"title": "MOCK / 모의 실행 · " + kind, "graph": {"nodes": nodes, "edges": [{"from": "input", "to": "provider"}, {"from": "provider", "to": "summary"}]}}
+                plan = company.engine.workbench.plan(body)
+                company.engine.workbench.start({**body, "plan_hash": plan["hash"], "request_id": uuid4().hex, "confirmed": True, "allow_models": False})
+            company.engine.workbench.tick()
+            preview_nodes = [{"id": "input", "ref": {"id": "builtin-input", "version": 1}, "params": {"text": "계획 확인 요청"}},
+                             {"id": "format", "ref": {"id": "builtin-format", "version": 1}, "params": {"prefix": "MOCK: ", "suffix": " / 정확한 입력"}},
+                             {"id": "provider", "ref": {"id": "builtin-grok_image", "version": 1}},
+                             {"id": "refs", "ref": {"id": "builtin-artifact_reference", "version": 1}},
+                             {"id": "summary", "ref": {"id": "builtin-summary", "version": 1}}]
+            for i, item in enumerate(preview_nodes):
+                item["position"] = {"x": 400 + (i % 3) * 285, "y": 45 + (i // 3) * 300}
+            company.engine.workbench.save_flow({"title": "MOCK 입력·옵션 확인", "graph": {"nodes": preview_nodes,
+                "edges": [{"from": a["id"], "to": b["id"]} for a, b in zip(preview_nodes, preview_nodes[1:])]}})
         # Existing fake runtime supplied by tests.helpers, with normal QA/approval.
         server = StudioServer(company.cfg, company.store, company.engine, args.port)
         company.store.acquire_process_lock()

@@ -9,10 +9,12 @@ import json
 import re
 from copy import deepcopy
 from uuid import uuid4
+from pathlib import Path
+import tempfile
 
-from . import evidence, mcp
+from . import evidence, mcp, grok_everywhere
 from .checkpoints import digest
-from .util import atomic_write_json, now_iso
+from .util import atomic_write_json, atomic_write_text, now_iso
 
 
 class WorkbenchError(ValueError):
@@ -43,8 +45,16 @@ OPERATIONS = {
                 "description": "입력·작업 결과·검증·결재 기록을 장부에 정리합니다. 모델 사용 없음."},
     "shell": {"title": "자유 코드·셸", "mode": "unsupported", "input": "any", "output": "any", "params": {},
               "description": "등록된 고정 처리만 실행할 수 있습니다. 노트의 임의 코드·셸 실행은 지원하지 않습니다."},
+    "artifact_reference": {"title": "산출물 참조", "mode": "code", "input": "any", "output": "artifact_reference", "params": {},
+                           "description": "선행 결과의 검증된 산출물 참조를 다음 단계에 전달합니다. 텍스트나 코드로 바꾸지 않습니다."},
 }
 NOTE_FIELDS = ("purpose", "inputs", "outputs", "cautions", "example")
+for _skill in grok_everywhere.catalog():
+    OPERATIONS[_skill["id"]] = {
+        "title": {"research": "Grok 조사", "image": "Grok 이미지", "video": "Grok 영상"}[_skill["kind"]],
+        "mode": "unsupported", "input": "text", "output": _skill["output"], "params": {},
+        "description": {"research": "공개 웹을 조사하고 답변과 출처를 제공합니다.", "image": "텍스트 요청으로 이미지 파일을 생성합니다.", "video": "텍스트 요청으로 비동기 영상 파일을 생성합니다."}[_skill["kind"]], "provider": _skill,
+    }
 LIVE = {"running", "waiting"}
 NODE_LABELS = {"pending": "순서 대기", "running": "처리 중", "waiting": "결재 대기", "succeeded": "완료",
                "blocked": "막힘", "skipped": "선행 오류", "cancelled": "중단"}
@@ -114,6 +124,17 @@ class Workbench:
     def __init__(self, engine):
         self.engine = engine
         self.store = engine.store
+        self._grok_mock = None
+        self._grok_get_mock = None
+
+    def attach_grok_mock(self, provider, get_provider=None):
+        """Dependency injection only in disposable fake companies; never a setting."""
+        if not self.engine.cfg.fake_runtimes or not self.store.dir.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
+            raise WorkbenchError("모의 공급자는 임시 FakeRuntime 회사에서만 사용할 수 있습니다.")
+        if not callable(provider):
+            raise WorkbenchError("모의 공급자 형식 오류")
+        self._grok_mock = provider
+        self._grok_get_mock = get_provider
 
     def _doc(self, name, default):
         path = self.store.dir / f"{name}.json"
@@ -148,6 +169,10 @@ class Workbench:
     def capability(self, operation):
         op = OPERATIONS[operation]
         reason = ""
+        if operation.startswith("grok_") and self._grok_mock:
+            return {"enabled": True, "reason": "MOCK / 모의 실행 · 실제 생성 아님", "mode": "code", "simulation": True}
+        if operation.startswith("grok_"):
+            return {"enabled": False, "reason": grok_everywhere.BLOCKED, "mode": "unsupported"}
         if op["mode"] == "unsupported":
             reason = op["description"]
         elif op.get("job") and not self.engine.staff_for(op["job"]):
@@ -403,6 +428,37 @@ class Workbench:
                     "uses_models": has_model, "steps": steps, "models": models, "max_model_calls": len(models),
                     "policy": "실패 자동 재시도·대체 재호출·회고 자동 생성 없음. 기획 결재의 자식 카드는 별도 수동 실행. 병합은 기존 CEO 결재로만.",
                     "context": {"repo": str(project.repo), "main_branch": project.main_branch, "qa": project.qa} if has_model else {}}
+            providers = [n for n in expanded["nodes"] if n["definition"]["spec"]["operation"].startswith("grok_")]
+            if providers:
+                values = {}
+                incoming = {e["to"]: e["from"] for e in expanded["edges"]}
+                for key in expanded["order"]:
+                    item = next(n for n in expanded["nodes"] if n["id"] == key)
+                    operation, params = item["definition"]["spec"]["operation"], item["params"]
+                    value = values.get(incoming.get(key))
+                    if operation == "input":
+                        values[key] = params["text"]
+                    elif operation == "format" and isinstance(value, str):
+                        values[key] = _text(params["prefix"] + value + params["suffix"], "계획 입력", 4000, True)
+                    elif operation == "lines" and isinstance(value, str):
+                        lines = [line.strip() for line in value.splitlines() if line.strip()]
+                        if len(lines) > 200:
+                            raise WorkbenchError("목록 정리는 200줄까지 처리할 수 있습니다.")
+                        if params["dedupe"]:
+                            lines = list(dict.fromkeys(lines))
+                        values[key] = "\n".join(sorted(lines) if params["sort"] else lines)
+                    elif operation == "require_text" and isinstance(value, str):
+                        if len(value) < params["min_length"] or params["contains"] not in value:
+                            raise WorkbenchError("계획 입력 조건을 만족하지 않습니다.")
+                        values[key] = value
+                    elif operation.startswith("grok_"):
+                        if not isinstance(value, str) or not value.strip():
+                            raise WorkbenchError("공급자에게 보낼 실제 텍스트를 계획에서 확인할 수 있어야 합니다.")
+                        grok_everywhere.plan({"kind": operation[5:], "text": value})
+                plan["provider_requests"] = [{"node": n["id"], "kind": n["definition"]["spec"]["operation"][5:],
+                                              "model": grok_everywhere.MODELS[n["definition"]["spec"]["operation"][5:]],
+                                              "cost_usd": None, "external_transfer": False, "simulation": True,
+                                              "options": deepcopy(grok_everywhere.OPTIONS[n["definition"]["spec"]["operation"][5:]]), "input": values[incoming[n["id"]]]} for n in providers]
             if body.get("flow_id"):
                 latest = self._catalog()["flows"].get(_id(body["flow_id"]))
                 flow = next((row for row in [latest, *(latest or {}).get("history", [])] if row and row["version"] == body.get("flow_version")), None)
@@ -447,6 +503,76 @@ class Workbench:
         atomic_write_json(self.store.dir / "workbench-runs" / f"{_id(run['id'])}.json", run)
         self.store._bump()
 
+    def provider_artifact(self, run_id, node_id, index):
+        with self.store.lock:
+            run = self.run(_id(run_id))
+            state = run["nodes"].get(_id(node_id), {})
+            output = state.get("output") or {}
+            if state.get("status") != "succeeded" or output.get("simulation") is not True or type(index) is not int or index < 0:
+                raise WorkbenchError("검증된 모의 산출물이 없습니다.")
+            artifacts = output.get("artifacts", [])
+            if index >= len(artifacts):
+                raise WorkbenchError("없는 산출물")
+            return grok_everywhere.verify_artifact(self.store.dir, artifacts[index], output["kind"]), output["kind"]
+
+    def provider_recheck(self, run_id, node_id):
+        """Explicit read-only recheck of a known mock request; never regenerate."""
+        with self.store.lock:
+            run = self.run(_id(run_id))
+            state = run["nodes"].get(_id(node_id))
+            request_id = (state or {}).get("provider_request_id")
+            if not self._grok_get_mock or not request_id or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", request_id) or state.get("status") not in ("waiting", "blocked") or run["status"] == "cancelled":
+                raise WorkbenchError("같은 요청의 GET 확인이 준비되지 않았습니다. 재생성하지 않습니다.")
+            try:
+                result = self._grok_get_mock({"method": "GET", "request_id": request_id})
+                if not isinstance(result, dict) or result.get("simulation") is not True or result.get("request_id") != request_id or result.get("status") not in ("pending", "failed", "completed"):
+                    raise ValueError("Invalid GET result")
+                state["provider_get"] = {"simulation": True, "request_id": request_id, "status": result["status"], "method": "GET"}
+                if result["status"] == "completed":
+                    artifacts = result.get("selected_artifacts")
+                    if not isinstance(artifacts, list) or not 1 <= len(artifacts) <= 10:
+                        raise ValueError("Invalid artifacts")
+                    for artifact in artifacts:
+                        grok_everywhere.verify_artifact(self.store.dir, artifact, "video")
+                    state["output"] = {"simulation": True, "label": "MOCK / 모의 실행 · 실제 생성 아님", "kind": "video", "artifacts": artifacts,
+                                       "artifact_refs": [{"run": run_id, "node": node_id, "path": a, "kind": "video"} for a in artifacts], "request_id": request_id, "cost_usd": None}
+                    self._record_provider_result(run, node_id, state)
+                    self._complete(run, node_id, state)
+                    state["error"] = ""
+                    incoming = {e["to"]: e["from"] for e in run["snapshot"]["graph"]["edges"]}
+                    for key, successor in run["nodes"].items():
+                        if successor["status"] == "skipped" and self._ancestor(node_id, key, incoming):
+                            successor.update(status="pending", error="")
+                    run.update(status="running", error="")
+                elif result["status"] == "failed":
+                    state.update(status="blocked", error="MOCK 영상 요청 실패 · 재제출 없음")
+                    incoming = {e["to"]: e["from"] for e in run["snapshot"]["graph"]["edges"]}
+                    for key, successor in run["nodes"].items():
+                        if successor["status"] == "pending" and self._ancestor(node_id, key, incoming):
+                            successor.update(status="skipped", error="선행 영상 요청 실패")
+                    run.update(status="blocked", error=state["error"])
+                self._event(run, "provider_get", "MOCK 같은 영상 request_id의 GET만 확인했습니다.", node_id)
+                self._persist(run)
+                return self.run(run_id)
+            except (ValueError, RuntimeError, OSError):
+                raise WorkbenchError("GET 결과 확인 실패 · 재생성하지 않습니다.") from None
+
+    def _record_provider_result(self, run, node_id, state):
+        task = self.store.get(state["task"])
+        result = state["output"]
+        task.extra["provider_result"] = deepcopy(result)
+        task.report = "MOCK / 모의 실행 · 실제 생성 및 실제 작업 완료 아님\n" + json.dumps(result, ensure_ascii=False)
+        record_id = "RMOCK-" + run["id"][1:] + "-" + node_id
+        record = {"run_id": record_id, "task": task.id, "runtime": "mock", "simulation": True, "stage": "grok_mock",
+                  "started_at": now_iso(), "duration_s": 0, "status": "simulation", "cost_usd": None, "model_verified": False}
+        atomic_write_json(self.store.runs_dir / record_id / "meta.json", record)
+        atomic_write_text(self.store.runs_dir / record_id / "last_message.md", task.report)
+        if record_id not in task.runs:
+            task.runs.append(record_id)
+            self.store.add_run(record)
+        self.store.save(task)
+        self.store.event("provider.mock_result", "MOCK 결과·산출물 참조를 기록했습니다. 실제 작업 완료 아님.", task=task.id, workflow=run["id"], artifacts=result.get("artifact_refs", []))
+
     def _event(self, run, kind, message, node=None):
         event = {"at": now_iso(), "type": kind, "message": message, "node": node}
         run["events"].append(event)
@@ -470,7 +596,7 @@ class Workbench:
 
     def _usage(self, run):
         tasks = {s["task"] for s in run["nodes"].values() if s.get("task")}
-        records = [r for r in self.store.runs() if r.get("task") in tasks]
+        records = [r for r in self.store.runs() if r.get("task") in tasks and r.get("simulation") is not True]
         previous = {rid for v in run.get("versions", []) for rid in v.get("run_ids", [])}
         return {"total": len(records), "current": sum(r.get("run_id") not in previous for r in records),
                 "previous": sum(r.get("run_id") in previous for r in records), "planned_initial": run["snapshot"]["max_model_calls"]}
@@ -588,6 +714,8 @@ class Workbench:
                             run["nodes"][successor].update(status="pending", output=None, error="")
             if state["status"] in ("succeeded", "blocked", "skipped", "cancelled"):
                 continue
+            if state["status"] == "waiting" and state.get("provider_reserved"):
+                continue
             source = run["nodes"].get(incoming.get(key))
             if source and source["status"] in ("blocked", "skipped", "cancelled"):
                 state["status"], state["error"] = "skipped", "선행 노드의 결과를 확인하세요."
@@ -639,7 +767,53 @@ class Workbench:
                         state["status"] = "waiting"
                 else:
                     text = state["inputs"]
-                    if op == "input":
+                    if op.startswith("grok_"):
+                        if observe_only or state.get("provider_reserved"):
+                            raise WorkbenchError("공급자 실행 결과 불확실 · 재제출하지 않습니다. 기존 request_id의 GET 확인만 허용됩니다.")
+                        if not self._grok_mock:
+                            raise WorkbenchError(grok_everywhere.BLOCKED)
+                        request = grok_everywhere.plan({"kind": op[5:], "text": text})
+                        state["provider_reserved"] = request["request_hash"]
+                        state["status"] = "dispatching"
+                        task = self.store.create_task(title="MOCK / 모의 실행 · " + op[5:], kind="research", role="analyst",
+                                                      project=next(iter(self.engine.cfg.projects)), status="ready", brief=text,
+                                                      created_by="workbench:mock", extra={"workflow_run": run["id"], "workflow_node": key, "workflow_no_retry": True, "simulation": True})
+                        task = self.store.block(task, "MOCK 기록 전용 · 실제 공급자 미연결 · 실제 작업 완료/승인 아님")
+                        state["task"] = task.id
+                        self._event(run, "task_linked", "MOCK 결과를 기존 작업·일지에 연결했습니다.", key)
+                        self._persist(run)  # Reserve before invocation; restart cannot repeat POST.
+                        try:
+                            result = self._grok_mock(request["request"])
+                            if not isinstance(result, dict) or result.get("simulation") is not True:
+                                raise grok_everywhere.ContractError("Invalid mock result")
+                            if result.get("pending") is True and op == "grok_video":
+                                request_id = result.get("request_id")
+                                if not isinstance(request_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", request_id):
+                                    raise grok_everywhere.ContractError("Missing structured request ID")
+                                state.update(status="waiting", provider_request_id=request_id)
+                                self._persist(run)
+                                continue
+                            payload = grok_everywhere.parse_result(json.dumps(result.get("provider_result")), op[5:])
+                            state["provider_request_id"] = payload.get("request_id")
+                            if payload.get("response_status") == "incomplete":
+                                state["partial_result"] = {"answer": payload["answer"], "response_status": "incomplete", "cost_usd": payload.get("cost_usd"), "simulation": True}
+                                raise grok_everywhere.ContractError("Incomplete result")
+                            artifacts = result.get("selected_artifacts", [])
+                            if not isinstance(artifacts, list) or len(artifacts) > 10:
+                                raise grok_everywhere.ContractError("Invalid selected artifacts")
+                            if op != "grok_research" and not artifacts:
+                                raise grok_everywhere.ContractError("Missing media artifacts")
+                            for artifact in artifacts:
+                                grok_everywhere.verify_artifact(self.store.dir, artifact, op[5:])
+                            state["output"] = {"simulation": True, "label": "MOCK / 모의 실행 · 실제 생성 아님",
+                                               "kind": op[5:], "answer": payload.get("answer"), "citations": payload.get("citations", []),
+                                               "artifacts": artifacts, "artifact_refs": [{"run": run["id"], "node": key, "path": artifact, "kind": op[5:]} for artifact in artifacts],
+                                               "request_id": payload.get("request_id"), "cost_usd": payload.get("cost_usd"),
+                                               "requested_model": grok_everywhere.MODELS[op[5:]], "reported_model": payload.get("model"), "model_verified": False}
+                            self._record_provider_result(run, key, state)
+                        except (ValueError, RuntimeError, OSError):
+                            raise WorkbenchError("모의 공급자 결과 확인 실패 · 결과 불확실 · 재제출 없음") from None
+                    elif op == "input":
                         state["output"] = n["params"]["text"]
                     elif op == "format":
                         state["output"] = _text(n["params"]["prefix"] + text + n["params"]["suffix"], "정리된 입력", 4000, True)
@@ -664,6 +838,10 @@ class Workbench:
                                 if task.status != "done" or text.get("candidate_sha") != task.candidate_sha or task.merged_sha != task.candidate_sha or not coverage["complete"]:
                                     raise WorkbenchError("완료 불가: 승인한 최신 후보와 기준별 근거를 다시 확인하세요.")
                         state["output"] = {"result": text, "recorded_at": now_iso(), "model_used": False}
+                    elif op == "artifact_reference":
+                        if not isinstance(text, dict) or not text.get("artifact_refs"):
+                            raise WorkbenchError("검증된 산출물 참조가 필요합니다.")
+                        state["output"] = {"artifact_refs": deepcopy(text["artifact_refs"]), "simulation": text.get("simulation", False)}
                     self._complete(run, key, state)
             except (ValueError, RuntimeError, OSError) as exc:
                 state["status"], state["error"] = "blocked", str(exc)

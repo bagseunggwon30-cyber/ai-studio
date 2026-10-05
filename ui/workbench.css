@@ -392,3 +392,12 @@
   .wb-work-settings { top: 180px; left: 28px; right: auto; max-width: calc(100vw - 56px); }
   .wb-work-settings[open] { top: 180px; }
 }
+
+.wb-provider-artifacts figure { margin: 8px 0; }
+.wb-provider-artifacts img, .wb-provider-artifacts video { display: block; width: 100%; max-height: 240px; object-fit: contain; }
+.wb-provider-artifacts figcaption { overflow-wrap: anywhere; font-size: 12px; }
+
+#workbench-screen .wb-detail.wb-provider-detail { background: #fffefa; border: 1px solid #d6d7cf; padding: 15px; width: 380px; max-height: calc(100dvh - 160px); overflow: auto; box-shadow: 0 10px 24px #50504818; }
+
+#workbench-screen .wb-detail.wb-provider-detail { position: fixed; left: auto; top: auto; right: 24px; bottom: 36px; z-index: 25; max-width: calc(100vw - 24px); max-height: min(640px, calc(100dvh - 160px)); }
+@media (max-width: 900px) { #workbench-screen .wb-detail.wb-provider-detail { right: 12px; bottom: 20px; } }

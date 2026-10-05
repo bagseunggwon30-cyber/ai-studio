@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
-from . import __version__, ai, company, evidence, floors, gitops, login, mcp, qr, remote, schedules, skills, wardrobe
+from . import __version__, ai, company, evidence, floors, gitops, login, mcp, qr, remote, schedules, skills, wardrobe, grok_everywhere
 from .supervisor import Supervisor, AccessError
 from .config import Config
 from .checkpoints import digest
@@ -256,8 +256,14 @@ class StudioHandler(BaseHTTPRequestHandler):
                 return self._json(self._state())
             if path == "/api/workbench":
                 return self._json(self.server.engine.workbench.catalog())
+            if path == "/api/grok-everywhere/catalog":
+                return self._json({"skills": grok_everywhere.catalog()})
             if path == "/api/workbench/ledger":
                 return self._json({"runs": self.server.engine.workbench.ledger()})
+            if path.startswith("/api/workbench/runs/") and path.count("/") == 7 and path.split("/")[5] == "artifacts":
+                parts = path.split("/")
+                artifact, media_kind = self.server.engine.workbench.provider_artifact(parts[4], parts[6], int(parts[7]))
+                return self._send(200, artifact.read_bytes(), mimetypes.guess_type(artifact.name)[0] or "application/octet-stream")
             if path.startswith("/api/workbench/runs/") and path.count("/") == 4:
                 return self._json(self.server.engine.workbench.describe_run(path.split("/")[4]))
             if path.startswith("/api/tasks/") and path.endswith("/diff"):
@@ -408,6 +414,13 @@ class StudioHandler(BaseHTTPRequestHandler):
         engine = self.server.engine
         path = urlparse(self.path).path
         try:
+            if path == "/api/grok-everywhere/plan":
+                try:
+                    return self._json(grok_everywhere.plan(body))
+                except grok_everywhere.ContractError as exc:
+                    return self._error(HTTPStatus.BAD_REQUEST, str(exc))
+            if path == "/api/grok-everywhere/execute":
+                return self._error(HTTPStatus.CONFLICT, grok_everywhere.BLOCKED)
             if path.startswith("/api/workbench/"):
                 wb = engine.workbench
                 action = path[len("/api/workbench/"):]
@@ -425,6 +438,8 @@ class StudioHandler(BaseHTTPRequestHandler):
                 if action == "start":
                     return self._json({"run": wb.start(body)})
                 parts = action.split("/")
+                if len(parts) == 4 and parts[0] == "runs" and parts[2] == "provider-get":
+                    return self._json({"run": wb.provider_recheck(parts[1], parts[3])})
                 if len(parts) == 3 and parts[0] == "runs" and parts[2] in ("reconcile", "halt"):
                     return self._json({"run": getattr(wb, parts[2])(parts[1])})
                 return self._error(HTTPStatus.NOT_FOUND, "없는 작업대 동작")
