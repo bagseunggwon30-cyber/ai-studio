@@ -53,7 +53,7 @@ NOTE_FIELDS = ("purpose", "inputs", "outputs", "cautions", "example")
 for _skill in grok_everywhere.catalog():
     OPERATIONS[_skill["id"]] = {
         "title": {"research": "Grok 조사", "image": "Grok 이미지", "video": "Grok 영상"}[_skill["kind"]],
-        "mode": "unsupported", "input": "text", "output": _skill["output"], "params": {},
+        "mode": "unsupported", "input": "text", "output": _skill["output"], "params": {"duration": 5} if _skill["kind"] == "video" else {},
         "description": {"research": "공개 웹을 조사하고 답변과 출처를 제공합니다.", "image": "텍스트 요청으로 이미지 파일을 생성합니다.", "video": "텍스트 요청으로 비동기 영상 파일을 생성합니다."}[_skill["kind"]], "provider": _skill,
     }
 LIVE = {"running", "waiting"}
@@ -83,6 +83,11 @@ def _params(operation, value):
         if key in ("dedupe", "sort"):
             if type(out[key]) is not bool:
                 raise WorkbenchError("목록 정리 옵션은 켬·끔으로 지정하세요.")
+        elif key == "duration":
+            try:
+                out[key] = grok_everywhere.video_duration(out[key])
+            except grok_everywhere.ContractError as error:
+                raise WorkbenchError(str(error)) from None
         elif key == "min_length":
             if type(out[key]) is not int or not 1 <= out[key] <= 4000:
                 raise WorkbenchError("최소 글자 수는 1~4000 범위여야 합니다.")
@@ -111,6 +116,13 @@ def requirements_for(params):
         return []
     return requirements([{"id": f"A{i+1}", "text": text, "evidence": refs[i] if i < len(refs) else []}
                          for i, text in enumerate(texts)])
+
+
+def provider_request(kind, text, params):
+    request = {"kind": kind, "text": text}
+    if kind == "video":
+        request["duration"] = grok_everywhere.video_duration(params.get("duration", 5))
+    return request
 
 
 def builtin_nodes():
@@ -460,11 +472,11 @@ class Workbench:
                     elif operation.startswith("grok_"):
                         if not isinstance(value, str) or not value.strip():
                             raise WorkbenchError("공급자에게 보낼 실제 텍스트를 계획에서 확인할 수 있어야 합니다.")
-                        grok_everywhere.plan({"kind": operation[5:], "text": value})
+                        grok_everywhere.plan(provider_request(operation[5:], value, params))
                 plan["provider_requests"] = [{"node": n["id"], "kind": n["definition"]["spec"]["operation"][5:],
                                               "model": grok_everywhere.MODELS[n["definition"]["spec"]["operation"][5:]],
                                                 "cost_usd": None, "external_transfer": not bool(self._grok_mock), "simulation": bool(self._grok_mock),
-                                              "options": deepcopy(grok_everywhere.OPTIONS[n["definition"]["spec"]["operation"][5:]]), "input": values[incoming[n["id"]]]} for n in providers]
+                                              "options": grok_everywhere.plan(provider_request(n["definition"]["spec"]["operation"][5:], values[incoming[n["id"]]], n["params"]))["request"]["options"], "input": values[incoming[n["id"]]]} for n in providers]
             if providers and not self._grok_mock:
                 plan["provider_config_hash"] = self.grok_executor.status().get("config_hash")
                 plan["uses_models"] = True
@@ -499,7 +511,7 @@ class Workbench:
                 raise WorkbenchError("Invalid provider grants")
             if not self._grok_mock:
                 for item in plan.get("provider_requests", []):
-                    self.grok_executor.check_consent(grants.get(item["node"]), {"kind": item["kind"], "text": item["input"]})
+                    self.grok_executor.check_consent(grants.get(item["node"]), provider_request(item["kind"], item["input"], item["options"]))
             if body.get("confirmed") is not True or body.get("allow_models") is not plan["uses_models"] or body.get("plan_hash") != plan["hash"]:
                 raise WorkbenchError("흐름·범위·모델 설정이 바뀌었거나 실행 확인이 없습니다. 계획을 다시 확인하세요.")
             if self.engine._stop.is_set():
@@ -574,13 +586,14 @@ class Workbench:
                     raise ValueError("Invalid GET result")
                 state["provider_get"] = {"simulation": True, "request_id": request_id, "status": result["status"], "method": "GET"}
                 if result["status"] == "completed":
+                    grok_everywhere.reported_video_duration(result.get("duration"), state.get("requested_duration"))
                     artifacts = result.get("selected_artifacts")
                     if not isinstance(artifacts, list) or not 1 <= len(artifacts) <= 10:
                         raise ValueError("Invalid artifacts")
                     for artifact in artifacts:
                         grok_everywhere.verify_artifact(self.store.dir, artifact, "video")
                     state["output"] = {"simulation": True, "label": "MOCK / 모의 실행 · 실제 생성 아님", "kind": "video", "artifacts": artifacts,
-                                       "artifact_refs": [{"run": run_id, "node": node_id, "path": a, "kind": "video"} for a in artifacts], "request_id": request_id, "cost_usd": None}
+                                       "artifact_refs": [{"run": run_id, "node": node_id, "path": a, "kind": "video"} for a in artifacts], "request_id": request_id, "cost_usd": None, "requested_duration": state.get("requested_duration"), "reported_duration": result.get("duration")}
                     self._record_provider_result(run, node_id, state)
                     self._complete(run, node_id, state)
                     state["error"] = ""
@@ -625,7 +638,7 @@ class Workbench:
         task.extra["provider_result"] = deepcopy(result)
         task.report = "MOCK / 모의 실행 · 실제 생성 및 실제 작업 완료 아님\n" + json.dumps(result, ensure_ascii=False)
         record = {"run_id": record_id, "task": task.id, "runtime": "mock", "simulation": True, "stage": "grok_mock",
-                  "started_at": now_iso(), "duration_s": 0, "status": "simulation", "cost_usd": None, "model_verified": False, "artifacts": deepcopy(refs)}
+                  "started_at": now_iso(), "duration_s": 0, "status": "simulation", "cost_usd": None, "model_verified": False, "artifacts": deepcopy(refs), "requested_duration": result.get("requested_duration"), "reported_duration": result.get("reported_duration")}
         if not simulation:
             task.report = "Verified provider artifacts; CEO acceptance pending\n" + json.dumps(result, ensure_ascii=False)
             record.update(runtime="grok_everywhere", simulation=False, stage="grok_provider", status="success", cost_usd=result.get("cost_usd"))
@@ -878,8 +891,9 @@ class Workbench:
                     if op.startswith("grok_"):
                         if observe_only or state.get("provider_reserved"):
                             raise WorkbenchError("공급자 실행 결과 불확실 · 재제출하지 않습니다. 기존 request_id의 GET 확인만 허용됩니다.")
-                        request = grok_everywhere.plan({"kind": op[5:], "text": text})
+                        request = grok_everywhere.plan(provider_request(op[5:], text, n["params"]))
                         state["provider_reserved"] = request["request_hash"]
+                        state["requested_duration"] = request["request"]["options"].get("duration")
                         state["status"] = "dispatching"
                         if not self._grok_mock:
                             execution_id = digest({"run": run["id"], "node": key})[:32]
@@ -901,7 +915,7 @@ class Workbench:
                             self.store.transition(task, "running", by="provider", note="One-use reviewed provider execution")
                             state.update(task=task.id, status="waiting")
                             self._persist(run)
-                            threading.Thread(target=self._provider_worker, args=({"kind": op[5:], "text": text}, run.get("provider_grants", {}).get(key), execution_id), daemon=True).start()
+                            threading.Thread(target=self._provider_worker, args=(provider_request(op[5:], text, n["params"]), run.get("provider_grants", {}).get(key), execution_id), daemon=True).start()
                             continue
                         task = self.store.create_task(title="MOCK / 모의 실행 · " + op[5:], kind="research", role="analyst",
                                                       project=next(iter(self.engine.cfg.projects)), status="ready", brief=text,
@@ -923,6 +937,8 @@ class Workbench:
                                 continue
                             payload = grok_everywhere.parse_result(json.dumps(result.get("provider_result")), op[5:])
                             state["provider_request_id"] = payload.get("request_id")
+                            if op == "grok_video":
+                                grok_everywhere.reported_video_duration(payload.get("duration"), state["requested_duration"])
                             if payload.get("response_status") == "incomplete":
                                 state["partial_result"] = {"answer": payload["answer"], "response_status": "incomplete", "cost_usd": payload.get("cost_usd"), "simulation": True}
                                 raise grok_everywhere.ContractError("Incomplete result")
@@ -937,6 +953,7 @@ class Workbench:
                                                "kind": op[5:], "answer": payload.get("answer"), "citations": payload.get("citations", []),
                                                "artifacts": artifacts, "artifact_refs": [{"run": run["id"], "node": key, "path": artifact, "kind": op[5:]} for artifact in artifacts],
                                                "request_id": payload.get("request_id"), "cost_usd": payload.get("cost_usd"),
+                                               "requested_duration": request["request"]["options"].get("duration"), "reported_duration": payload.get("duration"),
                                                "requested_model": grok_everywhere.MODELS[op[5:]], "reported_model": payload.get("model"), "model_verified": False}
                             self._record_provider_result(run, key, state)
                         except (ValueError, RuntimeError, OSError):

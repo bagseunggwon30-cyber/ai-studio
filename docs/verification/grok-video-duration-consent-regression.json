@@ -1,0 +1,22 @@
+{
+  "status": "pass",
+  "total": 3,
+  "elapsed_seconds": 3.079,
+  "case_ids": [
+    "tests.test_workbench_planner.ExecutorTests.test_video_duration_grant_stale_approval_idempotent_execution_and_explicit_new_intent",
+    "tests.test_grok_everywhere.ContractTests.test_video_duration_integer_range_immutable_argv_and_hash",
+    "tests.test_grok_everywhere.MockWorkbenchTests.test_ten_second_plan_hash_mock_media_task_ledger_and_dedup"
+  ],
+  "fresh_explicit_same_payload_execution_allowed": true,
+  "same_execution_id_replay_does_not_submit": true,
+  "consumed_grant_new_id_refused": true,
+  "stale_duration_grant_refused": true,
+  "global_consent_index_removed": true,
+  "source": {
+    "commit": "4d31ae123459fda5705e0e5548da21052e3d1c5b",
+    "source_sha256": "8306779562952c9e8b0355e2d1ce6f237fccd724f1f83a495af04108cc09a637",
+    "source_files": 440
+  },
+  "real_supplier_calls": 0,
+  "auth_contents_read": 0
+}

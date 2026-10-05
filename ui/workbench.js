@@ -101,7 +101,7 @@ const Workbench = (() => {
   const TYPE = { text: '글', candidate: '구현 후보', plan: '기획안', task: '작업', approved: '승인 결과', result: '정리 결과', any: '결과' };
   const NOTE = { purpose: '목적', inputs: '입력 설명', outputs: '출력 설명', cautions: '주의', example: '예시·참고 코드' };
   const PARAM = { text: '실행 입력', prefix: '앞에 붙일 글', suffix: '뒤에 붙일 글', acceptance: '수용 기준 (한 줄에 하나)',
-    contains: '반드시 포함할 문구', min_length: '최소 글자 수', dedupe: '같은 줄 제거', sort: '가나다순 정렬' };
+    contains: '반드시 포함할 문구', min_length: '최소 글자 수', dedupe: '같은 줄 제거', sort: '가나다순 정렬', duration: '영상 길이 (초 · 정수 1~15)' };
   let root, hooks, visible = false, catalog = null, draft = null, selected = null, folder = 'all', tab = 'nodes';
   let active = null, ledger = [], loading = false, graphBusy = false, unsaved = false, pollTimer = null, dialogEl = null;
   let refreshAgain = false, lastSignature = '', drag = null, readFailure = false;
@@ -174,7 +174,7 @@ const Workbench = (() => {
         el = h('input', { type: 'checkbox' }); el.checked = value;
         el.addEventListener('change', () => onChange(key, el.checked));
       } else if (typeof initial === 'number') {
-        el = h('input', { type: 'number', min: 1, max: 4000 }); el.value = value;
+        el = h('input', { type: 'number', min: 1, max: key === 'duration' ? 15 : 4000, step: 1 }); el.value = value;
         el.addEventListener('input', () => onChange(key, Number(el.value)));
       } else {
         el = textarea(Array.isArray(value) ? value.join('\n') : value, 4000, val => {
@@ -911,6 +911,7 @@ const Workbench = (() => {
       isProvider ? h('div', {}, h('h3', { text: state.output?.simulation !== false ? 'MOCK / 모의 실행 · 실제 생성 아님' : '검증된 공급자 결과 · CEO 확인 대기' }),
         h('p', { text: '비용 알 수 없음 · 실제 공급자 미연결 · 실제 작업 완료/승인 아님' }),
         state.output?.answer ? h('p', { text: state.output.answer }) : null,
+        d.spec.operation === 'grok_video' ? h('p', { text: `영상 요청 길이 ${state.output?.requested_duration ?? n.params?.duration ?? 5}초 · 공급자 보고 ${state.output?.reported_duration == null ? '미확인' : state.output.reported_duration + '초'} · 파일의 실제 재생 시간은 별도로 확인해야 합니다.` }) : null,
         state.task ? button('연결된 작업·일지·산출물 보기', () => hooks.task(state.task)) : null) : proofPanel(task),
       state.output?.simulation ? h('p', { class: 'wb-hint', text: state.output.label }) : null,
       state.provider_request_id && ['waiting', 'blocked'].includes(state.status) ? button('같은 영상 요청 GET 확인 · 재생성 없음', async () => {
@@ -1125,6 +1126,7 @@ const Workbench = (() => {
     const status = await Data.workbenchGet('/planner');
     for (const item of plan.provider_requests.filter(p => !p.simulation)) {
       const request = { kind: item.kind, text: item.input };
+      if (item.kind === 'video') request.duration = item.options.duration;
       const reviewed = await Data.grokPost('plan', request);
       const receipt = await Data.grokPost('consent', { request, request_hash: reviewed.request_hash, config_hash: status.config_hash, consents: reviewed.approval_checklist });
       grants[item.node] = receipt.grant_id;
@@ -1148,7 +1150,7 @@ const Workbench = (() => {
     } else content.append(h('p', { text: record.error || '응답 확인 대기 · 실행하지 않음' }));
     if (record.plan) content.append(h('h3', { text: '실행 전 실제 요청·옵션' }), h('pre', { text: JSON.stringify(record.plan.provider_requests || [], null, 2) }));
     const confirmed = h('input', { type: 'checkbox', name: 'planner-confirm' });
-    content.append(field('기술 버전·의존성·검증·승인 지점 및 외부 전송/비용 미상(상한 없음)을 확인하고 이 계획만 승인', confirmed, 'wb-check'));
+    content.append(field('기술 버전·의존성·검증·승인 지점 및 외부 전송과 비용 미상에 따른 실행 차단을 확인하고 이 계획만 승인 (실제 실행은 별도 조건)', confirmed, 'wb-check'));
     const approve = button('CEO 계획 승인 후 실행', async () => {
       if (!confirmed.checked) return;
       const grants = await providerGrants(record.plan);

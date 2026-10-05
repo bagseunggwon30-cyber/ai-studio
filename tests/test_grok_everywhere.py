@@ -37,6 +37,41 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(ge.ContractError):
             ge.execute({"approved": True})
 
+    def test_video_duration_integer_range_immutable_argv_and_hash(self):
+        default = ge.plan({"kind": "video", "text": "clip"})
+        self.assertEqual(default["request"]["options"]["duration"], 5)
+        for duration in range(1, 16):
+            request = {"kind": "video", "text": "--auth api-key", "duration": duration}
+            plan = ge.plan(request)
+            self.assertEqual(plan["request"]["options"]["duration"], duration)
+            for body in (request, plan["request"]):
+                argv = ge.command_contract(body, "cache", "output.mp4")
+                self.assertEqual(argv[argv.index("--duration") + 1], str(duration))
+                self.assertEqual(argv[:2], ["--auth", "session"])
+                self.assertEqual(argv[-2:], ["--", request["text"]])
+        self.assertNotEqual(ge.plan({"kind": "video", "text": "clip", "duration": 10})["request_hash"], default["request_hash"])
+        for field, replacement in (("duration", 11), ("resolution", "1080p")):
+            bad = ge.plan({"kind": "video", "text": "clip", "duration": 10})["request"]
+            bad["options"][field] = replacement
+            with self.assertRaises(ge.ContractError):
+                ge.command_contract(bad, "cache", "output.mp4")
+        bad = ge.plan({"kind": "video", "text": "clip", "duration": 10})["request"]
+        bad["auth_kind"] = "api-key"
+        with self.assertRaises(ge.ContractError):
+            ge.command_contract(bad, "cache", "output.mp4")
+
+    def test_video_duration_rejects_types_other_kinds_and_extra_fields(self):
+        for duration in (0, 16, -1, True, False, 10.0, 2.5, "10", None, [], {}):
+            with self.assertRaises(ge.ContractError):
+                ge.plan({"kind": "video", "text": "clip", "duration": duration})
+        for body in ({"text": "clip", "duration": 10}, {"kind": "image", "text": "clip", "duration": 10}, {"kind": "research", "text": "clip", "duration": 10}, {"kind": "video", "text": "clip", "seconds": 10}):
+            with self.assertRaises(ge.ContractError):
+                ge.plan(body)
+        self.assertIsNone(ge.reported_video_duration(None, 10))
+        for reported in (5, True, "10", float("nan"), 16):
+            with self.assertRaises(ge.ContractError):
+                ge.reported_video_duration(reported, 10)
+
     def test_env_drops_secrets_and_overrides(self):
         self.assertEqual(ge.child_env({"PATH": "ok", "XAI_API_KEY": "secret", "GROK_TOKEN": "secret", "HTTP_PROXY": "bad", "GROK_CONFIG": "bad"}), {"PATH": "ok"})
 
@@ -128,6 +163,52 @@ class MockWorkbenchTests(unittest.TestCase):
             self.w.start(body)
             self.w.tick()
         self.assertEqual(len(self.calls), 3)
+
+    def test_ten_second_plan_hash_mock_media_task_ledger_and_dedup(self):
+        from studio.util import atomic_copy
+        calls = []
+        def provider(request):
+            calls.append(request)
+            self.assertEqual(request["options"]["duration"], 10)
+            atomic_copy(Path(__file__).parent / "fixtures" / "mock-video-10s.webm", self.s.store.dir / "mock10.webm")
+            return {"simulation": True, "provider_result": {**envelope("video"), "duration": 10}, "selected_artifacts": ["mock10.webm"]}
+        self.w.attach_grok_mock(provider)
+        body = {"title": "MOCK 10-second video", "graph": graph(node("a", "input", text="MOCK clip"), node("b", "grok_video", duration=10), node("c", "summary"))}
+        plan = self.w.plan(body)
+        self.assertEqual(plan["provider_requests"][0]["options"]["duration"], 10)
+        changed = json.loads(json.dumps(body)); changed["graph"]["nodes"][1]["params"]["duration"] = 11
+        approval = {"plan_hash": plan["hash"], "confirmed": True, "allow_models": False, "request_id": uuid4().hex}
+        with self.assertRaises(WorkbenchError):
+            self.w.start({**changed, **approval})
+        run = self.w.start({**body, **approval}); self.w.tick()
+        result = self.w.run(run["id"])
+        self.assertEqual(result["status"], "succeeded")
+        output = result["nodes"]["b"]["output"]
+        self.assertEqual((output["requested_duration"], output["reported_duration"]), (10, 10))
+        task = self.s.store.get(result["nodes"]["b"]["task"])
+        self.assertEqual(task.extra["provider_result"], output)
+        self.assertEqual(self.s.store.runs(task.id)[0]["requested_duration"], 10)
+        self.assertEqual(self.s.store.runs(task.id)[0]["reported_duration"], 10)
+        self.assertIsNone(output["cost_usd"])
+        self.w.start({**body, **approval}); self.w.tick()
+        self.assertEqual(len(calls), 1)
+        for duration in (True, "10", 0, 16, 10.0):
+            invalid = json.loads(json.dumps(body)); invalid["graph"]["nodes"][1]["params"]["duration"] = duration
+            with self.assertRaises(WorkbenchError):
+                self.w.plan(invalid)
+
+    def test_mock_wrong_reported_duration_blocks_without_resubmission(self):
+        def wrong(request):
+            result = self.provider(request)
+            result["provider_result"]["duration"] = 5
+            return result
+        self.w.attach_grok_mock(wrong)
+        body = {"title": "MOCK mismatch", "graph": graph(node("a", "input", text="clip"), node("b", "grok_video", duration=10))}
+        plan = self.w.plan(body)
+        self.w.start({**body, "plan_hash": plan["hash"], "confirmed": True, "allow_models": False, "request_id": uuid4().hex})
+        self.w.tick(); self.w.tick()
+        self.assertEqual(self.w.ledger()[0]["status"], "blocked")
+        self.assertEqual(len(self.calls), 1)
 
     def test_denied_disconnected_missing_input(self):
         with self.assertRaises(WorkbenchError):

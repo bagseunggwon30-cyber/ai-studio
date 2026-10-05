@@ -24,7 +24,7 @@ from .util import atomic_write_json, atomic_copy, append_jsonl, now_iso, read_js
 
 PIN = "4c6fad3eca694b4bc1c9fedea41ae236139f2044"
 CLI_SHA256 = "c680fa39ccd173b5005bf32e4fad53ed7b564610e02a07274ca0a5b0e1a29527"
-BLOCKED = "Grok Everywhere 실행 차단: 검토된 설치, 세션 파일 접근, 외부 전송 및 알 수 없는 비용에 대한 별도 승인이 필요합니다."
+BLOCKED = "Grok Everywhere 실행 비활성: Grok Build 구독 범위를 확인할 수 없습니다. 추가 과금·결제·충전·구독 변경은 금지되며 비용 미상 동의로 해결하지 않습니다. 구독 포함 범위 확인과 요청별 실행 승인이 필요합니다."
 MODELS = {"research": "grok-4.6", "image": "grok-imagine-image-2.0", "video": "grok-imagine-video-1.5"}
 OPTIONS = {"research": {"source": "web", "depth": "balanced"},
            "image": {"count": 1, "aspect_ratio": "1:1", "resolution": "1k"},
@@ -35,6 +35,17 @@ class ContractError(ValueError):
     pass
 
 
+def reported_video_duration(value, expected=None):
+    # Pinned CLI reports provider metadata, which may be absent. Never infer it.
+    if value is None:
+        return None
+    if type(value) not in (int, float) or not math.isfinite(value) or not 0 < value <= 15:
+        raise ContractError("Invalid reported video duration")
+    if expected is not None and value != video_duration(expected):
+        raise ContractError("Reported video duration differs from the approved request")
+    return value
+
+
 def catalog():
     return [{"id": "grok_" + kind, "kind": kind, "input": "text",
              "output": "research_with_citations" if kind == "research" else kind + "_artifact",
@@ -43,13 +54,26 @@ def catalog():
             for kind, model in MODELS.items()]
 
 
+def video_duration(value):
+    if type(value) is not int or not 1 <= value <= 15:
+        raise ContractError("영상 길이는 정수 1~15초로 지정하세요.")
+    return value
+
+
 def plan(body):
-    if not isinstance(body, dict) or set(body) - {"kind", "text"}:
+    if not isinstance(body, dict) or set(body) - {"kind", "text", "duration"}:
         raise ContractError("Unsupported request fields")
     kind, text = body.get("kind"), body.get("text")
     if not isinstance(kind, str) or kind not in MODELS or not isinstance(text, str) or not text.strip() or len(text) > 12000 or "\0" in text:
         raise ContractError("Invalid typed request")
-    request = {"kind": kind, "text": text, "model": MODELS[kind], "auth_kind": "session", "upstream_commit": PIN, "options": dict(OPTIONS[kind])}
+    if "duration" in body and kind != "video":
+        raise ContractError("Duration is supported only for video requests")
+    options = dict(OPTIONS[kind])
+    if kind == "video":
+        options["duration"] = video_duration(body.get("duration", 5))  # Legacy saved flows used five seconds.
+    request = {"kind": kind, "text": text, "model": MODELS[kind], "auth_kind": "session", "upstream_commit": PIN, "options": options}
+    if kind == "video":
+        request["duration"] = options["duration"]
     request_hash = hashlib.sha256(json.dumps(request, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
     return {"request": request, "request_hash": request_hash, "enabled": False, "reason": BLOCKED,
             "cost_usd": None, "approval_checklist": ["reviewed_install", "session_file_access", "model:" + MODELS[kind],
@@ -136,12 +160,32 @@ def parse_result(raw, kind):
         raise ContractError("Missing structured video request ID; outcome unknown")
     if kind == "research" and (value.get("response_status") not in ("completed", "incomplete") or not isinstance(value.get("answer"), str) or not isinstance(value.get("citations"), list)):
         raise ContractError("Incomplete research")
+    if kind == "video":
+        reported_video_duration(value.get("duration"))
     return value
+
+
+def request_body(request):
+    """Validate both public typed inputs and our complete immutable request envelope."""
+    if not isinstance(request, dict):
+        raise ContractError("Invalid request object")
+    if "options" not in request:
+        if set(request) - {"kind", "text", "duration"}:
+            raise ContractError("Unsupported request fields")
+        return {**request}
+    if not isinstance(request["options"], dict):
+        raise ContractError("Invalid request options")
+    body = {"kind": request.get("kind"), "text": request.get("text")}
+    if body["kind"] == "video":
+        body["duration"] = request.get("duration")
+    if request != plan(body)["request"]:
+        raise ContractError("Immutable request options changed")
+    return body
 
 
 def command_contract(request, cache_dir, output=None, request_id=None):
     """Reviewable argv only. This module never launches the returned command."""
-    planned = plan({"kind": request.get("kind"), "text": request.get("text")})["request"]
+    planned = plan(request_body(request))["request"]
     argv = ["--auth", "session", "--cache-dir", str(cache_dir), "--timeout", "60"]
     kind = planned["kind"]
     if request_id is not None:
@@ -153,7 +197,7 @@ def command_contract(request, cache_dir, output=None, request_id=None):
     elif kind == "image":
         argv += ["image", "generate", "--model", MODELS[kind], "--n", "1", "--aspect-ratio", "1:1", "--resolution", "1k"]
     else:
-        argv += ["video", "generate", "--model", MODELS[kind], "--duration", "5", "--resolution", "720p", "--aspect-ratio", "16:9", "--max-wait", "120", "--poll-interval", "5"]
+        argv += ["video", "generate", "--model", MODELS[kind], "--duration", str(planned["options"]["duration"]), "--resolution", "720p", "--aspect-ratio", "16:9", "--max-wait", "120", "--poll-interval", "5"]
     if kind != "research":
         if output is None:
             raise ContractError("Explicit local output is required")
@@ -194,7 +238,8 @@ def connection_plan(body):
     return {"config": config, "review_hash": digest(config), "consents": consent,
             "auth_verified": False, "source_url": f"https://raw.githubusercontent.com/sudoHG/grok-everywhere/{PIN}/grok-everywhere/scripts/grok.py",
             "limits": {"requests_per_consent": 1, "local_timeout_seconds": 180, "stdout_bytes": 1_000_000},
-            "remote_cancel_supported": False}
+            "remote_cancel_supported": False, "enabled": False, "reason": BLOCKED,
+            "subscription_scope": "unverified", "additional_charges": "not_authorized", "subscription_only_execution_supported": False}
 
 
 def parse_video_read(raw, expected_id, operation):
@@ -300,7 +345,8 @@ class Executor:
             receipt["used_by"] = execution_id
             atomic_write_json(self.store.dir / "grok-consents" / (grant + ".json"), receipt)
             record = {"request_hash": proposal["request_hash"], "config_hash": receipt["config_hash"], "kind": request["kind"], "status": "reserved", "cost_usd": None,
-                      "request_id": None, "simulation": False, "model_verified": False, "remote_cancel_supported": False}
+                      "request_id": None, "simulation": False, "model_verified": False, "remote_cancel_supported": False,
+                      "requested_duration": proposal["request"]["options"].get("duration")}
             self._save(execution_id, record)
         try:
             raw, cache = self._run(request, execution_id)
@@ -312,9 +358,13 @@ class Executor:
                 record["request_id"] = value.get("request_id")
                 record["cost_usd"] = value.get("cost_usd")
                 self._save(execution_id, record)  # structured ID preserved before import.
+            if request["kind"] == "video":
+                reported_video_duration(value.get("duration"), record["requested_duration"])
             if value.get("response_status") == "incomplete":
                 raise ContractError("Incomplete research; no automatic retry")
             result = self._archive(value, cache, execution_id, request["kind"])
+            if request["kind"] == "video":
+                result["requested_duration"] = record["requested_duration"]
             with self.store.lock:
                 record = read_json(path, record)
                 if record["status"] == "cancelled_local":
@@ -343,6 +393,7 @@ class Executor:
         request = {"kind": "video", "text": "GET known request"}
         raw, cache = self._run(request, execution_id, request_id=request_id, download=download)
         value = parse_video_read(raw, request_id, "resume" if download else "get")
+        reported_video_duration(value.get("duration"), record.get("requested_duration"))
         with self.store.lock:
             record = read_json(self._path(execution_id), record)
             if record.get("status") == "cancelled_local":
@@ -351,6 +402,7 @@ class Executor:
             record["last_get"] = {"request_id": request_id, "operation": value["operation"], "status": value.get("status", "completed"), "auth_verification": "unreported", "model_verified": False}
             if download:
                 record["result"] = self._archive(value, cache, execution_id, "video")
+                record["result"]["requested_duration"] = record.get("requested_duration")
                 record["status"] = "completed"
             self._save(execution_id, record)
             return record
@@ -542,6 +594,6 @@ class Executor:
             if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
                 continue
             citations.append({"url": url, "title": title[:300] if isinstance(title, str) else ""})
-        return {"kind": kind, "answer": value.get("answer"), "citations": citations, "artifacts": selected,
+        return {"kind": kind, "reported_duration": value.get("duration") if kind == "video" else None, "answer": value.get("answer"), "citations": citations, "artifacts": selected,
                 "cost_usd": value.get("cost_usd"), "requested_model": MODELS[kind], "reported_model": value.get("model"),
                 "model_verified": False, "simulation": False}

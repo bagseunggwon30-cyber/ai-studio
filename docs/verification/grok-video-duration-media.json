@@ -1,0 +1,10 @@
+{
+  "simulation": true,
+  "requested_duration": 10,
+  "decoded_duration": 10.000259,
+  "width": 320,
+  "height": 180,
+  "played": true,
+  "real_supplier_calls": 0,
+  "http_servers_started": 0
+}

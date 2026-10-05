@@ -69,6 +69,8 @@ class Planner:
                 item["contract"] = {k: operation[k] for k in ("input", "output", "mode", "params")}
                 item["contract"]["mode"] = row["capability"]["mode"]
                 item["contract"]["simulation"] = row["capability"].get("simulation", False)
+                if item["spec"]["operation"] == "grok_video":
+                    item["contract"]["constraints"] = {"duration": {"type": "integer", "minimum": 1, "maximum": 15, "default": 5}}
                 skills.append(item)
         tasks = [{"id": t.id, "title": t.title[:120], "status": t.status, "kind": t.kind} for t in self.store.list() if t.project == project.key][:40]
         context = {"goal": goal, "project": project.key, "allowed_paths": clean, "project_state": tasks, "skills": skills}

@@ -72,6 +72,34 @@ class PlannerTests(unittest.TestCase):
         self.p.propose(body)
         self.assertEqual(len(self.calls), 1)
 
+    def test_planner_video_duration_contract_and_ten_second_approval(self):
+        from studio.util import atomic_copy
+        self.response["graph"]["nodes"][1] = node("b", "grok_video", duration=10)
+        self.response["steps"][1]["executor"] = "grok_video"
+        def media(request):
+            self.assertEqual(request["options"]["duration"], 10)
+            atomic_copy(Path(__file__).parent / "fixtures" / "mock-video-10s.webm", self.s.store.dir / "mock10.webm")
+            return {"simulation": True, "provider_result": {**envelope("video"), "duration": 10}, "selected_artifacts": ["mock10.webm"]}
+        self.wb.attach_grok_mock(media); self.attach()
+        prepared = self.p.prepare(self.input)
+        skill = next(r for r in prepared["skills"] if r["id"] == "builtin-grok_video")
+        self.assertEqual(skill["contract"]["constraints"]["duration"], {"type": "integer", "minimum": 1, "maximum": 15, "default": 5})
+        record, body = self.propose()
+        self.assertEqual(record["plan"]["provider_requests"][0]["options"]["duration"], 10)
+        self.s.engine.approve(record["task"], {"proposal_hash": record["proposal_hash"]})
+        self.wb.tick()
+        result = self.wb.run(self.p.get(record["id"])["run"])
+        self.assertEqual(result["nodes"]["b"]["output"]["requested_duration"], 10)
+        self.assertEqual(result["nodes"]["b"]["output"]["reported_duration"], 10)
+        bundle = self.p.save_bundle(record["id"])
+        self.assertEqual(bundle["graph"]["nodes"][1]["params"]["duration"], 10)
+        self.assertEqual(self.p.propose(body)["status"], "approved")
+        self.assertEqual(len(self.calls), 1)
+        for duration in (True, 0, 16, "10", None):
+            response = deepcopy(self.response); response["graph"]["nodes"][1]["params"]["duration"] = duration
+            with self.assertRaises(ValueError):
+                self.p._validate(response, prepared)
+
     def test_scope_types_payload_and_prompt_injection_are_data(self):
         self.attach()
         for bad in (True, [], {}, ""):
@@ -162,6 +190,44 @@ class ExecutorTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.ex.execute(request, grant, uuid4().hex)
 
+    def test_video_duration_grant_stale_approval_idempotent_execution_and_explicit_new_intent(self):
+        request5 = {"kind": "video", "text": "clip", "duration": 5}
+        request10 = {**request5, "duration": 10}
+        grant5 = self.grant(request5)
+        with self.assertRaises(ge.ContractError):
+            self.ex.check_consent(grant5, request10)
+        grant10 = self.grant(request10)
+        from studio.util import atomic_copy
+        cache = self.s.store.dir / "mock10cache"
+        source = cache / "clip.webm"
+        atomic_copy(Path(__file__).parent / "fixtures" / "mock-video-10s.webm", source)
+        value = {**envelope("video"), "duration": 10, "artifacts": [str(source)]}
+        identifier = uuid4().hex
+        with patch.object(self.ex, "_run", return_value=(json.dumps(value), cache)) as runner:
+            result = self.ex.execute(request10, grant10, identifier)
+            self.assertEqual(result["status"], "completed")
+            self.assertEqual(result["requested_duration"], 10)
+            self.assertEqual(result["result"]["reported_duration"], 10)
+            self.assertEqual(result["result"]["requested_duration"], 10)
+            self.assertEqual(self.ex.execute(request10, grant10, identifier), result)
+            with self.assertRaises(ge.ContractError):
+                self.ex.execute(request10, grant10, uuid4().hex)
+            with self.assertRaises(ge.ContractError):
+                self.ex.execute(request5, grant5, identifier)
+            self.assertEqual(runner.call_count, 1)
+            # A new explicit approval permits a separate reusable execution;
+            # replaying either existing execution ID still cannot repeat POST.
+            new_grant = self.grant(request10)
+            self.assertNotEqual(new_grant, grant10)
+            new_identifier = uuid4().hex
+            new_result = self.ex.execute(request10, new_grant, new_identifier)
+            self.assertEqual(new_result["status"], "completed")
+            self.assertEqual(new_result["result"]["requested_duration"], 10)
+            self.assertEqual(self.ex.execute(request10, new_grant, new_identifier), new_result)
+            with self.assertRaises(ge.ContractError):
+                self.ex.execute(request10, new_grant, uuid4().hex)
+            self.assertEqual(runner.call_count, 2)
+
     def test_unknown_video_structured_id_get_no_regeneration_and_config_binding(self):
         request = {"kind": "video", "text": "payload"}
         identifier = uuid4().hex
@@ -187,6 +253,56 @@ class ExecutorTests(unittest.TestCase):
         config.unlink()
         with self.assertRaises(ValueError):
             self.ex.read_video(identifier)
+
+    def test_unknown_ten_second_video_get_archive_preserves_task_and_ledger_duration(self):
+        from studio.util import atomic_copy
+        wb = self.s.engine.workbench
+        request = {"kind": "video", "text": "unknown ten-second clip", "duration": 10}
+        body = {"title": "Unknown 10-second video", "graph": graph(node("a", "input", text=request["text"]), node("b", "grok_video", duration=10), node("c", "summary"))}
+        cache = self.s.store.dir / "resume-cache"
+        source = cache / "clip.webm"
+        atomic_copy(Path(__file__).parent / "fixtures" / "mock-video-10s.webm", source)
+        for reported in (10, None):
+            plan = wb.plan(body)
+            run = wb.start({**body, "request_id": uuid4().hex, "plan_hash": plan["hash"], "confirmed": True, "allow_models": True, "provider_grants": {"b": self.grant(request)}})
+            def interrupted(_request, execution_id):
+                atomic_write_json(cache / "runs" / "known-run" / "submission.json", {"request_id": "known-video10"})
+                self.ex._recover_submission(cache, execution_id)
+                raise TimeoutError("controlled unknown outcome")
+            with patch.object(self.ex, "_run", side_effect=interrupted) as submitted:
+                wb.tick()
+                deadline = time.monotonic() + 10
+                execution_id = None
+                while time.monotonic() < deadline:
+                    execution_id = wb.run(run["id"])["nodes"]["b"].get("provider_execution_id")
+                    record = ge.read_json(self.ex._path(execution_id), {}) if execution_id else {}
+                    if record.get("status") == "unknown_outcome":
+                        break
+                    time.sleep(.02)
+                self.assertEqual(record["status"], "unknown_outcome")
+                self.assertEqual(record["requested_duration"], 10)
+                wb.tick()
+                self.assertEqual(wb.run(run["id"])["status"], "blocked")
+                self.assertEqual(submitted.call_count, 1)
+            response = {"ok": True, "module": "video", "operation": "resume", "request_id": "known-video10", "artifacts": [str(source)], "duration": reported, "cost_usd": None, "model": ge.MODELS["video"]}
+            with patch.object(self.ex, "_run", return_value=(json.dumps(response), cache)) as fetched:
+                result = wb.provider_recheck(run["id"], "b")
+                self.assertEqual(fetched.call_count, 1)
+                self.assertEqual(fetched.call_args.kwargs, {"request_id": "known-video10", "download": True})
+                self.assertEqual(self.ex.read_video(execution_id, download=True)["status"], "completed")
+                self.assertEqual(fetched.call_count, 1)  # completed immutable record, no GET/POST replay.
+            self.assertEqual(result["status"], "succeeded")
+            output = result["nodes"]["b"]["output"]
+            self.assertEqual(output["requested_duration"], 10)
+            self.assertEqual(output["reported_duration"], reported)
+            task = self.s.store.get(result["nodes"]["b"]["task"])
+            self.assertEqual(task.extra["provider_result"]["requested_duration"], 10)
+            self.assertEqual(task.extra["provider_result"]["reported_duration"], reported)
+            metadata = ge.read_json(self.s.store.runs_dir / task.runs[0] / "meta.json")
+            self.assertEqual(metadata["requested_duration"], 10)
+            self.assertEqual(metadata["reported_duration"], reported)
+            self.assertEqual(wb.describe_run(run["id"])["nodes"]["b"]["output"]["requested_duration"], 10)
+            self.assertEqual(ge.read_json(self.ex._path(execution_id))["result"]["requested_duration"], 10)
 
     def test_cancel_late_completion_never_revives(self):
         request = {"kind": "research", "text": "payload"}

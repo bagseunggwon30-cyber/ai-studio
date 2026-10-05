@@ -4,15 +4,17 @@ const { chromium } = require('C:/Users/bark/AppData/Local/npm-cache/_npx/31e32ef
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const out = path.resolve('output/grok-planner-browser');
+const duration10 = process.argv.includes('--video-duration-10');
+const out = path.resolve(duration10 ? 'output/grok-video-duration-browser' : 'output/grok-planner-browser');
 fs.mkdirSync(out, { recursive: true });
 let browser, fixture, page;
 (async () => {
   browser = await chromium.launch({ executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true });
   page = await browser.newPage({ viewport: { width: 1585, height: 1080 } });
-  const errors = [];
+  const errors = []; let startRequests = 0;
+  page.on('request', r => { if (r.method() === 'POST' && new URL(r.url()).pathname === '/api/workbench/start') startRequests++; });
   page.on('pageerror', e => errors.push(e.message));
-  const b64 = await page.evaluate(async () => {
+  const b64 = duration10 ? fs.readFileSync('tests/fixtures/mock-video-10s.webm').toString('base64') : await page.evaluate(async () => {
     const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 240;
     const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff8d7'; ctx.fillRect(0, 0, 320, 240);
     ctx.fillStyle = '#304b40'; ctx.font = 'bold 28px sans-serif'; ctx.fillText('MOCK VIDEO', 65, 120);
@@ -26,7 +28,7 @@ let browser, fixture, page;
     return btoa(Array.from(bytes, c => String.fromCharCode(c)).join(''));
   });
   const videoFile = path.join(out, 'mock-video.webm'); fs.writeFileSync(videoFile, Buffer.from(b64, 'base64'));
-  fixture = spawn('python', ['tools/dev/workbench_fixture.py', '--port', '8798', '--grok-mock', '--mock-video', videoFile], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  fixture = spawn('python', ['tools/dev/workbench_fixture.py', '--port', '8798', '--grok-mock', '--mock-video', videoFile, ...(duration10 ? ['--mock-video-duration', '10'] : [])], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
   const ready = await new Promise((resolve, reject) => {
     let data = '';
     fixture.stdout.on('data', chunk => { data += chunk; if (data.includes('\n')) resolve(JSON.parse(data.trim().split('\n').at(-1))); });
@@ -63,6 +65,52 @@ let browser, fixture, page;
     });
     if (boxes.metadata.top < boxes.title.bottom || boxes.run.top < boxes.metadata.bottom || boxes.settings.top < boxes.run.bottom) throw new Error('Heading metadata overlap: ' + JSON.stringify(boxes));
     return boxes;
+  }
+  if (duration10) {
+    await page.locator('button[data-surface="drawer"]').click();
+    const savedVideo = page.locator('.wb-folder-card').filter({ hasText: 'MOCK 10초 영상 길이 확인' });
+    await savedVideo.click();
+    await page.locator('[data-node="provider"]').click();
+    const duration = page.locator('[name="duration"]');
+    await duration.waitFor();
+    if (await duration.inputValue() !== '10' || await duration.getAttribute('min') !== '1' || await duration.getAttribute('max') !== '15') throw new Error('Duration editor contract incorrect');
+    await duration.fill('12'); await duration.fill('10');
+    await page.locator('[data-save-flow]').click();
+    await page.waitForFunction(() => document.querySelector('.wb-message')?.textContent.includes('v2을 서랍에 저장했어요.'));
+    await page.locator('button[data-surface="drawer"]').click(); await savedVideo.click();
+    await page.locator('[data-node="provider"]').click();
+    if (await page.locator('[name="duration"]').inputValue() !== '10') throw new Error('Saved duration was not restored');
+    await duration.fill('16'); await page.locator('[data-prepare]').click();
+    await page.locator('.wb-message.error').waitFor();
+    await duration.fill('10');
+    await page.locator('[data-prepare]').click();
+    await page.locator('.wb-dialog').waitFor();
+    await page.keyboard.press('Escape');
+    await page.locator('.wb-dialog').waitFor({ state: 'detached' });
+    await page.locator('[data-prepare]').click();
+    const dialog = page.locator('.wb-dialog'); await dialog.waitFor();
+    if (!(await dialog.innerText()).includes('"duration":10')) throw new Error('10-second options missing from plan review');
+    await page.screenshot({ path: path.join(out, 'duration-10-plan-mock.png'), fullPage: true, animations: 'disabled' });
+    await page.locator('[name="plan-confirm"]').check();
+    const startsBefore = startRequests;
+    await dialog.getByRole('button', { name: '확인한 계획 실행', exact: true }).evaluate(b => { b.click(); b.click(); });
+    await page.waitForFunction(async () => (await (await fetch('/api/workbench/ledger')).json()).runs.some(r => r.title === 'MOCK 10초 영상 길이 확인' && r.status === 'succeeded'));
+    await page.locator('[data-node="provider"].s-succeeded').waitFor();
+    await page.locator('[data-node="provider"]').click();
+    await page.locator('.wb-provider-artifacts video').waitFor();
+    const actual = await page.locator('.wb-provider-artifacts video').evaluate(async v => {
+      if (v.readyState < 1) await new Promise(resolve => { v.onloadedmetadata = resolve; });
+      if (!Number.isFinite(v.duration)) await new Promise(resolve => { v.onseeked = resolve; v.currentTime = 1e9; });
+      v.currentTime = 0; await v.play(); await new Promise(r => setTimeout(r, 300)); v.pause();
+      return { duration: v.duration, played: v.currentTime > 0 };
+    });
+    if (!actual.played || Math.abs(actual.duration - 10) > .3) throw new Error('UI media does not decode as 10 seconds');
+    const ledger = await page.evaluate(async () => (await (await fetch('/api/workbench/ledger')).json()).runs);
+    const videoRun = ledger.find(r => r.title === 'MOCK 10초 영상 길이 확인');
+    const detail = await page.evaluate(async id => (await (await fetch('/api/workbench/runs/' + id)).json()), videoRun.id);
+    if (detail.nodes.provider.output.requested_duration !== 10 || detail.nodes.provider.output.reported_duration !== 10 || startRequests - startsBefore !== 1) throw new Error('Duration ledger/dedup contract mismatch');
+    report.duration10 = { editor_integer_range: [1, 15], rejected_16: true, saved_restored: true, close_reopen_plan: true, plan_review: 10, requested_duration: 10, reported_duration: 10, duplicate_click_single_submission: true, decoded_duration: actual.duration, simulation: true };
+    await page.screenshot({ path: path.join(out, 'duration-10-result-mock.png'), fullPage: true, animations: 'disabled' });
   }
   report.headingDesktop = await checkHeading();
   await page.setViewportSize({ width: 390, height: 844 });

@@ -1,0 +1,27 @@
+{
+  "status": "pass",
+  "total": 4,
+  "elapsed_seconds": 10.254,
+  "case_ids": [
+    "tests.test_workbench_planner.ExecutorTests.test_unknown_ten_second_video_get_archive_preserves_task_and_ledger_duration",
+    "tests.test_workbench_planner.ExecutorTests.test_unknown_video_structured_id_get_no_regeneration_and_config_binding",
+    "tests.test_workbench_planner.ExecutorTests.test_cancel_late_completion_never_revives",
+    "tests.test_grok_everywhere.MockWorkbenchTests.test_mock_wrong_reported_duration_blocks_without_resubmission"
+  ],
+  "requested_duration_survives_unknown_get_resume": 10,
+  "reported_duration_cases": [
+    10,
+    null
+  ],
+  "post_calls_per_new_execution": 1,
+  "resume_calls_per_recheck": 1,
+  "task_meta_workbench_ledger_checked": true,
+  "source": {
+    "commit": "4d31ae123459fda5705e0e5548da21052e3d1c5b",
+    "source_sha256": "c99a23ab4def21ad182d48887000f2cb51ab8240c7bb34230121bafe20e4a28a",
+    "source_files": 440
+  },
+  "initial_test_error": "Incorrectly queried append-only initial reservation from Store.runs; corrected to final meta.json and Workbench describe_run contracts without product changes.",
+  "real_supplier_calls": 0,
+  "auth_contents_read": 0
+}

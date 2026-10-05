@@ -21,6 +21,7 @@ def main():
     parser.add_argument("--flow-gates", action="store_true", help="Pause the existing fake builder/reviewer until temporary release files appear")
     parser.add_argument("--grok-mock", action="store_true", help="Isolated MOCK research/image/video samples; no supplier connection")
     parser.add_argument("--mock-video", type=Path, help="Locally recorded WebM sample for the isolated mock preview")
+    parser.add_argument("--mock-video-duration", type=int, choices=range(1, 16), help="Decoded duration of the local sample; required for a precise video mock")
     args = parser.parse_args()
     company = TempStudio()
     gate_stop = threading.Event()
@@ -60,6 +61,9 @@ def main():
                     value.update(answer="MOCK 조사 결과 · 실제 외부 조사 없음", citations=[], response_status="completed")
                 if kind == "video":
                     value["request_id"] = "mock-video-preview"
+                    if args.mock_video_duration is not None and request["options"]["duration"] != args.mock_video_duration:
+                        raise ValueError("Mock sample does not match requested duration")
+                    value["duration"] = args.mock_video_duration
                 return {"simulation": True, "provider_result": value,
                         "selected_artifacts": [] if kind == "research" else ["mock-image.png" if kind == "image" else "mock-video.webm"]}
             company.engine.workbench.attach_grok_mock(mock_provider)
@@ -81,12 +85,19 @@ def main():
                 nodes = [{"id": "input", "ref": {"id": "builtin-input", "version": 1}, "params": {"text": "MOCK 미리보기 요청"}},
                          {"id": "provider", "ref": {"id": "builtin-grok_" + kind, "version": 1}},
                          {"id": "summary", "ref": {"id": "builtin-summary", "version": 1}}]
+                if kind == "video" and args.mock_video_duration is not None:
+                    nodes[1]["params"] = {"duration": args.mock_video_duration}
                 for i, item in enumerate(nodes):
                     item["position"] = {"x": 400 + i * 285, "y": 45}
                 body = {"title": "MOCK / 모의 실행 · " + kind, "graph": {"nodes": nodes, "edges": [{"from": "input", "to": "provider"}, {"from": "provider", "to": "summary"}]}}
                 plan = company.engine.workbench.plan(body)
                 company.engine.workbench.start({**body, "plan_hash": plan["hash"], "request_id": uuid4().hex, "confirmed": True, "allow_models": False})
             company.engine.workbench.tick()
+            if args.mock_video_duration is not None:
+                wb.save_flow({"title": "MOCK 10초 영상 길이 확인", "graph": {"nodes": [
+                    {"id": "input", "ref": {"id": "builtin-input", "version": 1}, "params": {"text": "MOCK ten-second clip"}, "position": {"x": 400, "y": 45}},
+                    {"id": "provider", "ref": {"id": "builtin-grok_video", "version": 1}, "params": {"duration": args.mock_video_duration}, "position": {"x": 685, "y": 45}}],
+                    "edges": [{"from": "input", "to": "provider"}]}})
             preview_nodes = [{"id": "input", "ref": {"id": "builtin-input", "version": 1}, "params": {"text": "계획 확인 요청"}},
                              {"id": "format", "ref": {"id": "builtin-format", "version": 1}, "params": {"prefix": "MOCK: ", "suffix": " / 정확한 입력"}},
                              {"id": "provider", "ref": {"id": "builtin-grok_image", "version": 1}},

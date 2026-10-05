@@ -1,0 +1,10 @@
+{
+  "source_pin": "4c6fad3eca694b4bc1c9fedea41ae236139f2044",
+  "cli_sha256": "c680fa39ccd173b5005bf32e4fad53ed7b564610e02a07274ca0a5b0e1a29527",
+  "cli_bytes": 83096,
+  "source_read_only": true,
+  "auth_contents_read": 0,
+  "real_calls": 0,
+  "production_restarts": 0,
+  "production_connection_config_exists": false
+}

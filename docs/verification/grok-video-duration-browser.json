@@ -1,0 +1,104 @@
+{
+  "simulation": true,
+  "real_model_calls": 0,
+  "media": [
+    {
+      "kind": "image",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "kind": "video",
+      "width": 320,
+      "duration": 10.000259,
+      "played": true
+    }
+  ],
+  "errors": [],
+  "duration10": {
+    "editor_integer_range": [
+      1,
+      15
+    ],
+    "rejected_16": true,
+    "saved_restored": true,
+    "close_reopen_plan": true,
+    "plan_review": 10,
+    "requested_duration": 10,
+    "reported_duration": 10,
+    "duplicate_click_single_submission": true,
+    "decoded_duration": 10.000259,
+    "simulation": true
+  },
+  "headingDesktop": {
+    "title": {
+      "top": 93,
+      "bottom": 193,
+      "left": 52,
+      "right": 422
+    },
+    "metadata": {
+      "top": 203,
+      "bottom": 227.796875,
+      "left": 52,
+      "right": 422
+    },
+    "run": {
+      "top": 239.796875,
+      "bottom": 304.578125,
+      "left": 52,
+      "right": 422
+    },
+    "settings": {
+      "top": 314.578125,
+      "bottom": 341.171875,
+      "left": 52,
+      "right": 422
+    }
+  },
+  "narrowOverflow": false,
+  "invalidConnectionRejected": true,
+  "planDetailsVerified": true,
+  "keyboardFocusContained": true,
+  "mockUiExecutionRecorded": true,
+  "duplicateClickSingleRun": true,
+  "planner": {
+    "simulation": true,
+    "id": "cc23ff73d06d42288a4bd3bf5bf062df",
+    "task": "T0006",
+    "run": "Wcc23ff73d06d42288a4bd3bf5bf062df",
+    "task_status": "done",
+    "approval_wait": true,
+    "double_click": "one proposal and execution",
+    "close_reopen": true,
+    "saved_bundle": true,
+    "selected_stored_skill": "mock-saved-image-brief",
+    "real_model_calls": 0
+  },
+  "headingNarrow": {
+    "title": {
+      "top": 158.265625,
+      "bottom": 238.265625,
+      "left": 28,
+      "right": 328
+    },
+    "metadata": {
+      "top": 248.265625,
+      "bottom": 273.0625,
+      "left": 28,
+      "right": 328
+    },
+    "run": {
+      "top": 285.0625,
+      "bottom": 349.84375,
+      "left": 28,
+      "right": 328
+    },
+    "settings": {
+      "top": 359.84375,
+      "bottom": 386.4375,
+      "left": 28,
+      "right": 328
+    }
+  }
+}
