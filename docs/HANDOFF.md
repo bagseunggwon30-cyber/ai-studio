@@ -1,5 +1,12 @@
 # 인수인계 — 다른 세션·다른 계정에서 이어서 작업하기
 
+## 2026-10-05 Grok executor + model-backed workbench planner
+
+- Feature branch `codex/grok-planner-integration-20261005`: pinned/approved stdlib transport, durable one-use request journal, async owned workers, GET-only known video recheck, task/artifact acceptance and structured model planner through existing Engine CEO approval are implemented. Default connection remains disabled; no parent-session dependency or rule template labeled AI.
+- Explicit TempStudio mocks prove goal → saved skills → review → actual plan Task approval wait → Engine.approve → Workbench execution → validation → reusable bundle. Real external calls/auth-content reads/install/production restart remain 0. Future source install, direct third-party session read, exact external payload and unknown-cost consent require separate CEO approval.
+- Focused and mock Edge evidence plus future connection contract: [verification/grok-planner-integration.md](verification/grok-planner-integration.md). Final full verification and main integration run on root's independent Temp worktree, excluding unrelated `7ce7ada` prototype assets. Main/push/CI are not yet claimed complete in this checkpoint.
+
+
 ## 2026-10-05 Grok Everywhere 안전 경계와 기존 작업대 모의 통합
 
 - codex/grok-everywhere-adapter-20261005: 조사·이미지·영상 재사용 기능, 해시로 묶인 실제 요청/고정 옵션 계획, 기존 작업/일지/장부와 산출물 참조, 읽을 수 있는 MOCK 미디어 상세를 추가했다. 실제 공급자 실행은 항상 차단; 임시 FakeRuntime 회사만 모의 주입 가능. 영상은 같은 구조화 request_id의 명시적 GET만 재확인하며 자동 재제출 없음. 비용 unknown, 실제 모델 미확인, 모의 작업은 blocked로 보존하고 done/승인으로 바꾸지 않는다. 선택한 미디어는 RMOCK 실행별 폴더로 atomic_copy해 SHA-256 참조를 보존한다. 같은 공급자 파일명 재사용과 과거 파일 변조를 검증했다.

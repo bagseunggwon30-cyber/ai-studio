@@ -4,7 +4,7 @@ const { chromium } = require('C:/Users/bark/AppData/Local/npm-cache/_npx/31e32ef
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const out = path.resolve('output/grok-everywhere-browser');
+const out = path.resolve('output/grok-planner-browser');
 fs.mkdirSync(out, { recursive: true });
 let browser, fixture, page;
 (async () => {
@@ -32,7 +32,7 @@ let browser, fixture, page;
     fixture.stdout.on('data', chunk => { data += chunk; if (data.includes('\n')) resolve(JSON.parse(data.trim().split('\n').at(-1))); });
     fixture.stderr.on('data', chunk => process.stderr.write(chunk));
     fixture.once('exit', code => reject(new Error('Fixture exited ' + code)));
-    setTimeout(() => reject(new Error('Fixture readiness timeout')), 30000).unref();
+    setTimeout(() => reject(new Error('Fixture readiness timeout')), 60000).unref();
   });
   await page.goto(ready.url); await page.locator('button[data-surface="workspace"]').click();
   await page.locator('.wb-run-history > summary').click();
@@ -103,6 +103,51 @@ let browser, fixture, page;
   }, null, { timeout: 60000 });
   await page.locator('[data-node="provider"]').click(); await page.locator('.wb-provider-artifacts img').waitFor();
   await page.screenshot({ path: path.join(out, 'executed-mock.png'), fullPage: true, animations: 'disabled' });
+  await page.getByRole('button', { name: '목표로 AI 기획', exact: true }).click();
+  await page.locator('[name="planner-goal"]').fill('MOCK saved skills image goal');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '목표로 AI 기획', exact: true }).click();
+  await page.locator('[name="planner-goal"]').fill('MOCK saved skills image goal');
+  await page.getByRole('button', { name: '보낼 요청 먼저 확인', exact: true }).click();
+  await page.locator('[name="planner-model-confirm"]').waitFor();
+  const planningRequest = await page.locator('.wb-dialog pre').innerText();
+  if (!planningRequest.includes('mock-saved-image-brief') || !planningRequest.includes('contract')) throw new Error('Stored typed skill contract missing');
+  await page.locator('[name="planner-model-confirm"]').check();
+  await page.getByRole('button', { name: '기획 요청 한 번 보내기', exact: true }).evaluate(b => { b.click(); b.click(); });
+  await page.locator('[name="planner-confirm"]').waitFor();
+  const plannerId = await page.evaluate(() => localStorage.getItem('studio.workbench.planner'));
+  let proposal = await page.evaluate(async id => (await (await fetch('/api/workbench/planner/' + id)).json()), plannerId);
+  if (proposal.status !== 'awaiting_approval' || !proposal.simulation) throw new Error('Real existing approval wait missing');
+  await page.screenshot({ path: path.join(out, 'planner-approval-mock.png'), fullPage: true, animations: 'disabled' });
+  await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab'); await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '목표로 AI 기획', exact: true }).click();
+  await page.getByRole('button', { name: '이전 기획 다시 열기', exact: true }).click();
+  await page.locator('[name="planner-confirm"]').check();
+  await page.getByRole('button', { name: 'CEO 계획 승인 후 실행', exact: true }).evaluate(b => { b.click(); b.click(); });
+  const plannerDeadline = Date.now() + 60000;
+  let completedPlan = false;
+  while (Date.now() < plannerDeadline) {
+    proposal = await page.evaluate(async id => (await (await fetch('/api/workbench/planner/' + id)).json()), plannerId);
+    if (proposal.status === 'approved' && proposal.run) {
+      const execution = await page.evaluate(async id => (await (await fetch('/api/workbench/runs/' + id)).json()), proposal.run);
+      if (execution.status === 'succeeded') { completedPlan = true; break; }
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  if (!completedPlan) throw new Error('Planner execution did not complete');
+  if (proposal.status !== 'approved' || typeof proposal.run !== 'string') throw new Error('Approved proposal missing execution reference: ' + JSON.stringify(proposal));
+  await page.getByRole('button', { name: '목표로 AI 기획', exact: true }).click();
+  await page.getByRole('button', { name: '이전 기획 다시 열기', exact: true }).click();
+  await page.getByRole('button', { name: '검증된 결과를 재사용 묶음으로 저장', exact: true }).click();
+  await page.keyboard.press('Escape');
+  const plannerTask = await page.evaluate(async id => (await (await fetch('/api/tasks/' + id)).json()), proposal.task);
+  if (plannerTask.status !== 'done') throw new Error('Engine CEO approval was not applied');
+  report.planner = { simulation: true, id: plannerId, task: proposal.task, run: proposal.run, task_status: plannerTask.status, approval_wait: true, double_click: 'one proposal and execution', close_reopen: true, saved_bundle: true, selected_stored_skill: 'mock-saved-image-brief', real_model_calls: 0 };
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: '목표로 AI 기획', exact: true }).click();
+  await page.getByRole('button', { name: '이전 기획 다시 열기', exact: true }).click();
+  if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('Planner narrow overflow');
+  await page.screenshot({ path: path.join(out, 'planner-reopen-narrow-mock.png'), fullPage: true, animations: 'disabled' });
   if (report.narrowOverflow || errors.length) throw new Error('Browser errors or viewport overflow');
   fs.writeFileSync(path.join(out, 'report.json'), JSON.stringify(report, null, 2));
   process.stdout.write(JSON.stringify(report));
@@ -114,6 +159,6 @@ let browser, fixture, page;
     fs.writeFileSync(path.join(out, 'failure-ledger.json'), JSON.stringify(ledger, null, 2));
   }
 }).finally(async () => {
-  if (fixture) { fixture.stdin.write('stop\n'); await new Promise(resolve => { fixture.once('exit', resolve); setTimeout(resolve, 10000).unref(); }); }
+  if (fixture) { fixture.stdin.write('stop\n'); await new Promise(resolve => { fixture.once('exit', resolve); setTimeout(() => { if (fixture.exitCode === null) fixture.kill(); resolve(); }, 10000).unref(); }); }
   if (browser) await browser.close();
 });

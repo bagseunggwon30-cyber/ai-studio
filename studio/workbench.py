@@ -11,6 +11,7 @@ from copy import deepcopy
 from uuid import uuid4
 from pathlib import Path
 import tempfile
+import threading
 
 from . import evidence, mcp, grok_everywhere
 from .checkpoints import digest
@@ -126,6 +127,9 @@ class Workbench:
         self.store = engine.store
         self._grok_mock = None
         self._grok_get_mock = None
+        self.grok_executor = grok_everywhere.Executor(self.store)
+        from .workbench_planner import Planner
+        self.planner = Planner(self)
 
     def attach_grok_mock(self, provider, get_provider=None):
         """Dependency injection only in disposable fake companies; never a setting."""
@@ -172,6 +176,8 @@ class Workbench:
         if operation.startswith("grok_") and self._grok_mock:
             return {"enabled": True, "reason": "MOCK / 모의 실행 · 실제 생성 아님", "mode": "code", "simulation": True}
         if operation.startswith("grok_"):
+            if self.grok_executor.status()["enabled"]:
+                return {"enabled": True, "reason": "Configured; session unverified. Exact one-use consent required.", "mode": "model", "simulation": False}
             return {"enabled": False, "reason": grok_everywhere.BLOCKED, "mode": "unsupported"}
         if op["mode"] == "unsupported":
             reason = op["description"]
@@ -411,7 +417,7 @@ class Workbench:
                 op = n["definition"]["spec"]["operation"]
                 if op == "implement":
                     self.engine.validate_evidence_scope(requirements_for(n["params"]), scope)
-                steps.append({"node": key, "title": n["definition"]["title"], "operation": op, "mode": OPERATIONS[op]["mode"],
+                steps.append({"node": key, "title": n["definition"]["title"], "operation": op, "mode": self.capability(op)["mode"],
                               "description": OPERATIONS[op]["description"]})
                 jobs = ["producer"] if op == "requirements" else ["builder", "reviewer"] if op == "implement" else []
                 for job in jobs:
@@ -457,8 +463,15 @@ class Workbench:
                         grok_everywhere.plan({"kind": operation[5:], "text": value})
                 plan["provider_requests"] = [{"node": n["id"], "kind": n["definition"]["spec"]["operation"][5:],
                                               "model": grok_everywhere.MODELS[n["definition"]["spec"]["operation"][5:]],
-                                              "cost_usd": None, "external_transfer": False, "simulation": True,
+                                                "cost_usd": None, "external_transfer": not bool(self._grok_mock), "simulation": bool(self._grok_mock),
                                               "options": deepcopy(grok_everywhere.OPTIONS[n["definition"]["spec"]["operation"][5:]]), "input": values[incoming[n["id"]]]} for n in providers]
+            if providers and not self._grok_mock:
+                plan["provider_config_hash"] = self.grok_executor.status().get("config_hash")
+                plan["uses_models"] = True
+                plan["max_model_calls"] += len(providers)
+            if providers and project:
+                plan["project"] = project.key
+                plan["project_title"] = project.title
             if body.get("flow_id"):
                 latest = self._catalog()["flows"].get(_id(body["flow_id"]))
                 flow = next((row for row in [latest, *(latest or {}).get("history", [])] if row and row["version"] == body.get("flow_version")), None)
@@ -481,12 +494,18 @@ class Workbench:
                     raise WorkbenchError("같은 확인 번호로 다른 실행을 시작할 수 없습니다.")
                 return old
             plan = self.plan(body)
+            grants = body.get("provider_grants", {})
+            if not isinstance(grants, dict):
+                raise WorkbenchError("Invalid provider grants")
+            if not self._grok_mock:
+                for item in plan.get("provider_requests", []):
+                    self.grok_executor.check_consent(grants.get(item["node"]), {"kind": item["kind"], "text": item["input"]})
             if body.get("confirmed") is not True or body.get("allow_models") is not plan["uses_models"] or body.get("plan_hash") != plan["hash"]:
                 raise WorkbenchError("흐름·범위·모델 설정이 바뀌었거나 실행 확인이 없습니다. 계획을 다시 확인하세요.")
             if self.engine._stop.is_set():
                 raise WorkbenchError("회사가 정지 상태입니다. 실행을 시작할 수 없습니다.")
             run = {"id": key, "title": plan["title"], "created_at": now_iso(), "status": "running", "plan_hash": plan["hash"],
-                   "snapshot": plan, "nodes": {n["id"]: {"status": "pending", "inputs": None, "output": None, "error": "", "task": None}
+                   "snapshot": plan, "provider_grants": deepcopy(grants), "nodes": {n["id"]: {"status": "pending", "inputs": None, "output": None, "error": "", "task": None}
                                                 for n in plan["graph"]["nodes"]}, "error": "", "events": []}
             index = self._doc("workbench-ledger", {"ids": []})
             if len(index["ids"]) >= 2000:
@@ -508,7 +527,7 @@ class Workbench:
             run = self.run(_id(run_id))
             state = run["nodes"].get(_id(node_id), {})
             output = state.get("output") or {}
-            if state.get("status") != "succeeded" or output.get("simulation") is not True or type(index) is not int or index < 0:
+            if state.get("status") != "succeeded" or type(output.get("simulation")) is not bool or type(index) is not int or index < 0:
                 raise WorkbenchError("검증된 모의 산출물이 없습니다.")
             artifacts = output.get("artifacts", [])
             if index >= len(artifacts):
@@ -520,6 +539,28 @@ class Workbench:
             return path, output["kind"]
 
     def provider_recheck(self, run_id, node_id):
+        with self.store.lock:
+            existing = self.run(run_id)
+            execution = existing["nodes"].get(node_id, {}).get("provider_execution_id")
+        if execution:
+            if existing["status"] == "cancelled" or existing["nodes"][node_id]["status"] not in ("waiting", "blocked"):
+                raise WorkbenchError("Known blocked/waiting video only")
+            self.grok_executor.read_video(execution, download=True)
+            with self.store.lock:
+                run = self.run(run_id)
+                if run["status"] == "cancelled":
+                    raise WorkbenchError("Cancelled workflow cannot revive")
+                state = run["nodes"][node_id]
+                self._observe_provider(run, node_id, state)
+                if state["status"] == "succeeded":
+                    incoming = {e["to"]: e["from"] for e in run["snapshot"]["graph"]["edges"]}
+                    for key, successor in run["nodes"].items():
+                        if successor["status"] == "skipped" and self._ancestor(node_id, key, incoming):
+                            successor.update(status="pending", error="")
+                    run.update(status="running", error="")
+                    self._advance(run)
+                self._persist(run)
+                return self.run(run_id)
         """Explicit read-only recheck of a known mock request; never regenerate."""
         with self.store.lock:
             run = self.run(_id(run_id))
@@ -564,7 +605,8 @@ class Workbench:
     def _record_provider_result(self, run, node_id, state):
         task = self.store.get(state["task"])
         result = state["output"]
-        record_id = "RMOCK-" + run["id"][1:] + "-" + node_id
+        simulation = result.get("simulation") is True
+        record_id = ("RMOCK-" if simulation else "RGROK-") + run["id"][1:] + "-" + node_id
         # Supplier scratch names may be reused. Import only verified, selected
         # media into this existing execution record before publishing references.
         imported, refs = [], []
@@ -584,6 +626,10 @@ class Workbench:
         task.report = "MOCK / 모의 실행 · 실제 생성 및 실제 작업 완료 아님\n" + json.dumps(result, ensure_ascii=False)
         record = {"run_id": record_id, "task": task.id, "runtime": "mock", "simulation": True, "stage": "grok_mock",
                   "started_at": now_iso(), "duration_s": 0, "status": "simulation", "cost_usd": None, "model_verified": False, "artifacts": deepcopy(refs)}
+        if not simulation:
+            task.report = "Verified provider artifacts; CEO acceptance pending\n" + json.dumps(result, ensure_ascii=False)
+            record.update(runtime="grok_everywhere", simulation=False, stage="grok_provider", status="success", cost_usd=result.get("cost_usd"))
+            task.extra["provider_acceptance_hash"] = digest(result)
         atomic_write_json(self.store.runs_dir / record_id / "meta.json", record)
         atomic_write_text(self.store.runs_dir / record_id / "last_message.md", task.report)
         if record_id not in task.runs:
@@ -591,6 +637,9 @@ class Workbench:
             self.store.add_run(record)
         self.store.save(task)
         self.store.event("provider.mock_result", "MOCK 결과·산출물 참조를 기록했습니다. 실제 작업 완료 아님.", task=task.id, workflow=run["id"], artifacts=result.get("artifact_refs", []))
+
+        if not simulation and task.status == "running":
+            self.store.transition(task, "awaiting_approval", by="provider", note="CEO artifact acceptance pending")
 
     def _event(self, run, kind, message, node=None):
         event = {"at": now_iso(), "type": kind, "message": message, "node": node}
@@ -712,6 +761,44 @@ class Workbench:
                 if run["status"] in LIVE:
                     self._advance(run)
 
+    def _provider_worker(self, request, grant, execution_id):
+        try:
+            self.grok_executor.execute(request, grant, execution_id)
+        except (ValueError, OSError, RuntimeError):
+            from .util import read_json
+            with self.store.lock:
+                if not read_json(self.grok_executor._path(execution_id), None):
+                    self.grok_executor._save(execution_id, {"status": "blocked_before_submission", "request_hash": grok_everywhere.plan(request)["request_hash"], "kind": request["kind"], "request_id": None, "cost_usd": None,
+                                                           "error": "Consent denied, reused or configuration changed; no submission", "simulation": False})
+        with self.store.lock:
+            self.store._bump()
+        self.engine.wake()
+
+    def _observe_provider(self, run, key, state):
+        from .util import read_json
+        if self.store.get(state["task"]).status == "cancelled":
+            state.update(status="cancelled", error="Cancelled provider task cannot revive")
+            return
+        record = read_json(self.grok_executor._path(state["provider_execution_id"]), {})
+        if not record or record.get("status") == "reserved":
+            return
+        state["provider_request_id"] = record.get("request_id")
+        if record.get("status") != "completed":
+            state.update(status="blocked", error="Provider outcome uncertain; explicit known-ID GET only")
+            task = self.store.get(state["task"])
+            if task.status == "running":
+                self.store.block(task, state["error"])
+            return
+        state["output"] = deepcopy(record["result"])
+        state["output"]["artifacts"] = [a["path"] for a in record["result"]["artifacts"]]
+        state["output"]["label"] = "Provider result; model unverified; CEO acceptance pending"
+        task = self.store.get(state["task"])
+        if task.status == "blocked":
+            self.store.transition(task, "ready", by="provider", note="Explicit GET verified result")
+            self.store.transition(task, "running", by="provider", note="Import verified result")
+        self._record_provider_result(run, key, state)
+        self._complete(run, key, state)
+
     def _advance(self, run, observe_only=False):
         if self.engine._stop.is_set() or self.engine._shutdown.is_set():
             return
@@ -734,6 +821,8 @@ class Workbench:
             if state["status"] in ("succeeded", "blocked", "skipped", "cancelled"):
                 continue
             if state["status"] == "waiting" and state.get("provider_reserved"):
+                if state.get("provider_execution_id"):
+                    self._observe_provider(run, key, state)
                 continue
             source = run["nodes"].get(incoming.get(key))
             if source and source["status"] in ("blocked", "skipped", "cancelled"):
@@ -789,11 +878,31 @@ class Workbench:
                     if op.startswith("grok_"):
                         if observe_only or state.get("provider_reserved"):
                             raise WorkbenchError("공급자 실행 결과 불확실 · 재제출하지 않습니다. 기존 request_id의 GET 확인만 허용됩니다.")
-                        if not self._grok_mock:
-                            raise WorkbenchError(grok_everywhere.BLOCKED)
                         request = grok_everywhere.plan({"kind": op[5:], "text": text})
                         state["provider_reserved"] = request["request_hash"]
                         state["status"] = "dispatching"
+                        if not self._grok_mock:
+                            execution_id = digest({"run": run["id"], "node": key})[:32]
+                            state["provider_execution_id"] = execution_id
+                            task = self.store.create_task(title="Grok " + op[5:], kind="research", role="analyst", project=next(iter(self.engine.cfg.projects)), status="ready", brief=text,
+                                                          created_by="workbench:provider", extra={"workflow_run": run["id"], "workflow_node": key, "workflow_no_retry": True, "provider_execution": execution_id})
+                            task.run_requested = False
+                            self.store.save(task)
+                            usage = self.store.today_usage()
+                            if usage["runs"] >= self.engine.cfg.limit("max_runs_per_day") or usage["minutes"] + 3 > self.engine.cfg.limit("max_agent_minutes_per_day"):
+                                self.store.block(task, "Provider execution exceeds daily limit")
+                                raise WorkbenchError("Provider execution exceeds daily limit")
+                            record_id = "RGROK-" + run["id"][1:] + "-" + key
+                            reservation = {"run_id": record_id, "task": task.id, "runtime": "grok_everywhere", "simulation": False, "stage": "grok_provider", "started_at": now_iso(), "duration_s": 180, "status": "reserved", "cost_usd": None}
+                            atomic_write_json(self.store.runs_dir / record_id / "meta.json", reservation)
+                            self.store.add_run(reservation)
+                            task.runs.append(record_id)
+                            self.store.save(task)
+                            self.store.transition(task, "running", by="provider", note="One-use reviewed provider execution")
+                            state.update(task=task.id, status="waiting")
+                            self._persist(run)
+                            threading.Thread(target=self._provider_worker, args=({"kind": op[5:], "text": text}, run.get("provider_grants", {}).get(key), execution_id), daemon=True).start()
+                            continue
                         task = self.store.create_task(title="MOCK / 모의 실행 · " + op[5:], kind="research", role="analyst",
                                                       project=next(iter(self.engine.cfg.projects)), status="ready", brief=text,
                                                       created_by="workbench:mock", extra={"workflow_run": run["id"], "workflow_node": key, "workflow_no_retry": True, "simulation": True})
@@ -928,6 +1037,14 @@ class Workbench:
                 return run
             run["status"] = "cancelled"
             for state in run["nodes"].values():
+                if state.get("provider_execution_id"):
+                    identifier = state["provider_execution_id"]
+                    with self.grok_executor._lock:
+                        self.grok_executor._cancelled.add(identifier)
+                    try:
+                        self.grok_executor.cancel_local(identifier)
+                    except ValueError:
+                        pass
                 if state["status"] not in ("succeeded", "blocked"):
                     state["status"] = "cancelled"
             self._event(run, "halted", "후속 노드 진행을 중단했습니다. 이미 제출된 작업은 기존 작업창에서 따로 중단하세요.")

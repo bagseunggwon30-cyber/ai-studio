@@ -72,6 +72,13 @@ class Engine:
 
     def shutdown(self, timeout: float | None = 10) -> bool:
         self._shutdown.set()
+        with self.store.lock:
+            for task in self.store.list():
+                identifier = task.extra.get("provider_execution")
+                if identifier and task.status == "running":
+                    with self.workbench.grok_executor._lock:
+                        self.workbench.grok_executor._cancelled.add(identifier)
+        self.workbench.grok_executor.shutdown()
         self._wake.set()
         deadline = None if timeout is None else time.monotonic() + timeout
         if self._thread:
@@ -410,7 +417,38 @@ class Engine:
                 raise EngineError("후보가 바뀌었습니다. 최신 근거를 확인한 뒤 승인하세요.")
             if "revision" in payload and payload["revision"] != task.extra.get("workflow_revision", 1):
                 raise EngineError("작업 버전이 바뀌었습니다. 최신 후보를 확인하세요.")
+            if task.extra.get("provider_acceptance_hash"):
+                from .checkpoints import digest
+                from .grok_everywhere import verify_artifact
+                from .util import sha256_file
+                result = task.extra["provider_result"]
+                execution_id = task.extra.get("provider_execution")
+                if task.kind != "research" or not execution_id or result.get("simulation") is not False:
+                    raise EngineError("Invalid provider task provenance; normal QA rules cannot be bypassed")
+                from .util import read_json
+                from .grok_everywhere import plan as provider_plan
+                record = read_json(self.workbench.grok_executor._path(execution_id), {})
+                workflow = self.workbench.run(task.extra.get("workflow_run"))
+                node = workflow["nodes"].get(task.extra.get("workflow_node"), {})
+                if record.get("status") != "completed" or node.get("task") != task.id or node.get("provider_execution_id") != execution_id or record.get("request_hash") != provider_plan({"kind": result["kind"], "text": task.brief})["request_hash"]:
+                    raise EngineError("Provider execution provenance mismatch")
+                original = record["result"].get("artifacts", [])
+                imported = result.get("artifact_refs", [])
+                if [(a["kind"], a["sha256"]) for a in original] != [(a["kind"], a["sha256"]) for a in imported] or record["result"].get("answer") != result.get("answer"):
+                    raise EngineError("Provider acceptance differs from verified execution")
+                if payload.get("provider_acceptance_hash") != task.extra["provider_acceptance_hash"] or digest(result) != task.extra["provider_acceptance_hash"]:
+                    raise EngineError("Exact verified provider artifact acceptance required")
+                for item in result.get("artifact_refs", []):
+                    if sha256_file(verify_artifact(self.store.dir, item["path"], item["kind"])) != item["sha256"]:
+                        raise EngineError("Provider artifact changed")
+                self.store.transition(task, "done", by=by, note="CEO accepted verified provider artifacts; no repository merge")
+                return task
             if task.kind == "plan":
+                if task.extra.get("workbench_plan"):
+                    self.workbench.planner.approve_task(task, payload)
+                    self.store.transition(task, "done", by=by, note="CEO approved immutable workbench plan")
+                    self.wake()
+                    return task
                 return self._approve_plan(task, payload, by)
             if task.kind == "skill":
                 return self._approve_skill(task, payload, by)
@@ -494,6 +532,8 @@ class Engine:
             return task
 
     def approval_status(self, task):
+        if task.kind == "research" and task.extra.get("provider_execution") and task.extra.get("provider_acceptance_hash"):
+            return {"allowed": task.status == "awaiting_approval", "reasons": [] if task.status == "awaiting_approval" else ["CEO artifact acceptance pending"], "evidence": None, "candidate_sha": None, "revision": 1}
         reasons = [] if task.status == "awaiting_approval" else ["결재 대기 중인 작업만 승인할 수 있습니다."]
         coverage = None
         if task.kind in ("build", "research"):
@@ -590,6 +630,8 @@ class Engine:
             task = self._task(task_id)
             if task.status in FINAL:
                 raise EngineError("이미 끝난 작업입니다.")
+            if task.extra.get("provider_execution"):
+                self.workbench.halt(task.extra["workflow_run"])
             running = task_id in self._workers or any(c.get("task") == task_id for c in list(self._currents.values()))
             if running:
                 self.journal.write(task_id,"stop",status="cancelled",reason="cancelled",effect="read_only",next_action="취소된 작업은 다시 실행하지 않습니다.")

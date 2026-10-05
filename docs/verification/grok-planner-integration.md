@@ -1,0 +1,36 @@
+# Grok transport and AI workbench planning
+
+Implemented on `codex/grok-planner-integration-20261005`; final integration and complete discovery verification follow on the independent main integration worktree. No prototype WebGL assets belong to this change.
+
+The default product remains disconnected. This session made **zero real model/supplier calls, credential-content reads, production submissions/cancellations, installations or production restarts**. Mock planning is explicitly marked `MOCK / 모의 기획`; it is a controlled test provider, not a rule/template represented as AI.
+
+## Product path
+
+- The existing workbench now offers goal planning: review the exact goal/project-state/stored-skill payload, request one model proposal, review selected immutable skills/dependencies/executors/validation/approval points, then approve its existing plan Task through `Engine.approve`. The existing Workbench executes the approved DAG. Successful validated executions can be saved as idempotent reusable bundles.
+- The planner's model-provider interface uses only the product's approved Grok connection. It never uses the supervising Codex session. Without a reviewed connection, the UI explains the disconnected state and disables model submission. A successful live response must pass the session envelope and structured-plan validation before it creates a reviewable plan.
+- Proposal IDs, immutable skill definitions, project permissions and current capabilities are validated. Missing skills, cycles, mismatched types, unexpected executors/fields, booleans in numeric fields, duplicate JSON keys, nonfinite values, excessive payloads and scope expansion fail closed. Reopening a proposal does not request another model response.
+- Live supplier requests reserve durable one-use consent before invocation. Their asynchronous owned worker releases the global Store lock; status queries and HTTP cancellation keep responding while a supplier waits. Unknown/interrupted paid outcomes never repeat POST. Known video IDs support explicit GET/resume only. Remote supplier-job cancellation is unsupported; cancellation stops this program's owned local process only.
+- Selected media pass local path/link/type/size checks, then atomic archival and SHA256 binding. Results link to existing tasks/run records/artifact previews/reusable typed references. Live acceptance requires the actual completed executor journal and bound workflow task; build/QA tasks cannot forge the media acceptance shortcut. `done` remains exclusive to `Engine.approve`.
+
+## Reviewed upstream contract and future approval
+
+Public source inspected read-only: [pinned Grok Everywhere CLI](https://raw.githubusercontent.com/sudoHG/grok-everywhere/4c6fad3eca694b4bc1c9fedea41ae236139f2044/grok-everywhere/scripts/grok.py), commit `4c6fad3eca694b4bc1c9fedea41ae236139f2044`, CLI 0.2.0, 83,096 bytes, SHA256 `c680fa39ccd173b5005bf32e4fad53ed7b564610e02a07274ca0a5b0e1a29527`. It was neither installed nor executed here.
+
+The following must be explicitly reviewed before a future live probe:
+
+1. Exact installed local `.py` path, pinned source bytes/hash, and permission to copy the verified source into the owned execution scratch directory and execute it with Python `-I -S`. No shell or browser-provided code/extra flags are accepted.
+2. Exact existing local `auth.json` path and **direct third-party session-token read**. This is different from the existing `grok_text.py` temporary-link policy and is not covered by its prior approval. The program records only path/approval metadata and never reads/copies token values itself. API-key fallback remains disabled. Source identity/argv do not prove a session is currently valid.
+3. Exact payload shown in review, its request hash, model and fixed options, destinations (`api.x.ai`, `cli-chat-proxy.grok.com`, provider media download), and one-use consent bound to the approved connection hash. Planning transfers the displayed goal, bounded project task summaries and stored skill notes/contracts; no repository file contents are implicitly sent.
+4. Cost is **unknown**, represented as `null`, never zero. The upstream session route has no enforceable dollar billing cap. The enforced limit is one submission per consent: research `grok-4.6`, public web/balanced; image `grok-imagine-image-2.0`, count 1, 1:1/1k; video `grok-imagine-video-1.5`, 5 seconds, 16:9/720p. A numeric hard spending cap cannot be promised; CEO approval must explicitly accept unknown cost or keep execution disconnected. Requested/reported model identity is not independently verified.
+
+The existing Host/Origin/session-token-protected PC API provides `POST /api/grok-everywhere/connection-plan` (exact `cli_path`, `auth_file`), then `/configure` (those paths, exact review hash and complete consent strings). `/consent` accepts the exact request/request hash/connection hash/checklist and returns a one-use grant. Workbench start receives grants by node. The generic direct execute route remains blocked: execution must use the reviewed workbench path. `/video-get` accepts only known execution ID and boolean download; `get` returns sanitized status only, `resume` can archive verified media. Signed URLs/raw response/auth/cache files are never imported into public result records.
+
+Limits: one-megabyte stdout/stderr drain, 180-second owned-process timeout, monitored scratch bound of 128 files/120MB, selected media at most 100MB/file. Monitoring stops excessive writers; it is not an OS filesystem quota. Existing Engine daily limits conservatively reserve three minutes for each live provider attempt. Model install/auth/live validation remains **not performed**.
+
+## Offline evidence before main integration
+
+- New planner/transport focused cases: 15 passed, including goal→existing Engine build/QA/review→CEO approval→summary, media archival/task linkage, durable paid deduplication, GET-only video, forged-build rejection and cancellation before process spawn.
+- Delayed provider test uses real local HTTP status routes and the token/Origin-protected HTTP halt route. Recorded GET/halt response times: 0.015, 0.000, 0.110, 0.250 seconds; acceptance bound 5 seconds. Late provider completion remained `cancelled_local`; no node revival or paid replay. Actual external calls: 0.
+- Cached Edge browser mock goal flow passed: stored skill selection, actual approval wait, close/reopen, keyboard, duplicate click, Engine-approved plan/run linkage and reusable bundle; decoded PNG 1024×768 and WebM 320px with actual playback; narrow viewport overflow false, page errors empty. Outputs: `output/grok-planner-browser/` (mock screenshots and report). This does not verify actual supplier MP4 generation.
+- Python compilation, changed JavaScript syntax and `git diff --check` passed. Earlier incorrectly typed test module names caused import errors; the correct workbench evidence module was subsequently run and passed. Concurrent verification exposed startup-timeout pressure; startup-only waits were bounded more generously while HTTP latency assertions remain enforced.
+- Final full discovery, final integrated browser/startup, protected-file comparison and matching remote CI are **pending**, not claimed passed in this implementation checkpoint.

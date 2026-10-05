@@ -702,6 +702,7 @@ const Popups = (() => {
       const t = Data.task(id);
       if (!t) return missing();
       const p = Data.owner(t);
+      const providerDetail = Data.detail(id);
       const loaded = Data.report(id);
       if (!loaded) return loadingPop('보고서');
       if (loaded.error) return failPop('보고서', loaded.error);
@@ -805,6 +806,13 @@ const Popups = (() => {
       if (!d) return loadingPop('회의실');
       if (d.error) return failPop('회의실', d.error);
       const cards = Data.planCards(id) || [];
+      if (d.proposal?.workbench_plan) {
+        return h('div', { class: 'pop mt', role: 'dialog', 'aria-modal': 'true', 'aria-label': '목표 기획 결재' },
+          h('header', {}, h('h2', { text: d.proposal.simulation ? 'MOCK / 모의 목표 기획' : 'AI 목표 기획 · CEO 결재' })),
+          h('div', { class: 'mt-content' }, h('pre', { text: JSON.stringify(d.proposal.review, null, 2) }),
+            h('p', { text: '검증된 기술 버전·연결·검증 조건을 확인하세요. 외부 실행은 별도 요청별 승인과 비용 미상 동의가 필요합니다.' })),
+          h('footer', {}, btn('작업대에서 검토', 'primary', () => { close(); document.dispatchEvent(new CustomEvent('studio:planner-review', { detail: d.proposal.workbench_plan })); })), closeBtn());
+      }
       const questions = (d.proposal && d.proposal.questions) || [];
       const picked = cards.filter((c) => c.checked).length;
       const pending = t.status === 'awaiting_approval';

@@ -256,8 +256,12 @@ class StudioHandler(BaseHTTPRequestHandler):
                 return self._json(self._state())
             if path == "/api/workbench":
                 return self._json(self.server.engine.workbench.catalog())
+            if path == "/api/workbench/planner":
+                return self._json(self.server.engine.workbench.planner.status())
+            if path.startswith("/api/workbench/planner/"):
+                return self._json(self.server.engine.workbench.planner.get(path.rsplit("/", 1)[1]))
             if path == "/api/grok-everywhere/catalog":
-                return self._json({"skills": grok_everywhere.catalog()})
+                return self._json({"skills": grok_everywhere.catalog(), "connection": self.server.engine.workbench.grok_executor.status()})
             if path == "/api/workbench/ledger":
                 return self._json({"runs": self.server.engine.workbench.ledger()})
             if path.startswith("/api/workbench/runs/") and path.count("/") == 7 and path.split("/")[5] == "artifacts":
@@ -420,10 +424,37 @@ class StudioHandler(BaseHTTPRequestHandler):
                 except grok_everywhere.ContractError as exc:
                     return self._error(HTTPStatus.BAD_REQUEST, str(exc))
             if path == "/api/grok-everywhere/execute":
-                return self._error(HTTPStatus.CONFLICT, grok_everywhere.BLOCKED)
+                return self._error(HTTPStatus.CONFLICT, "Use reviewed workbench run with exact one-use provider grants")
+            if path.startswith("/api/grok-everywhere/"):
+                executor = engine.workbench.grok_executor
+                try:
+                    if path.endswith("/connection-plan"):
+                        return self._json(grok_everywhere.connection_plan(body))
+                    if path.endswith("/configure"):
+                        return self._json(executor.configure(body))
+                    if path.endswith("/consent"):
+                        return self._json(executor.approve_request(body))
+                    if path.endswith("/video-get") and set(body) == {"execution_id", "download"} and type(body["download"]) is bool:
+                        return self._json(executor.read_video(body["execution_id"], download=body["download"]))
+                    if path.endswith("/cancel-local") and set(body) == {"execution_id"}:
+                        return self._json(executor.cancel_local(body["execution_id"]))
+                    return self._error(HTTPStatus.BAD_REQUEST, "Unsupported exact provider action")
+                except grok_everywhere.ContractError as exc:
+                    return self._error(HTTPStatus.CONFLICT, str(exc))
             if path.startswith("/api/workbench/"):
                 wb = engine.workbench
                 action = path[len("/api/workbench/"):]
+                if action.startswith("planner/"):
+                    try:
+                        if action == "planner/prepare":
+                            return self._json(wb.planner.prepare(body))
+                        if action == "planner/propose":
+                            return self._json(wb.planner.propose(body))
+                        if action == "planner/save" and set(body) == {"id"}:
+                            return self._json({"flow": wb.planner.save_bundle(body["id"])})
+                        return self._error(HTTPStatus.BAD_REQUEST, "Unsupported planner action")
+                    except grok_everywhere.ContractError as exc:
+                        return self._error(HTTPStatus.CONFLICT, str(exc))
                 if action == "nodes":
                     return self._json({"node": wb.save_node(body)})
                 if action == "folders":

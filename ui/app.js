@@ -488,6 +488,7 @@ Workbench.init($('#workbench-screen'), {
   inbox: () => { setView('board'); Popups.inbox(); },
   diary: () => { setView('board'); Popups.diary(); },
 });
+document.addEventListener('studio:planner-review', e => { setView('workbench'); Workbench.reviewPlanner(e.detail).catch(error => console.error(error.message)); });
 setView(savedView(), false);
 
 // ---------------------------------------------------------------- 시작

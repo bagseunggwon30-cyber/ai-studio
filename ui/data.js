@@ -342,8 +342,9 @@ const Data = (() => {
   }
 
   function act(id, action, body = {}) {
+    if (action === 'approve' && detail(id)?.extra?.provider_acceptance_hash) body = { ...body, provider_acceptance_hash: detail(id).extra.provider_acceptance_hash };
     if (action === 'approve' && task(id)?.approval) body = { ...body, candidate_sha: task(id).candidate_sha, revision: task(id).approval.revision };
-    if (action === 'approve' && task(id) && task(id).kind === 'plan') body = planPayload(id);
+    if (action === 'approve' && task(id) && task(id).kind === 'plan' && !body.proposal_hash) body = planPayload(id);
     if (action === 'archive') body = { archived: !(task(id) || {}).archived };
     return post(`/api/tasks/${encodeURIComponent(id)}/${action}`, body);
   }
@@ -364,6 +365,7 @@ const Data = (() => {
   function currentProject() { return view.projects.find((p) => p.key === project) || null; }
   function workbenchGet(suffix = '') { return request('GET', `/api/workbench${suffix}`); }
   function workbenchPost(action, body = {}) { return request('POST', `/api/workbench/${action}`, body); }
+  function grokPost(action, body = {}) { return request('POST', `/api/grok-everywhere/${action}`, body); }
   function statusLabel(t) { return t.needs_plan_input ? '답변 필요' : (STATUS_LABELS[t.status] || t.status); }
 
   // 작업이 어느 프로젝트 것인지 (프로젝트가 둘 이상일 때만 이름을 준다. 하나면 굳이 보이지 않는다)
@@ -446,7 +448,7 @@ const Data = (() => {
     STATUS_LABELS, KIND_LABELS, statusLabel,
     start, refresh, on, get, task, owner, columns, inbox, sheet, unreadAlerts, markAlertsRead,
     detail, report, diff, diary, loadDiary, skill, skillGrades, planCards, editCard, retry, projectTitle,
-    act, directive, setProject, currentProject, projectDefaults, registerProject, retarget, workbenchGet, workbenchPost, setGoal, setStopped, saveLook, addFloor, addTrophy, removeTrophy, play,
+    act, directive, setProject, currentProject, projectDefaults, registerProject, retarget, workbenchGet, workbenchPost, grokPost, setGoal, setStopped, saveLook, addFloor, addTrophy, removeTrophy, play,
     teachSkill, studySkill, learnSkill, setSkillScope, removeSkill, setSelfLearning, mcpAdd, mcpAction, mcpOrder, addSchedule, scheduleAction,
     remoteInfo, remoteCheck, remotePair, remoteLan, remoteTailscale, remoteForget, loginOpen, loginDone, aiOptions, setAI, resetAI, orderOutfit, removeLook, restoreLook, lookPreview, hire, dismiss, assign,
     isOnline: () => online,

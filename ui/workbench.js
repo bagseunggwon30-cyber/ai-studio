@@ -259,6 +259,7 @@ const Workbench = (() => {
       h('div', { class: 'wb-layout' }, h('aside', { class: 'wb-drawer', id: 'wb-toolbox', hidden: true, 'aria-label': '기능 서랍' }),
         h('main', { class: 'wb-main', 'aria-label': '노드 연결 작업대' }), detailPane),
       h('details', { class: 'wb-run-history' }, h('summary', { text: '이 업무의 실행 이력 · 펼쳐 보기' }), h('section', { class: 'wb-ledger', 'aria-label': '실행 장부' })));
+    root.querySelector('.wb-header-actions').append(button('목표로 AI 기획', goalPlanner));
     root.addEventListener('keydown', e => {
       if (e.key === 'Escape' && !dialogEl && toolboxOpen) { e.preventDefault(); toggleToolbox(false); return; }
       if (e.key === 'Escape' && !dialogEl && detailOpen && detailPane.contains(e.target)) { e.preventDefault(); closeDetail(); return; }
@@ -889,8 +890,8 @@ const Workbench = (() => {
     if (previous?.dataset.providerRefs === refs) return previous;
     return h('div', { class: 'wb-provider-artifacts', 'data-provider-refs': refs }, ...output.artifact_refs.map((ref, i) => h('figure', {},
       ref.kind === 'video' ? h('video', { controls: true, preload: 'metadata', src: `/api/workbench/runs/${encodeURIComponent(ref.run)}/artifacts/${encodeURIComponent(ref.node)}/${i}` })
-        : h('img', { alt: 'MOCK / 모의 이미지 · 실제 생성 아님', src: `/api/workbench/runs/${encodeURIComponent(ref.run)}/artifacts/${encodeURIComponent(ref.node)}/${i}` }),
-      h('figcaption', { text: `MOCK / 모의 실행 · 재사용 참조: ${ref.run}/${ref.node}/${ref.path}` }))));
+        : h('img', { alt: (output.simulation ? 'MOCK / 모의 이미지' : '검증된 공급자 이미지'), 'data-original-alt': 'MOCK / 모의 이미지 · 실제 생성 아님', src: `/api/workbench/runs/${encodeURIComponent(ref.run)}/artifacts/${encodeURIComponent(ref.node)}/${i}` }),
+      h('figcaption', { text: `${output.simulation ? 'MOCK / 모의 실행' : '공급자 산출물'} · 재사용 참조: ${ref.run}/${ref.node}/${ref.path}` }))));
   }
 
   function renderRunDetail() {
@@ -906,12 +907,12 @@ const Workbench = (() => {
     const opened = new Set([...el.querySelectorAll('details[open]')].map(item => item.className));
     const media = providerPreview(state.output, el.querySelector('.wb-provider-artifacts'));
     el.replaceChildren(...children([h('h2', { text: d.title }), h('p', { class: `wb-kind s-${state.status}`, text: `${STATUS[state.status]} · 실행 당시 v${n.ref.version}` }),
-      isProvider ? h('div', {}, h('h3', { text: 'MOCK / 모의 실행 · 실제 생성 아님' }),
+      isProvider ? h('div', {}, h('h3', { text: state.output?.simulation !== false ? 'MOCK / 모의 실행 · 실제 생성 아님' : '검증된 공급자 결과 · CEO 확인 대기' }),
         h('p', { text: '비용 알 수 없음 · 실제 공급자 미연결 · 실제 작업 완료/승인 아님' }),
         state.output?.answer ? h('p', { text: state.output.answer }) : null,
         state.task ? button('연결된 작업·일지·산출물 보기', () => hooks.task(state.task)) : null) : proofPanel(task),
       state.output?.simulation ? h('p', { class: 'wb-hint', text: state.output.label }) : null,
-      state.provider_request_id && state.status === 'waiting' ? button('같은 영상 요청 GET 확인 · 재생성 없음', async () => {
+      state.provider_request_id && ['waiting', 'blocked'].includes(state.status) ? button('같은 영상 요청 GET 확인 · 재생성 없음', async () => {
         await Data.workbenchPost(`runs/${active.id}/provider-get/${n.id}`, {}); await openRun(active.id);
       }) : null,
       media,
@@ -1100,7 +1101,7 @@ const Workbench = (() => {
       h('h3', { text: '파일 변경 허용 범위' }), h('pre', { text: plan.allowed_paths.join('\n') || '없음 · 글 처리만 수행' }),
       plan.models.length ? h('div', {}, h('h3', { text: '기존 직원·선택한 모델' }), ...plan.models.map(m => h('p', { text: `${m.title} · ${m.effective_runtime} / ${m.effective_model || '기본 모델'} · ${m.sandbox} · 도구 ${m.mcp.map(s => s.name).join(', ') || '없음'}` }))) : null,
       plan.provider_requests?.length ? h('div', {}, h('h3', { text: 'MOCK / 모의 실행 · 실제 생성 아님' }),
-        ...plan.provider_requests.map(p => h('p', { text: `${p.kind} · 요청 모델 ${p.model}(실제 모델 미확인) · 요청: ${p.input} · 옵션: ${JSON.stringify(p.options)} · 외부 미디어 없음 · 외부 전송 없음(모의) · 실제 연결 비용 알 수 없음` }))) : null,
+        ...plan.provider_requests.map(p => h('p', { text: `${p.simulation ? 'MOCK / 모의 실행' : '실제 외부 요청'} · ${p.kind} · 요청 모델 ${p.model}(실제 모델 미확인) · 요청: ${p.input} · 옵션: ${JSON.stringify(p.options)} · 외부 전송 ${p.external_transfer ? '있음' : '없음(모의)'} · 비용 알 수 없음 · 과금 상한 없음` }))) : null,
       h('p', { class: 'wb-hint', text: plan.policy }),
         plan.uses_models && Data.get().studio.fake ? h('p', { class: 'wb-hint', text: '현재 연습용 회사입니다. 기존 가짜 실행기를 사용하며 실제 모델을 호출하지 않습니다.' }) : null]));
     const confirmed = h('input', { type: 'checkbox', name: 'plan-confirm' }), allowModels = h('input', { type: 'checkbox', name: 'model-confirm' });
@@ -1108,7 +1109,8 @@ const Workbench = (() => {
     if (plan.uses_models) content.append(field('표시된 직원·모델 사용을 허용합니다', allowModels, 'wb-check'));
     const start = button('확인한 계획 실행', async () => {
       if (!confirmed.checked || (plan.uses_models && !allowModels.checked)) return;
-      const res = await Data.workbenchPost('start', { ...body, plan_hash: plan.hash, request_id: requestId, confirmed: true, allow_models: plan.uses_models });
+      const provider_grants = await providerGrants(plan);
+      const res = await Data.workbenchPost('start', { ...body, plan_hash: plan.hash, request_id: requestId, confirmed: true, allow_models: plan.uses_models, provider_grants });
       remember(); closeDialog(); await openRun(res.run.id); await refresh(); message('실행을 시작했어요. 결재는 기존 결재 창에서 직접 확인합니다.');
     }, { class: 'wb-btn primary', disabled: true });
     const check = () => { start.disabled = !confirmed.checked || (plan.uses_models && !allowModels.checked) || Boolean(start.dataset.busy); };
@@ -1116,5 +1118,82 @@ const Workbench = (() => {
     d.querySelector('footer').append(button('닫기', closeDialog), start);
   }
 
-  return { init, setVisible, refresh };
+  async function providerGrants(plan) {
+    const grants = {};
+    if (!plan.provider_requests?.some(p => !p.simulation)) return grants;
+    const status = await Data.workbenchGet('/planner');
+    for (const item of plan.provider_requests.filter(p => !p.simulation)) {
+      const request = { kind: item.kind, text: item.input };
+      const reviewed = await Data.grokPost('plan', request);
+      const receipt = await Data.grokPost('consent', { request, request_hash: reviewed.request_hash, config_hash: status.config_hash, consents: reviewed.approval_checklist });
+      grants[item.node] = receipt.grant_id;
+    }
+    return grants;
+  }
+
+  async function reviewPlanner(identifier) {
+    const record = await Data.workbenchGet(`/planner/${identifier}`);
+    const d = modal(record.simulation ? 'MOCK / 모의 목표 기획 검토' : 'AI 목표 기획 검토');
+    const content = d.querySelector('.wb-dialog-body');
+    content.append(h('p', { text: `상태: ${{ awaiting_approval: 'CEO 결재 대기', approved: '계획 승인됨', blocked: '막힘', reserved: '응답 확인 대기' }[record.status] || record.status} · 비용 알 수 없음 · 자동 재요청 없음` }));
+    if (record.plan) {
+      content.append(h('h3', { text: '선택한 저장 기술과 처리 순서' }), h('ol', {}, record.plan.steps.map(step => {
+        const definition = record.plan.graph.nodes.find(n => n.id === step.node).definition;
+        const validation = record.response.steps.find(s => s.node === step.node);
+        const dependencies = record.plan.graph.edges.filter(e => e.to === step.node).map(e => record.plan.steps.find(s => s.node === e.from)?.title).join(', ');
+        return h('li', {}, h('strong', { text: `${step.title} v${definition.version} · ${MODE[step.mode]}` }),
+          h('p', { text: definition.note.purpose }), h('p', { text: `선행 입력: ${dependencies || '직접 입력'} · 검증: ${validation.validation} · 승인 지점: ${validation.approval ? '필요' : '계획 승인에 포함'}` }));
+      })), h('details', {}, h('summary', { text: '고정 기술 버전·연결 명세 자세히' }), h('pre', { text: JSON.stringify(record.response, null, 2) })));
+    } else content.append(h('p', { text: record.error || '응답 확인 대기 · 실행하지 않음' }));
+    if (record.plan) content.append(h('h3', { text: '실행 전 실제 요청·옵션' }), h('pre', { text: JSON.stringify(record.plan.provider_requests || [], null, 2) }));
+    const confirmed = h('input', { type: 'checkbox', name: 'planner-confirm' });
+    content.append(field('기술 버전·의존성·검증·승인 지점 및 외부 전송/비용 미상(상한 없음)을 확인하고 이 계획만 승인', confirmed, 'wb-check'));
+    const approve = button('CEO 계획 승인 후 실행', async () => {
+      if (!confirmed.checked) return;
+      const grants = await providerGrants(record.plan);
+      await Data.act(record.task, 'approve', { proposal_hash: record.proposal_hash, provider_grants: grants });
+      const updated = await Data.workbenchGet(`/planner/${identifier}`);
+      closeDialog(); await openRun(updated.run); await refresh();
+    }, { disabled: record.status !== 'awaiting_approval', class: 'wb-btn primary' });
+    confirmed.addEventListener('change', () => { approve.disabled = !confirmed.checked || record.status !== 'awaiting_approval'; });
+    approve.disabled = true;
+    d.querySelector('footer').append(button('닫기', closeDialog), approve,
+      button('검증된 결과를 재사용 묶음으로 저장', async () => { await Data.workbenchPost('planner/save', { id: identifier }); await loadCatalog(); message('검증된 실행을 재사용 묶음으로 저장했습니다.'); }, { disabled: record.status !== 'approved' }));
+  }
+
+  async function goalPlanner() {
+    const previous = localStorage.getItem('studio.workbench.planner');
+    const status = await Data.workbenchGet('/planner');
+    const d = modal(status.simulation ? 'MOCK / 모의 목표 기획' : '목표로 AI 기획');
+    const content = d.querySelector('.wb-dialog-body');
+    const goal = textarea('', 4000, null, { name: 'planner-goal' });
+    const projects = Data.get().projects || [];
+    const project = select(projects.map(p => [p.key, p.title]), Data.currentProject()?.key || projects[0]?.key, null, '기획 프로젝트');
+    const scope = textarea('', 4000, null, { name: 'planner-scope', placeholder: '프로젝트 허용 경로 · 외부 미디어/글 처리만이면 비움' });
+    content.append(h('p', { text: status.reason }), field('목표', goal), field('프로젝트 상태', project), field('허용 범위(한 줄에 하나)', scope));
+    if (previous) content.append(button('이전 기획 다시 열기', () => reviewPlanner(previous)));
+    d.querySelector('footer').append(button('닫기', closeDialog), button('보낼 요청 먼저 확인', async () => {
+      const input = { goal: goal.value, project: project.value, allowed_paths: scope.value.split('\n').map(v => v.trim()).filter(Boolean) };
+      const prepared = await Data.workbenchPost('planner/prepare', input);
+      const review = modal(status.simulation ? 'MOCK / 모의 기획 요청 확인' : 'AI 기획 외부 요청 확인');
+      review.querySelector('.wb-dialog-body').append(h('pre', { text: prepared.prompt }), h('p', { text: `외부 전송: ${prepared.external_transfer ? '목표·프로젝트 상태·저장된 기술/노트' : '없음(모의)'} · 비용 알 수 없음 · 실제 모델 확인 안 됨 · 과금 상한 보장 없음` }));
+      const consent = h('input', { type: 'checkbox', name: 'planner-model-confirm' });
+      review.querySelector('.wb-dialog-body').append(field('이 정확한 요청을 한 번 보냄·비용 미상에 동의', consent, 'wb-check'));
+      const submit = button('기획 요청 한 번 보내기', async () => {
+        let grant = null;
+        if (!status.simulation) {
+          const requestPlan = await Data.grokPost('plan', prepared.request);
+          grant = (await Data.grokPost('consent', { request: prepared.request, request_hash: requestPlan.request_hash, config_hash: status.config_hash, consents: requestPlan.approval_checklist })).grant_id;
+        }
+        const identifier = crypto.randomUUID().replaceAll('-', '');
+        localStorage.setItem('studio.workbench.planner', identifier);
+        await Data.workbenchPost('planner/propose', { input, review_hash: prepared.review_hash, request_id: identifier, grant_id: grant });
+        if (review.isConnected && review.open) await reviewPlanner(identifier);
+      }, { disabled: true, class: 'wb-btn primary' });
+      consent.addEventListener('change', () => { submit.disabled = !consent.checked; });
+      review.querySelector('footer').append(button('닫기', closeDialog), submit);
+    }, { disabled: !status.enabled, class: 'wb-btn primary' }));
+  }
+
+  return { init, setVisible, refresh, reviewPlanner };
 })();

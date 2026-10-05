@@ -63,6 +63,19 @@ def main():
                 return {"simulation": True, "provider_result": value,
                         "selected_artifacts": [] if kind == "research" else ["mock-image.png" if kind == "image" else "mock-video.webm"]}
             company.engine.workbench.attach_grok_mock(mock_provider)
+            wb = company.engine.workbench
+            stored = wb.save_node({"id": "mock-saved-image-brief", "title": "MOCK stored image brief", "folder": "personal",
+                                  "note": {"purpose": "Reusable stored image brief formatter", "inputs": "text", "outputs": "text", "cautions": "MOCK only", "example": "goal to image"},
+                                  "spec": {"operation": "format", "params": {"prefix": "MOCK stored note: ", "suffix": ""}}})
+            def mock_planner(prepared):
+                nodes = [{"id": "a", "ref": {"id": "builtin-input", "version": 1}, "params": {"text": prepared["goal"]}},
+                         {"id": "b", "ref": {"id": stored["id"], "version": stored["version"]}},
+                         {"id": "c", "ref": {"id": "builtin-grok_image", "version": 1}},
+                         {"id": "d", "ref": {"id": "builtin-artifact_reference", "version": 1}},
+                         {"id": "e", "ref": {"id": "builtin-summary", "version": 1}}]
+                return json.dumps({"title": "MOCK model-selected stored skills", "graph": {"nodes": nodes, "edges": [{"from": a["id"], "to": b["id"]} for a, b in zip(nodes, nodes[1:])]},
+                                   "steps": [{"node": key, "executor": op, "validation": "Check typed output and archived SHA256", "approval": op.startswith("grok_")} for key, op in [("a", "input"), ("b", "format"), ("c", "grok_image"), ("d", "artifact_reference"), ("e", "summary")]]})
+            wb.planner.attach_mock(mock_planner)
             from uuid import uuid4
             for kind in grok_everywhere.MODELS:
                 nodes = [{"id": "input", "ref": {"id": "builtin-input", "version": 1}, "params": {"text": "MOCK 미리보기 요청"}},
