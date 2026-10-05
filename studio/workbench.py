@@ -14,7 +14,7 @@ import tempfile
 
 from . import evidence, mcp, grok_everywhere
 from .checkpoints import digest
-from .util import atomic_write_json, atomic_write_text, now_iso
+from .util import atomic_write_json, atomic_write_text, atomic_copy, sha256_file, now_iso
 
 
 class WorkbenchError(ValueError):
@@ -513,7 +513,11 @@ class Workbench:
             artifacts = output.get("artifacts", [])
             if index >= len(artifacts):
                 raise WorkbenchError("없는 산출물")
-            return grok_everywhere.verify_artifact(self.store.dir, artifacts[index], output["kind"]), output["kind"]
+            path = grok_everywhere.verify_artifact(self.store.dir, artifacts[index], output["kind"])
+            refs = output.get("artifact_refs", [])
+            if index >= len(refs) or refs[index].get("path") != artifacts[index] or refs[index].get("sha256") != sha256_file(path):
+                raise WorkbenchError("기록한 산출물 해시와 다릅니다. 과거 결과를 확인하세요.")
+            return path, output["kind"]
 
     def provider_recheck(self, run_id, node_id):
         """Explicit read-only recheck of a known mock request; never regenerate."""
@@ -560,11 +564,26 @@ class Workbench:
     def _record_provider_result(self, run, node_id, state):
         task = self.store.get(state["task"])
         result = state["output"]
+        record_id = "RMOCK-" + run["id"][1:] + "-" + node_id
+        # Supplier scratch names may be reused. Import only verified, selected
+        # media into this existing execution record before publishing references.
+        imported, refs = [], []
+        for i, relative in enumerate(result.get("artifacts", [])):
+            source = grok_everywhere.verify_artifact(self.store.dir, relative, result["kind"])
+            destination = self.store.runs_dir / record_id / "artifacts" / f"artifact-{i + 1}{source.suffix.lower()}"
+            imported_path = destination.relative_to(self.store.dir).as_posix()
+            grok_everywhere.artifact_path(self.store.dir, imported_path)
+            if destination.exists():
+                raise WorkbenchError("실행 산출물을 덮어쓸 수 없습니다.")
+            atomic_copy(source, destination)
+            verified = grok_everywhere.verify_artifact(self.store.dir, imported_path, result["kind"])
+            imported.append(imported_path)
+            refs.append({"run": run["id"], "node": node_id, "path": imported_path, "kind": result["kind"], "sha256": sha256_file(verified)})
+        result["artifacts"], result["artifact_refs"] = imported, refs
         task.extra["provider_result"] = deepcopy(result)
         task.report = "MOCK / 모의 실행 · 실제 생성 및 실제 작업 완료 아님\n" + json.dumps(result, ensure_ascii=False)
-        record_id = "RMOCK-" + run["id"][1:] + "-" + node_id
         record = {"run_id": record_id, "task": task.id, "runtime": "mock", "simulation": True, "stage": "grok_mock",
-                  "started_at": now_iso(), "duration_s": 0, "status": "simulation", "cost_usd": None, "model_verified": False}
+                  "started_at": now_iso(), "duration_s": 0, "status": "simulation", "cost_usd": None, "model_verified": False, "artifacts": deepcopy(refs)}
         atomic_write_json(self.store.runs_dir / record_id / "meta.json", record)
         atomic_write_text(self.store.runs_dir / record_id / "last_message.md", task.report)
         if record_id not in task.runs:

@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-05T14:43:01+09:00",
+  "at": "2026-10-05T15:04:19+09:00",
   "command": "python tools/dev/workbench_regression_grouped.py",
   "discovery": "unittest discover -s tests -t .",
   "status": "pass",
@@ -17,7 +17,7 @@
   "discovery_total": 369,
   "modules": [
     {
-      "at": "2026-10-05T14:34:04+09:00",
+      "at": "2026-10-05T14:54:36+09:00",
       "status": "pass",
       "total": 8,
       "case_ids": [
@@ -37,7 +37,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:34:47+09:00",
+      "at": "2026-10-05T14:55:18+09:00",
       "status": "pass",
       "total": 8,
       "case_ids": [
@@ -57,7 +57,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:34:49+09:00",
+      "at": "2026-10-05T14:55:19+09:00",
       "status": "pass",
       "total": 35,
       "case_ids": [
@@ -104,7 +104,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:34:57+09:00",
+      "at": "2026-10-05T14:55:28+09:00",
       "status": "pass",
       "total": 3,
       "case_ids": [
@@ -119,7 +119,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:35:10+09:00",
+      "at": "2026-10-05T14:55:45+09:00",
       "status": "pass",
       "total": 12,
       "case_ids": [
@@ -143,7 +143,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:35:15+09:00",
+      "at": "2026-10-05T14:55:53+09:00",
       "status": "pass",
       "total": 4,
       "case_ids": [
@@ -159,7 +159,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:35:21+09:00",
+      "at": "2026-10-05T14:56:02+09:00",
       "status": "pass",
       "total": 4,
       "case_ids": [
@@ -175,30 +175,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:35:46+09:00",
-      "status": "pass",
-      "total": 11,
-      "case_ids": [
-        "tests.test_grok_everywhere.ApiTests.test_grok_endpoints_keep_existing_security_and_do_not_initialize",
-        "tests.test_grok_everywhere.ContractTests.test_env_drops_secrets_and_overrides",
-        "tests.test_grok_everywhere.ContractTests.test_fixed_argv_no_prompt_flags_or_post_retry",
-        "tests.test_grok_everywhere.ContractTests.test_paths_and_media",
-        "tests.test_grok_everywhere.ContractTests.test_strict_session_and_json",
-        "tests.test_grok_everywhere.ContractTests.test_typed_plan_unknown_cost_and_always_blocked",
-        "tests.test_grok_everywhere.MockWorkbenchTests.test_denied_disconnected_missing_input",
-        "tests.test_grok_everywhere.MockWorkbenchTests.test_known_video_get_only_wait_failed_then_complete_and_no_revival",
-        "tests.test_grok_everywhere.MockWorkbenchTests.test_mock_research_image_video_in_existing_ledger_and_duplicate_click",
-        "tests.test_grok_everywhere.MockWorkbenchTests.test_timeout_invalid_missing_escape_and_restart_fail_closed",
-        "tests.test_grok_everywhere.MockWorkbenchTests.test_typed_artifact_reference_is_reusable_without_text_coercion"
-      ],
-      "failures": [],
-      "errors": [],
-      "skipped": [],
-      "module": "tests.test_grok_everywhere",
-      "exit_code": 0
-    },
-    {
-      "at": "2026-10-05T14:35:46+09:00",
+      "at": "2026-10-05T14:56:25+09:00",
       "status": "pass",
       "total": 11,
       "case_ids": [
@@ -221,7 +198,30 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:36:03+09:00",
+      "at": "2026-10-05T14:56:34+09:00",
+      "status": "pass",
+      "total": 11,
+      "case_ids": [
+        "tests.test_grok_everywhere.ApiTests.test_grok_endpoints_keep_existing_security_and_do_not_initialize",
+        "tests.test_grok_everywhere.ContractTests.test_env_drops_secrets_and_overrides",
+        "tests.test_grok_everywhere.ContractTests.test_fixed_argv_no_prompt_flags_or_post_retry",
+        "tests.test_grok_everywhere.ContractTests.test_paths_and_media",
+        "tests.test_grok_everywhere.ContractTests.test_strict_session_and_json",
+        "tests.test_grok_everywhere.ContractTests.test_typed_plan_unknown_cost_and_always_blocked",
+        "tests.test_grok_everywhere.MockWorkbenchTests.test_denied_disconnected_missing_input",
+        "tests.test_grok_everywhere.MockWorkbenchTests.test_known_video_get_only_wait_failed_then_complete_and_no_revival",
+        "tests.test_grok_everywhere.MockWorkbenchTests.test_mock_research_image_video_in_existing_ledger_and_duplicate_click",
+        "tests.test_grok_everywhere.MockWorkbenchTests.test_timeout_invalid_missing_escape_and_restart_fail_closed",
+        "tests.test_grok_everywhere.MockWorkbenchTests.test_typed_artifact_reference_is_reusable_without_text_coercion"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_grok_everywhere",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T14:56:43+09:00",
       "status": "pass",
       "total": 9,
       "case_ids": [
@@ -242,7 +242,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:36:08+09:00",
+      "at": "2026-10-05T14:56:45+09:00",
       "status": "pass",
       "total": 2,
       "case_ids": [
@@ -256,7 +256,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:36:41+09:00",
+      "at": "2026-10-05T14:57:19+09:00",
       "status": "pass",
       "total": 14,
       "case_ids": [
@@ -287,7 +287,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:37:08+09:00",
+      "at": "2026-10-05T14:57:50+09:00",
       "status": "pass",
       "total": 5,
       "case_ids": [
@@ -304,7 +304,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:37:09+09:00",
+      "at": "2026-10-05T14:57:50+09:00",
       "status": "pass",
       "total": 3,
       "case_ids": [
@@ -319,7 +319,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:37:53+09:00",
+      "at": "2026-10-05T14:58:06+09:00",
       "status": "pass",
       "total": 20,
       "case_ids": [
@@ -351,7 +351,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:38:07+09:00",
+      "at": "2026-10-05T14:58:19+09:00",
       "status": "pass",
       "total": 27,
       "case_ids": [
@@ -390,7 +390,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:38:08+09:00",
+      "at": "2026-10-05T14:58:20+09:00",
       "status": "pass",
       "total": 5,
       "case_ids": [
@@ -407,7 +407,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:38:20+09:00",
+      "at": "2026-10-05T14:58:33+09:00",
       "status": "pass",
       "total": 6,
       "case_ids": [
@@ -425,7 +425,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:38:21+09:00",
+      "at": "2026-10-05T14:58:35+09:00",
       "status": "pass",
       "total": 13,
       "case_ids": [
@@ -450,7 +450,50 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:38:30+09:00",
+      "at": "2026-10-05T14:58:47+09:00",
+      "status": "pass",
+      "total": 12,
+      "case_ids": [
+        "tests.test_remote.FirewallReading.test_a_block_on_another_network_kind_does_not_count",
+        "tests.test_remote.FirewallReading.test_any_profile_and_single_rule_object",
+        "tests.test_remote.FirewallReading.test_not_windows_or_unreadable_says_unchecked",
+        "tests.test_remote.FirewallReading.test_private_network_with_an_allow_rule_is_clean",
+        "tests.test_remote.FirewallReading.test_public_block_is_found_and_the_fix_is_narrow",
+        "tests.test_remote.FirewallReading.test_quotes_in_names_cannot_break_out_of_the_command",
+        "tests.test_remote.Remote.test_firewall_check_route_reads_once_a_minute_and_is_local_only",
+        "tests.test_remote.Remote.test_pairing_and_phone_actions",
+        "tests.test_remote.Remote.test_qr_svg_is_local_only",
+        "tests.test_remote.Remote.test_same_wifi_server_serves_only_the_phone_page",
+        "tests.test_remote.Remote.test_tailscale_host_gets_only_the_phone_page",
+        "tests.test_remote.Remote.test_wrong_codes_lock_for_a_minute"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_remote",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T14:58:51+09:00",
+      "status": "pass",
+      "total": 7,
+      "case_ids": [
+        "tests.test_schedules.AutoStart.test_actions",
+        "tests.test_schedules.AutoStart.test_last_run_follows_the_time_given_not_the_wall_clock",
+        "tests.test_schedules.AutoStart.test_research_runs_by_itself",
+        "tests.test_schedules.AutoStart.test_tick_starts_once_and_does_not_pile_up",
+        "tests.test_schedules.AutoStart.test_validation",
+        "tests.test_schedules.AutoStart.test_waits_while_stopped_or_out_of_energy",
+        "tests.test_schedules.Timing.test_daily_weekdays_weekly_hours"
+      ],
+      "failures": [],
+      "errors": [],
+      "skipped": [],
+      "module": "tests.test_schedules",
+      "exit_code": 0
+    },
+    {
+      "at": "2026-10-05T14:58:53+09:00",
       "status": "pass",
       "total": 16,
       "case_ids": [
@@ -478,50 +521,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:38:34+09:00",
-      "status": "pass",
-      "total": 7,
-      "case_ids": [
-        "tests.test_schedules.AutoStart.test_actions",
-        "tests.test_schedules.AutoStart.test_last_run_follows_the_time_given_not_the_wall_clock",
-        "tests.test_schedules.AutoStart.test_research_runs_by_itself",
-        "tests.test_schedules.AutoStart.test_tick_starts_once_and_does_not_pile_up",
-        "tests.test_schedules.AutoStart.test_validation",
-        "tests.test_schedules.AutoStart.test_waits_while_stopped_or_out_of_energy",
-        "tests.test_schedules.Timing.test_daily_weekdays_weekly_hours"
-      ],
-      "failures": [],
-      "errors": [],
-      "skipped": [],
-      "module": "tests.test_schedules",
-      "exit_code": 0
-    },
-    {
-      "at": "2026-10-05T14:38:34+09:00",
-      "status": "pass",
-      "total": 12,
-      "case_ids": [
-        "tests.test_remote.FirewallReading.test_a_block_on_another_network_kind_does_not_count",
-        "tests.test_remote.FirewallReading.test_any_profile_and_single_rule_object",
-        "tests.test_remote.FirewallReading.test_not_windows_or_unreadable_says_unchecked",
-        "tests.test_remote.FirewallReading.test_private_network_with_an_allow_rule_is_clean",
-        "tests.test_remote.FirewallReading.test_public_block_is_found_and_the_fix_is_narrow",
-        "tests.test_remote.FirewallReading.test_quotes_in_names_cannot_break_out_of_the_command",
-        "tests.test_remote.Remote.test_firewall_check_route_reads_once_a_minute_and_is_local_only",
-        "tests.test_remote.Remote.test_pairing_and_phone_actions",
-        "tests.test_remote.Remote.test_qr_svg_is_local_only",
-        "tests.test_remote.Remote.test_same_wifi_server_serves_only_the_phone_page",
-        "tests.test_remote.Remote.test_tailscale_host_gets_only_the_phone_page",
-        "tests.test_remote.Remote.test_wrong_codes_lock_for_a_minute"
-      ],
-      "failures": [],
-      "errors": [],
-      "skipped": [],
-      "module": "tests.test_remote",
-      "exit_code": 0
-    },
-    {
-      "at": "2026-10-05T14:39:45+09:00",
+      "at": "2026-10-05T14:59:40+09:00",
       "status": "pass",
       "total": 16,
       "case_ids": [
@@ -549,7 +549,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:39:46+09:00",
+      "at": "2026-10-05T14:59:43+09:00",
       "status": "pass",
       "total": 16,
       "case_ids": [
@@ -577,7 +577,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:40:10+09:00",
+      "at": "2026-10-05T15:00:10+09:00",
       "status": "pass",
       "total": 8,
       "case_ids": [
@@ -597,7 +597,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:40:33+09:00",
+      "at": "2026-10-05T15:00:38+09:00",
       "status": "pass",
       "total": 10,
       "case_ids": [
@@ -619,7 +619,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:40:34+09:00",
+      "at": "2026-10-05T15:00:39+09:00",
       "status": "pass",
       "total": 6,
       "case_ids": [
@@ -637,7 +637,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:40:37+09:00",
+      "at": "2026-10-05T15:00:42+09:00",
       "status": "pass",
       "total": 4,
       "case_ids": [
@@ -653,7 +653,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:40:38+09:00",
+      "at": "2026-10-05T15:00:43+09:00",
       "status": "pass",
       "total": 2,
       "case_ids": [
@@ -667,7 +667,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:41:11+09:00",
+      "at": "2026-10-05T15:01:28+09:00",
       "status": "pass",
       "total": 9,
       "case_ids": [
@@ -688,7 +688,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:41:41+09:00",
+      "at": "2026-10-05T15:01:58+09:00",
       "status": "pass",
       "total": 26,
       "case_ids": [
@@ -726,7 +726,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:42:08+09:00",
+      "at": "2026-10-05T15:02:26+09:00",
       "status": "pass",
       "total": 4,
       "case_ids": [
@@ -742,7 +742,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:42:14+09:00",
+      "at": "2026-10-05T15:02:44+09:00",
       "status": "pass",
       "total": 21,
       "case_ids": [
@@ -775,7 +775,7 @@
       "exit_code": 0
     },
     {
-      "at": "2026-10-05T14:43:01+09:00",
+      "at": "2026-10-05T15:04:19+09:00",
       "status": "pass",
       "total": 12,
       "case_ids": [

@@ -16,7 +16,7 @@
 ## 검증 결과
 
 - 최종 전체 discovery: **369개 중 368 통과, POSIX 전용 1 건너뜀, 실패/오류 0**. 34 모듈의 실제 ID가 일반 discovery와 정확히 일치한다. [전체 결과](grok-everywhere-regression-final.json).
-- 관련 회귀 73개 통과. 마지막 타입/상태/경로 변경 후 새 모듈 11개 재실행 통과.
+- 관련 회귀 73개 통과. 마지막 타입/상태/경로 변경 후 새 모듈 11개 재실행 통과. 실행별 산출물 보존 수정 후 새 계약·기존 증거 회귀 23개 통과. 같은 파일명·다른 내용 두 실행의 이전 결과 보존 및 변조 거부를 기존 참조 회귀에서 추가 검증했다.
 - 최초 sandbox 전체 실행은 Godot 임시 로그/시스템 인증서 접근 제약과 시간 초과로 실패했다. 이를 통과로 취급하지 않았다. 격리된 오프라인 전체 실행을 정상 환경 권한으로 다시 실행한 위 결과를 최종 결과로 사용한다.
 - 기존 Edge와 TempStudio로 실제 UI 확인: 조사/이미지/영상 MOCK 표시, 1024×768 PNG 디코딩, 로컬 canvas에서 기록한 320px WebM 재생(약 1.4초), 390px 가로 넘침 없음, pageerror 0. 도구함의 목적/입력/산출물/조건, 정확한 input→format 요청과 옵션/unknown 비용 계획, 닫기·재열기·Escape, Tab/Shift+Tab 초점 유지, 잘못된 형식 연결 거부, 중복 클릭 1회 기록, 확인 후 모의 UI 실행 및 기존 기록을 확인했다. [브라우저 결과](grok-everywhere-browser.json).
 - 정지 화면: `output/grok-everywhere-browser/{drawer,plan,research,image,video,narrow,executed}-mock.png`. 애니메이션 종료 상태로 캡처했다. WebM 모의 재생은 실제 공급자 MP4 생성·연결을 검증한 것이 아니다.

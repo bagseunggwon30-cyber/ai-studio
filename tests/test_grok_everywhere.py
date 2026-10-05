@@ -198,6 +198,26 @@ class MockWorkbenchTests(unittest.TestCase):
         finished = self.w.run(run["id"])
         self.assertEqual(finished["status"], "succeeded")
         self.assertEqual(finished["nodes"]["c"]["output"]["artifact_refs"][0]["run"], run["id"])
+        first_ref = finished["nodes"]["c"]["output"]["artifact_refs"][0]
+        first_path, _ = self.w.provider_artifact(run["id"], "b", 0)
+        first_content = first_path.read_bytes()
+        self.assertTrue(first_path.is_relative_to(self.s.store.runs_dir))
+        def changed_provider(request):
+            result = self.provider(request)
+            # Reuse the supplier's exact scratch filename with different media.
+            Path(self.s.store.dir, "mock.png").write_bytes(b"\x89PNG\r\n\x1a\nSECOND MOCK")
+            return result
+        self.w.attach_grok_mock(changed_provider)
+        next_run, _ = self.begin("image")
+        self.w.tick()
+        next_result = self.w.run(next_run["id"])["nodes"]["b"]["output"]
+        self.assertNotEqual(next_result["artifact_refs"][0]["path"], first_ref["path"])
+        self.assertNotEqual(next_result["artifact_refs"][0]["sha256"], first_ref["sha256"])
+        self.assertEqual(first_path.read_bytes(), first_content)
+        self.assertEqual(self.w.provider_artifact(run["id"], "b", 0)[0].read_bytes(), first_content)
+        first_path.write_bytes(b"\x89PNG\r\n\x1a\nTAMPERED")
+        with self.assertRaises(WorkbenchError):
+            self.w.provider_artifact(run["id"], "b", 0)
         with self.assertRaises(WorkbenchError):
             self.w.validate(graph(node("a", "input", text="mock"), node("b", "grok_image"), node("c", "format")))
 
