@@ -1,7 +1,7 @@
 // Offline media verification. Cached Edge only; no HTTP server or supplier calls.
 const fs = require('fs');
 const path = require('path');
-const { chromium } = require('C:/Users/bark/AppData/Local/npm-cache/_npx/31e32ef8478fbf80/node_modules/playwright-core');
+const { chromium } = require(process.env.PLAYWRIGHT_CORE || 'playwright-core');
 const root = path.resolve(__dirname, '../..');
 const fixture = path.join(root, 'tests/fixtures/mock-video-10s.webm');
 const out = path.join(root, 'output/grok-video-duration');

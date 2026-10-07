@@ -1,4 +1,4 @@
-/* AI 스튜디오 — 게임 화면 (SPEC 1단계: 캔버스·레이어·폰트·상단 바·명령창) */
+/* AI 스튜디오 — 화면 바탕 (캔버스·레이어·폰트·상단 바·명령창·알림). 모던 모양은 board.css·modern.css·popups-*.css가 덮는다. 옛 도트 사무실 규칙은 지웠다 (2026-10-06). */
 
 /* 한글 픽셀 폰트 Galmuri11 (CEO 승인 2026-09-28, 공식 배포본 galmuri 2.40.3 npm, SIL OFL 1.1 — assets/fonts/Galmuri-OFL.txt).
    굵은 글씨는 Bold 파일을 따로 쓴다 (브라우저가 가짜로 굵게 만들면 픽셀이 뭉개진다). */
@@ -41,7 +41,7 @@ html, body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: var(--letterbox);
+  background: var(--bd-bg, var(--letterbox)); /* 창 비율이 달라도 검은 띠가 생기지 않게 모던 화면 바탕색으로 */
 }
 
 body {
@@ -53,17 +53,24 @@ body {
 button, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
 
-/* ---------- 캔버스: 1536×1024를 창에 맞춰 비율 유지 확대 ---------- */
-/* fixed: 1536px짜리 원래 크기가 문서 넓이를 늘리지 않게 한다 (휴대폰에서 화면이 축소·어긋나는 문제) */
+/* ---------- 캔버스: 기준 1536×1024를 창에 맞춰 확대하되, 창 비율이 다르면 남는 쪽으로 화면을 넓힌다 ----------
+   app.js fit()이 확대 비율 --s(= 가로·세로 중 빠듯한 쪽에 맞춘 값)를 정한다. 무대의 실제 크기는 창 크기 ÷ --s라서
+   (확대하면 창에 꼭 맞는다) 가로로 긴 창에서는 가로가, 세로로 긴 창에서는 세로가 1536/1024보다 커진다.
+   --ox·--oy는 그 남는 길이의 절반 — 팝업 판(#popup-host)을 기준 크기 그대로 가운데에 두는 데 쓴다. */
+/* fixed: 원래 크기가 문서 넓이를 늘리지 않게 한다 (휴대폰에서 화면이 축소·어긋나는 문제) */
 #stage {
+  --sw: calc(100vw / var(--s, 1));
+  --sh: calc(100vh / var(--s, 1));
+  --ox: calc((var(--sw) - 1536px) / 2);
+  --oy: calc((var(--sh) - 1024px) / 2);
   position: fixed;
   left: 50%;
   top: 50%;
-  width: 1536px;
-  height: 1024px;
+  width: var(--sw);
+  height: var(--sh);
   transform: translate(-50%, -50%) scale(var(--s, 1));
   overflow: hidden;
-  background: #d6a569;
+  background: var(--bd-bg, #e7e9ee); /* 처음 그릴 때부터 모던 화면 바탕 (board.css --bd-bg) */
   user-select: none;
 }
 
@@ -71,339 +78,14 @@ button { cursor: pointer; }
 #stage img { -webkit-user-drag: none; }
 
 .layer { position: absolute; inset: 0; }
-#layer-bg { z-index: 0; }
-#layer-sprites { z-index: 10; pointer-events: none; }
 #layer-popup { z-index: 20; }
 #layer-ui { z-index: 30; pointer-events: none; }
 #layer-ui > * { pointer-events: auto; }
 
-/* ---------- ① 배경 ---------- */
-.bg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-
-/* 본사(1층)에만 있는 것: 다른 층을 볼 때 숨긴다 (app.js가 #stage data-floor를 넣는다) */
-#stage:not([data-floor="1"]) .hq { display: none !important; }
-
-/* 배경의 빈 간판에 올리는 글자 (좌표는 office-f1.png 기준). plated는 배경에 간판이 없어 나무판까지 그린다 */
-.sign {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  font-size: 23px;
-  font-weight: 700;
-  color: #4a3222;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.sign.plated {
-  padding: 5px 18px 6px;
-  border: 3px solid #5a3a22;
-  border-radius: 8px;
-  background: linear-gradient(#ecd0a2, #d8ad78);
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.4), 0 3px 0 rgba(46, 43, 61, 0.35);
-}
-.sign.quest { left: 902px; top: 104px; font-size: 25px; }
-.sign.meeting { left: 1346px; top: 182px; }
-.sign.trophy { left: 1245px; top: 461px; }
-.sign.skill { left: 182px; top: 306px; font-size: 19px; }
-.sign.mcp { left: 62px; top: 232px; padding: 4px 9px 5px; font-size: 16px; } /* 왼쪽 서재 = MCP 보관소 */
-.sign.lounge { left: 1286px; top: 595px; } /* 층마다 app.js가 floors.json lounge 자리로 옮긴다 */
-
-/* 본사 벽시계: 배경의 빈 시계판 위에 지금 시각의 바늘 (app.js render) */
-.wall-clock { position: absolute; left: 532px; top: 138px; width: 0; height: 0; pointer-events: none; }
-.wall-clock .hand {
-  position: absolute;
-  left: -2px;
-  bottom: -2px;
-  width: 5px;
-  border-radius: 3px;
-  background: #2e2b3d;
-  transform-origin: 50% calc(100% - 2px);
-  transform: rotate(var(--a, 0deg));
-}
-.wall-clock .hour { height: 24px; }
-.wall-clock .minute { height: 34px; width: 4px; background: #4a4560; }
-.wall-clock::after { content: ""; position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: #e5484d; }
-
-/* ---------- ② 직원 (scene.js가 left/top/z-index를 넣는다) ---------- */
-.actor { position: absolute; pointer-events: auto; cursor: pointer; }
-
-/* 가림막: 배경에서 오려 낸 앞쪽 가구 (scene.js가 그 층 배경 그림·clip-path·z-index를 넣는다) */
-.occluder {
-  position: absolute;
-  inset: 0;
-  background: 0 0 / 100% 100% no-repeat;
-  pointer-events: none;
-}
-/* 의자 앞 그림: 앉은 직원의 허리 아래를 가리는 등받이 (tools/sprites/make_fronts.gd가 배경에서 오린 투명 그림) */
+/* 종이 넘기기(effects.js pageTurn)의 앞면(.turn-face.front)도 쓰는 규칙 */
 .front { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-#stage.debug .occluder, #stage.debug .front { filter: sepia(1) hue-rotate(280deg) saturate(4); } /* F2: 가림막 자리를 분홍으로 */
-/* 다른 층의 직원·소품 (scene.js showFloor) */
-.away { display: none !important; }
-
-/* 휴식터 방석 (루나 자리, 배경에 없는 소품): 배경의 빈백과 비슷한 보라 */
-.pouf {
-  position: absolute;
-  width: calc(96px * var(--k, 1));
-  height: calc(50px * var(--k, 1));
-  transform: translate(-50%, -100%);
-  border: 3px solid #2d2350;
-  border-radius: 46% 46% 40% 40% / 58% 58% 42% 42%;
-  background:
-    radial-gradient(ellipse 60% 45% at 45% 30%, #b39cf0 0 30%, transparent 70%),
-    linear-gradient(#8a70d8, #6a52bd 60%, #54409f);
-  box-shadow: 0 5px 0 rgba(46, 43, 61, 0.25);
-  pointer-events: none;
-}
-
-/* 완성작 선반 위 고양이 (assets/ui/cat.png): 누르면 쓰다듬기 (scene.js PROPS) */
-.cat { position: absolute; width: 104px; height: 69px; transform: translate(-50%, -100%); pointer-events: auto; cursor: pointer; }
-.cat.pet { animation: pet 0.5s ease-out; }
-@keyframes pet {
-  30% { transform: translate(-50%, -100%) scale(1.08, 0.9); }
-  60% { transform: translate(-50%, -104%) scale(1.03); }
-}
-.cat:focus-visible { outline: 4px solid var(--lavender-light); outline-offset: 2px; border-radius: 8px; }
-
-/* 소환 빛 고리: 사라지는 자리와 나타나는 자리 발밑에 퍼진다 (scene.js poof, 끝나면 지운다) */
-.warp-ring {
-  position: absolute;
-  width: 120px;
-  height: 34px;
-  border: 4px solid rgba(255, 216, 74, 0.9);
-  border-radius: 50%;
-  box-shadow: 0 0 12px rgba(255, 158, 203, 0.8), inset 0 0 10px rgba(159, 216, 255, 0.8);
-  transform: translate(-50%, -50%) scale(0.2);
-  opacity: 0;
-  pointer-events: none;
-  animation: warp-ring 0.6s ease-out forwards;
-}
-@keyframes warp-ring {
-  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
-  25% { opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(1.25); opacity: 0; }
-}
-
-/* 발밑 그림자: 서 있을 때만. 폭(--w)은 체격과 소환 중 크기에 따라 */
-.shadow {
-  position: absolute;
-  width: var(--w, 74px);
-  height: 18px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(46, 43, 61, 0.34), rgba(46, 43, 61, 0.18) 70%, transparent);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-/* 품질 검사 합격: 머리 옆에 쾅 찍히는 금색 도장 (2.2초 뒤 scene.js가 지운다) */
-.pass-stamp {
-  position: absolute;
-  z-index: 2002;
-  display: grid;
-  place-items: center;
-  width: 96px;
-  height: 96px;
-  border: 8px double #a8781a;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 234, 150, 0.96), rgba(242, 201, 76, 0.96) 70%);
-  box-shadow: 0 4px 0 rgba(90, 58, 30, 0.35);
-  color: #7a4d10;
-  font-size: 27px;
-  font-weight: 700;
-  transform: translate(-50%, -50%) rotate(-12deg);
-  pointer-events: none;
-  animation: pass-stamp 0.45s cubic-bezier(.2, .8, .3, 1.2) both, pass-fade 0.35s ease-in 1.85s forwards;
-}
-@keyframes pass-stamp {
-  0% { transform: translate(-50%, -50%) rotate(-12deg) scale(2.3); opacity: 0; }
-  60% { transform: translate(-50%, -50%) rotate(-12deg) scale(0.88); opacity: 1; }
-  100% { transform: translate(-50%, -50%) rotate(-12deg) scale(1); opacity: 1; }
-}
-@keyframes pass-fade { to { opacity: 0; } }
-.actor:focus-visible { outline: 4px solid var(--lavender-light); outline-offset: 2px; border-radius: 8px; }
-
-/* 켜진 모니터: 배경의 꺼진 화면 위에 덮는다 */
-.screen {
-  position: absolute;
-  z-index: 1;
-  border-radius: 3px;
-  opacity: 0;
-  transition: opacity 0.5s;
-  pointer-events: none;
-}
-.screen.on { opacity: 1; }
-/* 켜진 화면 그림은 assets/ui/screen-*.png (C1 소품). 긴급 정지는 일시정지 화면 (목업 09) */
-.screen.paused { opacity: 1; background: url("assets/ui/screen-pause.png") 0 0 / 100% 100% no-repeat !important; box-shadow: 0 0 10px 2px rgba(255, 60, 60, 0.35) !important; }
-.screen.doc { background: url("assets/ui/screen-doc.png") 0 0 / 100% 100% no-repeat; box-shadow: 0 0 14px 2px rgba(190, 220, 255, 0.55); }
-.screen.code { background: url("assets/ui/screen-code.png") 0 0 / 100% 100% no-repeat; box-shadow: 0 0 14px 2px rgba(120, 200, 255, 0.45); }
-.screen.chart { background: url("assets/ui/screen-chart.png") 0 0 / 100% 100% no-repeat; box-shadow: 0 0 14px 2px rgba(190, 220, 255, 0.55); }
-/* 글 쓰는 화면에는 깜빡이는 커서 */
-.screen.on:not(.paused):not(.chart)::after {
-  content: "";
-  position: absolute;
-  right: 14%;
-  bottom: 14%;
-  width: 6px;
-  height: 11%;
-  background: currentColor;
-  color: #2f6fd8;
-  animation: blink 1s steps(1) infinite;
-}
-.screen.code.on:not(.paused)::after { color: #e8ecf5; }
 
 @keyframes blink { 50% { opacity: 0; } }
-
-/* 이름표 */
-.plate {
-  position: absolute;
-  z-index: 1500;
-  transform: translate(-50%, -50%) scale(var(--k, 1)); /* 2층은 가구가 작아 조금 작게 */
-  padding: 3px 16px 4px;
-  border: 3px solid var(--plum);
-  border-radius: 7px;
-  background: var(--paper);
-  box-shadow: 0 3px 0 rgba(46, 43, 61, 0.35);
-  font-size: 20px;
-  font-weight: 700;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-/* 말풍선: 머리 위 가운데, 꼬리가 아래를 가리킨다 */
-.bubble {
-  position: absolute;
-  transform: translate(-50%, calc(-100% - 12px)) scale(var(--k, 1)); /* 2층은 가구가 작아 조금 작게 */
-  transform-origin: 50% calc(100% + 12px);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 18px 9px;
-  border: 3px solid var(--plum);
-  border-radius: 10px;
-  background: var(--paper);
-  box-shadow: 0 4px 0 rgba(46, 43, 61, 0.3);
-  font-size: 22px;
-  font-weight: 700;
-  white-space: nowrap;
-  pointer-events: none;
-  animation: pop 0.25s ease-out;
-}
-.bubble::before, .bubble::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  border-style: solid;
-  border-color: transparent;
-}
-.bubble::before { bottom: -16px; margin-left: -11px; border-width: 13px 11px 0; border-top-color: var(--plum); }
-.bubble::after { bottom: -10px; margin-left: -7px; border-width: 9px 7px 0; border-top-color: var(--paper); }
-.bubble.working { flex-direction: column; align-items: stretch; gap: 6px; }
-.bubble .who { margin-right: 8px; padding: 0 7px 1px; border-radius: 6px; background: var(--lavender); color: #fff; font-size: 18px; }
-/* 일하는 동안 책상 이름표는 숨긴다 (이름은 말풍선에). 긴급 정지 때는 말풍선이 숨으니 다시 보인다 */
-.plate.busy { display: none; }
-.stopped .plate.busy { display: block; }
-.bubble.alert { border-color: #e0664a; color: #b8432c; }
-.bubble.alert::before { border-top-color: #e0664a; }
-
-.flow {
-  position: relative;
-  display: block;
-  height: 12px;
-  border: 2px solid var(--plum);
-  border-radius: 6px;
-  background: #e4ecef;
-  overflow: hidden;
-}
-.flow i {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 40%;
-  border-radius: 4px;
-  background: #3fb8a8;
-  animation: flow 1.6s linear infinite;
-}
-@keyframes flow { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
-
-.check {
-  position: relative;
-  flex: none;
-  width: 30px;
-  height: 30px;
-  border: 3px solid #2f8a4e;
-  border-radius: 50%;
-  background: #43b36a;
-}
-.check::after {
-  content: "";
-  position: absolute;
-  left: 8px;
-  top: 3px;
-  width: 7px;
-  height: 13px;
-  border: solid #fff;
-  border-width: 0 4px 4px 0;
-  transform: rotate(40deg);
-}
-
-@keyframes pop { from { transform: translate(-50%, calc(-100% - 4px)) scale(0.6); opacity: 0; } }
-
-/* 막힘: 말풍선 안의 산호색 "!" */
-.warn {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 30px;
-  height: 30px;
-  border: 3px solid #c4513a;
-  border-radius: 50%;
-  background: #ff7f5c;
-  color: #fff;
-  font-size: 19px;
-}
-
-/* 긴급 정지: 머리 위 빨간 "!" (말풍선은 숨김) */
-.mark {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  transform: translate(-50%, -100%);
-  border: 3px solid var(--plum);
-  border-radius: 50%;
-  background: var(--red);
-  color: #fff;
-  font-size: 24px;
-  font-weight: 700;
-  pointer-events: none;
-}
-.stopped .bubble { display: none; }
-.bubble.alert { pointer-events: auto; cursor: pointer; } /* 막혔어요 · 눌러 주세요 */
-
-/* ---------- ④ 개발용 패널 (F2) ---------- */
-.devpanel {
-  position: absolute;
-  right: 22px;
-  top: 172px;
-  padding: 12px 14px;
-  border: 3px solid var(--plum);
-  border-radius: 10px;
-  background: rgba(255, 251, 243, 0.95);
-  box-shadow: 0 4px 0 rgba(46, 43, 61, 0.35);
-  font-size: 17px;
-}
-.dev-title { margin-bottom: 8px; font-weight: 700; color: var(--ink-soft); }
-.dev-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
-.dev-name { width: 44px; font-weight: 700; }
-.dev-btn {
-  padding: 3px 10px 4px;
-  border: 2px solid var(--plum);
-  border-radius: 6px;
-  background: var(--cream);
-  font-size: 16px;
-}
-.dev-btn:active { transform: translateY(2px); }
-.dev-btn:focus-visible { outline: 3px solid var(--lavender-light); outline-offset: 2px; }
 
 /* ---------- ④ 상단 바 ---------- */
 .hud {
@@ -638,57 +320,6 @@ button { cursor: pointer; }
 .notice .face { width: 58px; height: 58px; border-radius: 8px; background-color: #efe6d6; }
 .notice-text { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
-/* ---------- ④ 하단 바로가기 ---------- */
-.dock { position: absolute; left: 30px; top: 898px; display: flex; gap: 34px; }
-.dock-btn {
-  display: grid;
-  place-items: center;
-  width: 92px;
-  height: 92px;
-  padding: 0;
-  border: 4px solid var(--lavender-light);
-  border-radius: 50%;
-  background: var(--plum-2);
-  box-shadow: 0 5px 0 var(--plum);
-  transition: transform 0.08s, box-shadow 0.08s;
-}
-.dock-btn svg { width: 50px; height: 50px; }
-.dock-btn img { width: 58px; height: 58px; object-fit: contain; }
-.dock-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--plum); }
-
-/* ---------- ④ 층 버튼 (엘리베이터 판): 위층이 위, 맨 위 +는 층 늘리기 ---------- */
-.floors {
-  position: absolute;
-  left: 16px;
-  bottom: 146px; /* 왼쪽 아래 계단 위, 바로가기 버튼 바로 위 */
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 8px;
-  border: 4px solid var(--plum);
-  border-radius: 14px;
-  background: rgba(46, 43, 61, 0.88);
-  box-shadow: 0 5px 0 rgba(31, 28, 43, 0.6);
-}
-.floor-btn {
-  position: relative;
-  width: 64px;
-  height: 44px;
-  padding: 0;
-  border: 3px solid var(--plum-edge);
-  border-radius: 10px;
-  background: var(--cream);
-  box-shadow: 0 4px 0 #b9ad96;
-  font-size: 22px;
-  font-weight: 700;
-  transition: transform 0.08s, box-shadow 0.08s;
-}
-.floor-btn[aria-pressed="true"] { background: var(--lavender); color: #fff; box-shadow: 0 4px 0 var(--lavender-dark); }
-.floor-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #b9ad96; }
-.floor-btn.add { border-style: dashed; border-color: #b9ad96; background: rgba(246, 240, 228, 0.18); box-shadow: none; color: var(--cream); font-size: 30px; line-height: 1; }
-.floor-btn .dot { position: absolute; right: -7px; top: -7px; width: 18px; height: 18px; border: 3px solid var(--plum); border-radius: 50%; background: var(--red); }
-.floor-btn:focus-visible { outline: 4px solid var(--lavender-light); outline-offset: 2px; }
-
 /* ---------- ④ 명령창 ---------- */
 .command {
   position: absolute;
@@ -762,27 +393,11 @@ button { cursor: pointer; }
 .btn.danger { border-color: var(--red-dark); background: var(--red); color: #fff; box-shadow: 0 5px 0 var(--red-dark); }
 
 /* ---------- 키보드 초점 ---------- */
-.energy:focus-visible, .icon-btn:focus-visible, .stop-btn:focus-visible, .dock-btn:focus-visible,
+.energy:focus-visible, .icon-btn:focus-visible, .stop-btn:focus-visible,
 .notice:focus-visible, .send:focus-visible, .btn:focus-visible {
   outline: 4px solid var(--lavender-light);
   outline-offset: 3px;
 }
-
-/* ---------- 개발용: F2로 레이어 경계 보기 ---------- */
-#stage.debug .layer { outline: 3px dashed rgba(255, 0, 128, 0.7); outline-offset: -3px; }
-#stage.debug .layer::after {
-  content: attr(data-name);
-  position: absolute;
-  padding: 4px 10px;
-  background: rgba(255, 0, 128, 0.85);
-  color: #fff;
-  font-size: 18px;
-  pointer-events: none;
-}
-#stage.debug #layer-bg::after { left: 10px; top: 76px; }
-#stage.debug #layer-sprites::after { left: 10px; top: 110px; }
-#stage.debug #layer-popup::after { left: 10px; top: 144px; }
-#stage.debug #layer-ui::after { right: 10px; top: 170px; }
 
 /* 효과 꺼짐: effects.js가 <html class="calm">을 붙인다 (상단 바 스위치, 처음에는 운영체제의 '동작 줄이기'를 따름) */
 .calm *, .calm *::before, .calm *::after { animation: none !important; transition: none !important; }

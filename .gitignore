@@ -52,3 +52,9 @@ docs/design/beach-standing/frames/
 docs/design/beach-standing/preview/normal-standing-nohair.png
 docs/design/beach-standing/preview/standing-hair.png
 docs/design/beach-standing/preview-blink.png
+
+# Local browser traces, raw validation logs and optional downloaded tools
+.playwright-cli/
+output/
+reports/
+tools/external/

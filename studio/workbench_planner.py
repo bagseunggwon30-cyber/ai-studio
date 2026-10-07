@@ -33,6 +33,8 @@ class Planner:
         if self.mock:
             return {"enabled": True, "simulation": True, "reason": "MOCK / 모의 기획 · 실제 AI 호출 아님"}
         connection = self.wb.grok_executor.status()
+        if connection.get("mode") == "official_cli":  # 공식 Grok CLI 연결은 그림·영상 전용 (목표 기획은 쓰지 않는다)
+            return {"enabled": False, "simulation": False, "reason": "공식 Grok CLI 연결은 그림·영상만 만들어요. 목표 AI 기획은 쓸 수 없어요.", "config_hash": connection.get("config_hash")}
         return {"enabled": connection["enabled"], "simulation": False, "reason": connection["reason"], "config_hash": connection.get("config_hash")}
 
     def prepare(self, body):

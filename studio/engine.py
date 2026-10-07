@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 from copy import deepcopy
 import threading
@@ -20,8 +21,8 @@ from . import ai, company, evidence, floors, gitops, login, mcp, projects, sched
 from .checkpoints import Journal, digest, files_digest, worktree_digest
 from uuid import uuid4
 from .config import JOBS, Config, ProjectConfig, staff_role
-from .model import ACTIVE, FINAL, KIND_ROLE, NO_BRANCH, OPEN_BRANCH, Task, TransitionError
-from .prompts import (PLAN_SCHEMA, REVIEW_SCHEMA, TOOL_SCHEMA, build_prompt, plan_prompt, reflect_prompt, review_prompt, skill_context,
+from .model import ACTIVE, FINAL, KIND_ROLE, NO_BRANCH, OPEN_BRANCH, STATUS_LABELS, Task, TransitionError
+from .prompts import (PLAN_SCHEMA, REVIEW_SCHEMA, TOOL_SCHEMA, WORK_REVIEW_SCHEMA,build_prompt, plan_prompt, reflect_prompt, review_prompt, skill_context,
                       tool_prompt, tool_review_prompt,
                       skill_prompt)
 from .qa import run_qa, suite_hash
@@ -206,14 +207,14 @@ class Engine:
             raise EngineError(f"작업 {task_id}을(를) 찾을 수 없습니다.")
         return task
 
-    def submit_directive(self, text: str, project_key: str, *, created_by="ceo", extra=None) -> Task:
+    def submit_directive(self, text: str, project_key: str, *, created_by="ceo", extra=None, title: str | None = None) -> Task:
         text = (text or "").strip()
         if not text:
             raise EngineError("지시 내용을 입력하세요.")
         if len(text) > 4000:
             raise EngineError("지시는 4000자 이내로 입력하세요.")
         self._project(project_key)
-        first = text.splitlines()[0].strip()
+        first = (title or text.splitlines()[0]).strip()  # 시작 버튼(템플릿)은 버튼 이름을 제목으로 쓴다
         title = first if len(first) <= 60 else first[:57] + "…"
         task = self.store.create_task(
             title=title, kind="plan", role=self._pick("producer"), project=project_key, status="queued", brief=text, note="작업 지시", created_by=created_by, extra=extra or {}
@@ -531,6 +532,55 @@ class Engine:
             self.wake()
             return task
 
+    def _fill_evidence(self, task: Task, project: ProjectConfig, snapshot: Path) -> Task:
+        """외부 제출 작업(완료 기준마다 근거가 필요한 작업)의 빈 근거를 검토 직원이 짚은 파일로 채운다.
+
+        근거 지정에서 사람(CEO·외부 AI)이 막히지 않게 하려는 것이다: 짚는 것은 검토 직원(리뷰의 `criteria`, A1·A2… = 기준 순서),
+        확인은 감독 프로그램 — 허용 경로 안이고 검증 사본(snapshot)에 실제로 있는 비어 있지 않은 파일만 쓴다.
+        채우는 경우는 둘뿐이다: ① 근거가 빈 완료 기준, ② 기획안에서 나뉜 작업이라 기준 글이 제출 때와 달라진 경우(작업의 기준 글로 다시 세운다).
+        이미 지정된 근거는 건드리지 않고(틀리면 그대로 막힌다), 출처(source)는 만들지 않는다. 검증 통과·리뷰 승인 조건은 그대로다."""
+        requirements = task.extra.get("requirements")
+        review = task.review or {}
+        if not isinstance(requirements, list) or not requirements or task.extra.get("workflow_run") or not task.acceptance \
+                or not task.candidate_sha or task.kind not in ("build", "research") or review.get("candidate_sha") != task.candidate_sha:
+            return task
+        same = [r.get("text") for r in requirements if isinstance(r, dict)] == task.acceptance
+        if same and all(isinstance(r, dict) and r.get("evidence") for r in requirements):
+            return task
+        from .supervisor import path_scope
+        scope = task.extra.get("scope_paths") or task.allowed_paths
+        pointed: dict[str, list[str]] = {}
+        for item in review.get("criteria") or []:
+            files = []
+            for path in item.get("files", []):
+                try:
+                    if path not in files and path_scope(path, scope) and evidence.safe_file(snapshot, path).stat().st_size > 0:
+                        files.append(path)
+                except (OSError, ValueError):
+                    continue
+            if files:
+                pointed[item.get("id")] = files[:5]
+        base = requirements if same else [{"id": f"A{i + 1}", "text": text, "evidence": []} for i, text in enumerate(task.acceptance)]
+        filled, used = [], {}
+        for i, r in enumerate(base):
+            files = pointed.get(f"A{i + 1}")
+            if not r.get("evidence") and files:
+                r = {**r, "evidence": [{"type": "file", "path": p} for p in files]}
+                used[r["id"]] = files
+            filled.append(r)
+        if not used and same:
+            return task  # 짚은 파일이 없으면 그대로 둔다 (막힘 이유가 그대로 보인다)
+        with self.store.lock:
+            fresh = self._task(task.id)
+            if fresh.status in FINAL or fresh.candidate_sha != task.candidate_sha:
+                return fresh
+            fresh.extra.setdefault("evidence_history", []).append(deepcopy({"at": now_iso(), "candidate_sha": task.candidate_sha, "requirements": requirements}))
+            fresh.extra["requirements"] = filled
+            fresh.extra["evidence_auto"] = {"at": now_iso(), "candidate_sha": task.candidate_sha, "by": review.get("by"), "criteria": used}
+            self.store.save(fresh)
+        self.store.event("task.evidence_auto", f"{task.id} 검토 직원이 짚은 파일로 완료 기준 {len(used)}개의 근거 지정", task=task.id)
+        return fresh
+
     def approval_status(self, task):
         if task.kind == "research" and task.extra.get("provider_execution") and task.extra.get("provider_acceptance_hash"):
             return {"allowed": task.status == "awaiting_approval", "reasons": [] if task.status == "awaiting_approval" else ["CEO artifact acceptance pending"], "evidence": None, "candidate_sha": None, "revision": 1}
@@ -640,6 +690,42 @@ class Engine:
                 self._cleanup_worktree(task)
         return task
 
+    WAITING_CANCEL_MAX = 100
+
+    def cancel_waiting(self, ids: Any, by: str = "ceo") -> dict[str, Any]:
+        """결재 대기 작업을 한꺼번에 취소한다 (CEO만). 결재 대기가 아닌 것은 건드리지 않고 건너뛴다.
+        한 건이 실패해도 나머지는 계속하고, 건너뛴 것은 이유를 쉬운 글로 돌려준다. 취소 자체는 `cancel` 그대로다."""
+        if by != "ceo":
+            raise EngineError("결재 대기 취소는 CEO만 할 수 있어요.")
+        if not isinstance(ids, list) or not ids:
+            raise EngineError("취소할 작업을 골라 주세요.")
+        if len(ids) > self.WAITING_CANCEL_MAX:
+            raise EngineError(f"한 번에 {self.WAITING_CANCEL_MAX}건까지만 취소할 수 있어요.")
+        if not all(isinstance(i, str) and re.fullmatch(r"T\d{4,12}", i) for i in ids):
+            raise EngineError("작업 번호가 올바르지 않아요.")
+        cancelled: list[str] = []
+        skipped: list[dict[str, str]] = []
+        for task_id in dict.fromkeys(ids):
+            try:
+                with self.store.lock:  # 확인과 취소 사이에 상태가 바뀌어 다른 작업을 취소하지 않게
+                    task = self.store.get(task_id)
+                    if not task:
+                        skipped.append({"id": task_id, "reason": "작업을 찾을 수 없어요."})
+                    elif task.status in FINAL:
+                        skipped.append({"id": task_id, "reason": "이미 끝난 작업이에요."})
+                    elif task.status != "awaiting_approval":
+                        skipped.append({"id": task_id, "reason": f"결재 대기가 아니에요. (지금은 '{STATUS_LABELS.get(task.status, task.status)}')"})
+                    else:
+                        self.cancel(task_id, by=by)
+                        cancelled.append(task_id)
+            except Exception as e:  # 한 건이 실패해도 나머지는 계속한다
+                text = str(e)
+                known = re.search(r"[가-힣]", text) and len(text) <= 160  # 쉬운 한국어 이유만 화면에 보인다
+                skipped.append({"id": task_id, "reason": f"취소하지 못했어요. {text}" if known else "취소하지 못했어요. 잠시 뒤 다시 해 보세요."})
+        self.store.event("task.cancel_waiting", f"결재 대기 {len(cancelled)}건 취소" + (f" · 건너뜀 {len(skipped)}건" if skipped else ""),
+                         cancelled=cancelled, skipped=[s["id"] for s in skipped], by=by)
+        return {"cancelled": cancelled, "skipped": skipped}
+
     def emergency_stop(self, reason: str = "CEO 긴급 정지") -> None:
         self._stop.set()
         self.store.update_state(stopped=True, stop_reason=reason)
@@ -729,6 +815,16 @@ class Engine:
             self.store.event("project.registered", f"프로젝트 등록: {project.title}",
                              project=project.key, allowed_paths=project.default_allowed_paths,
                              automatic_qa=False, by=by)
+        return project
+
+    def create_project(self, data: dict, *, by: str = "ceo") -> ProjectConfig:
+        """소설·디자인 프로젝트를 새 Git 저장소로 만들고 등록한다 (CEO만)."""
+        if by != "ceo":
+            raise EngineError("프로젝트 만들기는 CEO만 할 수 있습니다.")
+        with self.store.lock:
+            project = projects.create_new(self.cfg, data)
+            self.store.event("project.created", f"새 프로젝트: {project.title} ({project.kind})",
+                             project=project.key, kind=project.kind, allowed_paths=project.default_allowed_paths, by=by)
         return project
 
     def retarget(self, task_id: str, data: dict, *, by: str = "ceo") -> Task:
@@ -2177,6 +2273,7 @@ class Engine:
         self.journal.write(task.id,"pipeline",status="review")
         if review["verdict"] == "stopped" or self._should_stop(task.id):
             self.store.block(task,"감독 프로그램 정지로 리뷰가 중단됐습니다."); return True
+        task = self._fill_evidence(self._task(task.id),project,qa_dir/"snapshot")
         coverage = evidence.assess(self.cfg,self.store,task)
         if coverage["strict"] and not coverage["complete"] and not task.extra.get("workflow_run"):
             self.store.block(task,"수용 기준의 검증 근거가 누락됐거나 접근할 수 없습니다."); return True
@@ -2223,7 +2320,7 @@ class Engine:
         failure = None
         for index, (runtime_name, model, effort) in enumerate(chain):
             run = self._agent_run(
-                task, reviewer, prompt, cwd, sandbox="read-only", stage="review", schema=REVIEW_SCHEMA,
+                task, reviewer, prompt, cwd, sandbox="read-only", stage="review", schema=WORK_REVIEW_SCHEMA,
                 runtime_name=runtime_name, model=model, effort=effort, skills_kind="review",
                 requested_provider=rcfg.runtime, requested_model=rcfg.model,
                 fallback_reason=failure if index else None,
@@ -2241,6 +2338,9 @@ class Engine:
                     "by": reviewer,
                     "summary": str(s.get("summary", ""))[:3000],
                     "findings": findings,
+                    # 기준(A1, A2…)마다 검토 직원이 짚은 근거 파일 — 쓸 때 감독 프로그램이 다시 확인한다 (_fill_evidence)
+                    "criteria": [{"id": str(c.get("id", ""))[:20], "files": [f[:240] for f in c.get("files", []) if isinstance(f, str)][:5] if isinstance(c.get("files"), list) else []}
+                                 for c in s.get("criteria", []) if isinstance(c, dict)][:30] if isinstance(s.get("criteria"), list) else [],
                     "runtime": "codex" if runtime_name == "claude" and not self.cfg.runtime_cfg("claude").get("enabled",False) else runtime_name,
                     "actual_runtime": run.runtime,
                     "model": run.provider_model,
@@ -2326,8 +2426,10 @@ class Engine:
             task = self._task(task_id)
             if task.status != "done" or task.kind not in ("build", "research"):
                 raise EngineError("완료된 개발·리서치 작업만 완성작에 올릴 수 있습니다.")
-            if kind not in ("game", "report"):
-                raise EngineError("완성작 종류는 game 또는 report 입니다.")
+            if kind not in ("game", "report", "novel", "design"):
+                raise EngineError("완성작 종류는 game, report, novel, design 중 하나입니다.")
+            if kind in ("novel", "design") and getattr(self.cfg.projects.get(task.project), "kind", "") != kind:
+                raise EngineError("소설·디자인 완성작은 그 종류의 프로젝트 작업만 올릴 수 있습니다.")
             items = self.store.read_doc("trophies", [])
             if any(i.get("task") == task_id for i in items):
                 raise EngineError("이미 완성작에 있습니다.")

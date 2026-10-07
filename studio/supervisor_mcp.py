@@ -39,13 +39,29 @@ def build(port, token):
 def tools_server(call):
     """One tool catalog for stdio and HTTP; all actions use the supervisor gate."""
     srv = Server("ai-studio-supervisor", "1.1",
-        "AI Studio 감독 MCP: 작업 제출·상태·이벤트·결과·검증 파일·본인 작업 취소만 제공합니다. "
+        "AI Studio 감독 MCP: 프로젝트·작업 목록, 작업 제출·상태·이벤트·결과·검증 파일·본인 작업 취소·본인 작업 실행 시작만 제공합니다. "
+        "먼저 list_projects로 볼 수 있는 프로젝트를 확인하고 list_tasks로 최근 작업 번호를 찾은 뒤 task_status·task_result로 자세히 보세요. "
         "작업 제출의 project/key/payload를 사용하고 같은 요청은 같은 key로 재전송하세요. "
+        "맡기기만으로는 실행되지 않습니다. 사장님이 '실행 시작'을 허용한 프로젝트(list_projects의 can_run)에서만 run_task로 직접 시작시키고 task_status로 진행을 보세요. "
+        "결과 확인·결재·병합·완료는 언제나 사장님이 합니다. "
         "프로젝트·경로 권한과 모델 사용 승인·기획 결재·최종 병합은 기존 CEO 경계를 따릅니다. "
         "직원에게 장착하는 MCP와 별개의 외부 감독 연결입니다. "
         "도구 등록·요청 접수·실제 모델 실행·검증 통과·사람 승인 상태를 각각 구분하세요.")
     string = {"type":"string"}
-    @srv.tool("submit_task","요청 키로 중복 없이 작업 제출. 실행과 승인 경계는 기존 회사 설정을 따릅니다.",{"project":string,"key":string,"payload":{"type":"object"}},["project","key","payload"],read_only=False)
+    @srv.tool("list_projects","이 연결이 볼 수 있는 프로젝트(키·이름·종류·제출 가능 여부·실행 시작 가능 여부·폴더 범위) 목록",{},[])
+    def list_projects():return call("projects")
+    @srv.tool("list_tasks","프로젝트의 최근 작업 목록(번호·제목·상태·종류·갱신 시각, 최대 50개). filter는 all·open·상태 이름. 자세한 내용은 task_status·task_result",
+              {"project":string,"filter":string,"limit":{"type":"integer","minimum":1,"maximum":50}},["project"])
+    def list_tasks(project,filter="all",limit=20):return call("tasks",project=project,filter=filter,limit=limit)
+    ev = {"type":"object","description":"근거 하나: {type:'test',name} · {type:'file',path} · {type:'screenshot',path} · {type:'source',id}"}
+    payload_schema = {"type":"object","description":"제출 내용. kind는 plan(하나가 기획안을 먼저 올리고 CEO가 결재해야 시작 — 처음엔 이것을 권장)·build·research. "
+        "title 80자 이내, brief 4000자 이내(plan이면 하나에게 주는 지시), allowed_paths는 이 연결에 부여된 폴더 범위 안, requirements는 1개 이상 필수(확인 가능한 수용 기준). "
+        "예: {\"kind\":\"plan\",\"title\":\"주간 보고서 요약\",\"brief\":\"reports/ 폴더의 최근 보고서를 1쪽으로 요약\",\"allowed_paths\":[\"reports/**\"],"
+        "\"requirements\":[{\"id\":\"A1\",\"text\":\"요약 파일이 reports/ 안에 있다\",\"evidence\":[{\"type\":\"file\",\"path\":\"reports/summary.md\"}]}]}",
+        "properties":{"kind":{"type":"string","enum":["plan","build","research"]},"title":string,"brief":string,"allowed_paths":{"type":"array","items":string},
+                      "requirements":{"type":"array","items":{"type":"object","properties":{"id":string,"text":string,"evidence":{"type":"array","items":ev}},"required":["id","text"]}}},
+        "required":["title","requirements"]}
+    @srv.tool("submit_task","요청 키로 중복 없이 작업 제출(같은 요청은 같은 key로 다시 보내면 같은 작업이 돌아옵니다). 실행과 승인 경계는 기존 회사 설정을 따릅니다 — 제출해도 CEO 결재 없이는 병합·완료되지 않습니다. 맡기기만으로는 실행되지 않아요. run_task가 보이면 직접 시작시킬 수 있어요.",{"project":string,"key":string,"payload":payload_schema},["project","key","payload"],read_only=False)
     def submit_task(project,key,payload):return call("submit",project=project,key=key,payload=payload)
     @srv.tool("task_status","상태·차단 사유·필요한 승인·재개 방법 조회",{"project":string,"task":string},["project","task"])
     def task_status(project,task):return call("status",project=project,task=task)
@@ -57,6 +73,8 @@ def tools_server(call):
     def task_artifact(project,task,path):return call("artifact",project=project,task=task,path=path)
     @srv.tool("cancel_task","이 연결이 제출한 작업 취소",{"project":string,"task":string},["project","task"],read_only=False)
     def cancel_task(project,task):return call("cancel",project=project,task=task)
+    @srv.tool("run_task","자기가 맡긴 일의 실행을 시작시킵니다. 사장님이 이 프로젝트에 '실행 시작'을 허용했을 때만 돼요. 결과를 확인하고 반영하는 결재·병합·완료는 항상 사장님이 해요. task_status로 진행을 보세요.",{"project":string,"task":string},["project","task"],read_only=False)
+    def run_task(project,task):return call("run",project=project,task=task)
     return srv
 
 

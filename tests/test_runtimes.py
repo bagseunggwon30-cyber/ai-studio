@@ -180,8 +180,8 @@ class OutputSchemas(unittest.TestCase):
     def test_every_output_schema_is_strict_mode_safe(self):
         from studio import prompts, skills
 
-        for name, schema in (("PLAN", prompts.PLAN_SCHEMA), ("REVIEW", prompts.REVIEW_SCHEMA), ("TOOL", prompts.TOOL_SCHEMA),
-                             ("SKILL", skills.SKILL_SCHEMA)):
+        for name, schema in (("PLAN", prompts.PLAN_SCHEMA), ("REVIEW", prompts.REVIEW_SCHEMA), ("WORK_REVIEW", prompts.WORK_REVIEW_SCHEMA),
+                             ("TOOL", prompts.TOOL_SCHEMA), ("SKILL", skills.SKILL_SCHEMA)):
             self.assertEqual(strict_problems(schema), [], name)
         # 이 검사가 실제로 잡아내는지: required에서 하나 빠진 스키마는 걸린다
         broken = {"type": "object", "additionalProperties": False, "required": ["a"],
@@ -192,7 +192,7 @@ class OutputSchemas(unittest.TestCase):
         """기획·리뷰·도구 만들기는 JSON으로만 답하므로 따른 스킬을 skills_used로 알린다."""
         from studio import prompts
 
-        for schema in (prompts.PLAN_SCHEMA, prompts.REVIEW_SCHEMA, prompts.TOOL_SCHEMA):
+        for schema in (prompts.PLAN_SCHEMA, prompts.REVIEW_SCHEMA, prompts.WORK_REVIEW_SCHEMA, prompts.TOOL_SCHEMA):
             self.assertIn("skills_used", schema["properties"])
             self.assertIn("skills_used", schema["required"])
 

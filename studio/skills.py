@@ -42,11 +42,12 @@ MAX_FULL = 5           # 본문까지 붙이는 스킬 수 (관련 높은 것부
 # 스킬을 쓰는 일 종류 (기획·개발·리서치·리뷰·스킬 공부·MCP 만들기·디자인 일). study = 스킬 공부·회고, tool = MCP 도구 만들기 —
 # '스킬 쓰는 법'·'MCP 만드는 법' 같은 스킬이 보통 일에 붙지 않게 따로 둔다. 이 둘에는 쓰는 곳에 그 종류를 **골라 둔** 스킬만 붙는다 (in_scope).
 # design = 일 종류가 아니라 '디자인 일일 때만'이라는 조건이다 (is_design_text). 다른 종류와 함께 고르면 그 종류의 디자인 일만.
-WORK_KINDS = ("plan", "build", "research", "review", "study", "tool", "design")
+WORK_KINDS = ("plan", "build", "research", "review", "study", "tool", "design", "novel")
+CONDITION_KINDS = ("design", "novel")  # 일 종류가 아니라 조건: 디자인 일일 때만 · 소설 프로젝트의 일일 때만
 KIND_NAMES = {"plan": "기획", "build": "개발", "research": "리서치", "review": "리뷰", "study": "스킬 공부", "tool": "MCP 만들기",
               "design": "디자인 일"}
 EXPLICIT_KINDS = ("study", "tool")  # 골라 둔 스킬만 붙는 일 종류
-ORDINARY_KINDS = tuple(k for k in WORK_KINDS if k not in EXPLICIT_KINDS and k != "design")  # 보통 일: design만 고른 스킬이 붙는 종류
+ORDINARY_KINDS = tuple(k for k in WORK_KINDS if k not in EXPLICIT_KINDS and k not in CONDITION_KINDS)  # 보통 일: design만 고른 스킬이 붙는 종류
 
 # 디자인 일 판정 낱말 (is_design_text). 강한 낱말이 하나라도 있거나 약한 낱말이 DESIGN_WEAK_NEEDED개 이상 (서로 다른 낱말) 있으면 디자인 일.
 # 한글은 조사가 붙어도 걸리게 글 안에서 찾고, 영어는 낱말 경계(앞뒤가 영문자·숫자가 아님)로 찾는다 ('ui'가 'build'에 걸리지 않게. 'HUD에'는 걸린다).
@@ -464,15 +465,17 @@ def is_design_text(text: object) -> bool:
     return len(weak) >= DESIGN_WEAK_NEEDED
 
 
-def in_scope(s: Skill, project: str = "", kind: str = "", text: str = "") -> bool:
+def in_scope(s: Skill, project: str = "", kind: str = "", text: str = "", project_kind: str = "") -> bool:
     """이 일에 쓸 스킬인지 (쓰는 곳이 비어 있으면 모두). project·kind·text를 모르면 그 조건은 본다고 친다.
     스킬 공부(study)·MCP 만들기(tool)는 쓰는 곳에 그 종류를 골라 둔 스킬만 — 개발 요령 같은 보통 스킬은 공부·회고 때 목록(_known_skills)으로 따로 본다.
     design은 종류를 좁히는 조건이 아니라 '디자인 일일 때만'이다: design만 골랐으면 보통 일(plan·build·research·review) 모두,
     다른 종류와 함께 골랐으면 그 종류의 일 중에서 — 어느 쪽이든 일 글(text)이 있으면 is_design_text여야 한다."""
     if s.projects and project and project not in s.projects:
         return False
-    work = [k for k in s.kinds if k != "design"]
-    if "design" in s.kinds and str(text or "").strip() and not is_design_text(text):
+    work = [k for k in s.kinds if k not in CONDITION_KINDS]
+    if "novel" in s.kinds and project_kind and project_kind != "novel":  # 소설 조건: 소설 프로젝트의 일일 때만 (모르면 본다고 친다)
+        return False
+    if "design" in s.kinds and str(text or "").strip() and project_kind != "design" and not is_design_text(text):  # 디자인 프로젝트의 일은 모두 디자인 일
         return False
     if kind in EXPLICIT_KINDS:
         return kind in work
@@ -487,7 +490,8 @@ def select(cfg: Config, role: str, *, project: str = "", kind: str = "", text: s
     """이 일에 붙일 스킬: (본문까지 붙일 것, 설명만 붙일 것). 쓰는 곳 밖의 스킬(디자인 일 조건 포함, 일 글 text로 판정)은 빼고,
     지금 일 글(text: 제목·목표)과 제목·설명이 많이 겹치는 스킬부터 본문을 붙인다 (최대 MAX_FULL개, PROMPT_BUDGET자)."""
     words = tokens(text)
-    mine = [s for s in learned(cfg, role) if in_scope(s, project, kind, text)]
+    project_kind = cfg.projects[project].kind if project in cfg.projects else ""
+    mine = [s for s in learned(cfg, role) if in_scope(s, project, kind, text, project_kind)]
     mine.sort(key=lambda s: (-len(_skill_words(s) & words), s.created, s.slug))
     full: list[Skill] = []
     brief: list[Skill] = []

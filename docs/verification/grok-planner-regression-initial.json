@@ -8,11 +8,11 @@
   "failures": [
     {
       "test": "tests.test_grok_text.GrokText.test_login_failure_is_classified_without_exposing_cli_details",
-      "trace": "Traceback (most recent call last):\n  File \"C:\\Users\\bark\\AppData\\Local\\Temp\\ais-main-integration-71ed9959ff384ada98d19a66df32133a\\tests\\test_grok_text.py\", line 105, in test_login_failure_is_classified_without_exposing_cli_details\n    self.assertEqual(result.error_kind,\"login\")\nAssertionError: 'timeout' != 'login'\n- timeout\n+ login\n\n"
+      "trace": "Traceback (most recent call last):\n  File \"<USERPROFILE>\\AppData\\Local\\Temp\\ais-main-integration-71ed9959ff384ada98d19a66df32133a\\tests\\test_grok_text.py\", line 105, in test_login_failure_is_classified_without_exposing_cli_details\n    self.assertEqual(result.error_kind,\"login\")\nAssertionError: 'timeout' != 'login'\n- timeout\n+ login\n\n"
     },
     {
       "test": "tests.test_engine.EngineFlow.test_emergency_stop_kills_running",
-      "trace": "Traceback (most recent call last):\n  File \"C:\\Users\\bark\\AppData\\Local\\Temp\\ais-main-integration-71ed9959ff384ada98d19a66df32133a\\tests\\test_engine.py\", line 365, in test_emergency_stop_kills_running\n    self.assertLess(time.monotonic() - started, 3)\nAssertionError: 3.1559999999990396 not less than 3\n"
+      "trace": "Traceback (most recent call last):\n  File \"<USERPROFILE>\\AppData\\Local\\Temp\\ais-main-integration-71ed9959ff384ada98d19a66df32133a\\tests\\test_engine.py\", line 365, in test_emergency_stop_kills_running\n    self.assertLess(time.monotonic() - started, 3)\nAssertionError: 3.1559999999990396 not less than 3\n"
     }
   ],
   "errors": [],
@@ -233,7 +233,7 @@
       "failures": [
         {
           "test": "tests.test_grok_text.GrokText.test_login_failure_is_classified_without_exposing_cli_details",
-          "trace": "Traceback (most recent call last):\n  File \"C:\\Users\\bark\\AppData\\Local\\Temp\\ais-main-integration-71ed9959ff384ada98d19a66df32133a\\tests\\test_grok_text.py\", line 105, in test_login_failure_is_classified_without_exposing_cli_details\n    self.assertEqual(result.error_kind,\"login\")\nAssertionError: 'timeout' != 'login'\n- timeout\n+ login\n\n"
+          "trace": "Traceback (most recent call last):\n  File \"<USERPROFILE>\\AppData\\Local\\Temp\\ais-main-integration-71ed9959ff384ada98d19a66df32133a\\tests\\test_grok_text.py\", line 105, in test_login_failure_is_classified_without_exposing_cli_details\n    self.assertEqual(result.error_kind,\"login\")\nAssertionError: 'timeout' != 'login'\n- timeout\n+ login\n\n"
         }
       ],
       "errors": [],
@@ -386,7 +386,7 @@
       "failures": [
         {
           "test": "tests.test_engine.EngineFlow.test_emergency_stop_kills_running",
-          "trace": "Traceback (most recent call last):\n  File \"C:\\Users\\bark\\AppData\\Local\\Temp\\ais-main-integration-71ed9959ff384ada98d19a66df32133a\\tests\\test_engine.py\", line 365, in test_emergency_stop_kills_running\n    self.assertLess(time.monotonic() - started, 3)\nAssertionError: 3.1559999999990396 not less than 3\n"
+          "trace": "Traceback (most recent call last):\n  File \"<USERPROFILE>\\AppData\\Local\\Temp\\ais-main-integration-71ed9959ff384ada98d19a66df32133a\\tests\\test_engine.py\", line 365, in test_emergency_stop_kills_running\n    self.assertLess(time.monotonic() - started, 3)\nAssertionError: 3.1559999999990396 not less than 3\n"
         }
       ],
       "errors": [],

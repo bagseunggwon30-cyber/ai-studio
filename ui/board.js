@@ -1,6 +1,6 @@
 /* AI 스튜디오 — 진행판 (칸반 보드 + 진행 발표 캐릭터)
  *
- * 사무실 대신 볼 수 있는 두 번째 화면. 사무실과 같은 Data(/api/state)를 쓴다.
+ * 모던 화면의 껍데기(왼쪽 메뉴 + 가운데 구역: 홈 · 진행판 · 이미지·영상 작업대). 모두 같은 Data(/api/state)를 쓴다.
  * 가운데: 작업을 단계별 칸(대기 → 작업 중 → 검사·리뷰 → 결재 대기 → 완료)에 놓는다. 칸을 옮기는 것은 엔진뿐이다
  *   (끌어서 옮기기 없음: 상태는 Store.transition, 완료는 CEO 승인으로만 — AGENTS.md 불변식 4).
  * 오른쪽: 발표 캐릭터가 보드판을 들고 있다가, 작업이 다음 단계로 넘어가면 판을 뒤집어 알린다.
@@ -30,6 +30,7 @@ const Board = (() => {
   };
   const DONE_SHOWN = 5; // 완료 칸은 최근 5개만 보통 카드로 (나머지는 '더 보기 · 업무 일지')
   const GROUPS_SHOWN = 4;
+  const LIST_DONE = 60; // 목록 보기에서 보이는 끝난 일 수
   // 칸 너비 비율: 카드가 없는 칸은 좁게, 있는 칸은 1, 결재 대기·완료는 조금 넓게
   const WIDTH_EMPTY = 0.7; // 좁아도 '검사·리뷰' 같은 칸 제목이 잘리지 않는 너비
   const WIDTH_NORMAL = 1;
@@ -47,18 +48,93 @@ const Board = (() => {
   const newer = (a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
   const older = (a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')) || String(a.id).localeCompare(String(b.id));
 
-  // 칸마다 작업 목록. project가 있으면 그 프로젝트만. 완료 칸의 기획 카드는 빼고(퀘스트로 나뉘었으니) 최근 것만.
-  function columns(tasks, project = null) {
-    const live = tasks.filter(shown).filter((t) => !project || t.project === project);
+  // 보기(저장된 거름): 열린 일(안 끝난 것) 안에서 거른다. all은 전부.
+  const VIEWS = [
+    { key: 'all', label: '전체' },
+    { key: 'approval', label: '결재 기다림' },
+    { key: 'blocked', label: '막힘' },
+    { key: 'old', label: '3일 넘은 일' },
+  ];
+  const OLD_DAYS = 3;
+
+  // 만든 지 며칠 됐는지 (모르면 0)
+  function ageDays(t, now = Date.now()) {
+    const at = Date.parse(t.created_at || '');
+    return Number.isFinite(at) ? Math.max(0, Math.floor((now - at) / 86400000)) : 0;
+  }
+
+  function inView(t, key, now = Date.now()) {
+    if (key === 'approval') return t.status === 'awaiting_approval';
+    if (key === 'blocked') return t.status === 'blocked';
+    if (key === 'old') return t.status !== 'done' && ageDays(t, now) >= OLD_DAYS;
+    return true;
+  }
+
+  // 보기마다 몇 개인지: 프로젝트 거름 안의 열린 일만 센다 (전체 = 열린 일 수)
+  function viewCounts(tasks, project = null, now = Date.now()) {
+    const open = tasks.filter(shown).filter((t) => t.status !== 'done' && (!project || t.project === project));
+    const out = {};
+    for (const v of VIEWS) out[v.key] = open.filter((t) => inView(t, v.key, now)).length;
+    return out;
+  }
+
+  // 찾기: 제목·번호·종류·프로젝트·(extraOf가 주는) 담당 이름에 글자가 들어 있으면. 띄어쓰기로 나눈 낱말이 모두 있어야 한다 (대소문자 무시)
+  function matches(t, query, extraOf = null) {
+    const words = String(query || '').toLowerCase().split(' ').filter(Boolean);
+    if (!words.length) return true;
+    const hay = [t.id, t.title, t.kind, t.project, extraOf ? extraOf(t) : ''].map((x) => String(x || '').toLowerCase()).join(' ');
+    return words.every((w) => hay.includes(w));
+  }
+
+  // 칸마다 작업 목록. project가 있으면 그 프로젝트만, view(보기)·query(찾기)에 맞는 것만. 완료 칸의 기획 카드는 빼고(퀘스트로 나뉘었으니) 최근 doneLimit개만.
+  // group이면 칸 안에서 프로젝트별로 모은다 (프로젝트 안의 차례는 그대로).
+  function columns(tasks, project = null, o = {}) {
+    const { query = '', extraOf = null, view = 'all', now = Date.now(), doneLimit = DONE_SHOWN, group = false } = o;
+    const live = tasks.filter(shown).filter((t) => !project || t.project === project)
+      .filter((t) => inView(t, view, now)).filter((t) => matches(t, query, extraOf));
     return COLUMNS.map((c) => {
       let list = live.filter((t) => c.statuses.includes(t.status));
       if (c.key === 'done') list = list.filter((t) => t.kind !== 'plan');
       const total = list.length;
-      if (c.key === 'done') list = list.sort(newer).slice(0, DONE_SHOWN);
+      if (c.key === 'done') list = list.sort(newer).slice(0, doneLimit);
       else if (c.key === 'running') list = list.sort((a, b) => (b.status === 'blocked') - (a.status === 'blocked') || older(a, b));
       else list = list.sort(older);
+      if (group) list = list.map((t, i) => ({ t, i })).sort((a, b) => String(a.t.project || '').localeCompare(String(b.t.project || '')) || a.i - b.i).map((x) => x.t);
       return { key: c.key, label: c.label, tasks: list, total };
     });
+  }
+
+  // 아직 안 끝난 일 중 가장 오래된 것이 며칠 됐는지 (만든 날 기준, 일이 없으면 0)
+  function oldestDays(tasks, now = Date.now()) {
+    let first = null;
+    for (const t of tasks.filter(shown)) {
+      if (t.status === 'done') continue;
+      const at = Date.parse(t.created_at || '');
+      if (Number.isFinite(at) && (first === null || at < first)) first = at;
+    }
+    return first === null ? 0 : Math.max(0, Math.floor((now - first) / 86400000));
+  }
+
+  // 얼마 전인지 (방금 · N분 전 · N시간 전 · N일 전). 시각을 모르면 빈 글
+  function ago(iso, now = Date.now()) {
+    const at = Date.parse(iso || '');
+    if (!Number.isFinite(at)) return '';
+    const m = Math.floor((now - at) / 60000);
+    if (m < 1) return '방금';
+    if (m < 60) return `${m}분 전`;
+    const hr = Math.floor(m / 60);
+    return hr < 24 ? `${hr}시간 전` : `${Math.floor(hr / 24)}일 전`;
+  }
+
+  // 표 파일(CSV): 쉼표·따옴표·줄바꿈이 든 칸은 따옴표로 감싼다 (줄 끝은 CR LF)
+  function toCsv(rows) {
+    const NL = String.fromCharCode(10);
+    const CR = String.fromCharCode(13);
+    const cell = (v) => {
+      const t = String(v ?? '');
+      return t.includes(',') || t.includes('"') || t.includes(NL) || t.includes(CR) ? `"${t.split('"').join('""')}"` : t;
+    };
+    return rows.map((r) => r.map(cell).join(',')).join(CR + NL);
   }
 
   // 지시(기획 카드)마다 나온 퀘스트 중 끝난 수. 기획에서 나오지 않은 일은 '따로 맡긴 일' 한 줄로.
@@ -263,9 +339,12 @@ const Board = (() => {
     return name === 'states' ? { task: 'D04', role: 'builder', title: '스크린샷 저장 단추 넣기' } : null;
   }
 
-  const logic = { COLUMNS, STAGE, DONE_SHOWN, EMPTY_TEXT, columns, groups, headline, changes, snapshot, attention, widths, stageKey, cleanMascot, moodFor, demoTasks, demoCurrent };
+  const logic = { COLUMNS, STAGE, DONE_SHOWN, EMPTY_TEXT, VIEWS, OLD_DAYS, ageDays, inView, viewCounts, ago, toCsv, matches, oldestDays, columns, groups, headline, changes, snapshot, attention, widths, stageKey, cleanMascot, moodFor, demoTasks, demoCurrent };
 
   // ---------------------------------------------------------------- 화면 (init 뒤에만 DOM을 만진다)
+  // CEO 결정 2026-10-05: 맨 오른쪽 발표 캐릭터 판은 쓰지 않는다. true로 바꾸면 예전처럼 오른쪽에 붙고 캐릭터가 움직인다 (그림·코드는 그대로).
+  const PRESENTER = false;
+  const FLOW_SHOWN = 3; // 지시별 진행 줄에 보이는 지시 수
   const SHOW_MS = 4200; // 뒤집은 판을 보여 주는 시간
   const QUEUE_MAX = 6;
   const TALK_MS = 1800; // 판이 돌아 알릴 때 인형이 말하는(입을 여닫는) 시간
@@ -299,33 +378,150 @@ const Board = (() => {
     root = el;
     hooks = { ...hooks, ...opts };
     try { project = localStorage.getItem('studio.boardProject') || null; } catch (_) { project = null; }
-    // 가운데는 뼈대(머리줄·요약 줄·칸 틀)를 한 번만 만들고 render()가 안을 채운다 (칸 너비가 바뀔 때 부드럽게 넘어가도록 칸 틀은 그대로 둔다)
+    // 마지막으로 고른 '묶기'·'보기 방식'은 이 브라우저에 기억한다
+    try {
+      byProject = localStorage.getItem('studio.boardGroup') === '1';
+      mode = localStorage.getItem('studio.boardMode') === 'list' ? 'list' : 'kanban';
+    } catch (_) { /* 기억 못 해도 됨 */ }
+    // 개발·캡처용 주소: #mode=list|kanban · #group=1 · #boardview=approval|blocked|old (저장하지 않는다)
+    const hp = new URLSearchParams(location.hash.slice(1));
+    if (hp.get('mode') === 'list' || hp.get('mode') === 'kanban') mode = hp.get('mode');
+    if (hp.get('group') === '1') byProject = true;
+    if (VIEWS.some((v) => v.key === hp.get('boardview'))) viewKey = hp.get('boardview');
+    // 가운데는 뼈대(홈 · 진행판 머리줄·지시별 진행·칸 틀)를 한 번만 만들고 render()가 안을 채운다 (칸 너비가 바뀔 때 부드럽게 넘어가도록 칸 틀은 그대로 둔다)
     const cols = h('div', { class: 'bd-cols' });
     cols.addEventListener('transitionend', (e) => { if (e.target === cols) for (const c of cols.querySelectorAll('.bd-cards')) fade(c); });
-    root.append(sidebar(), h('section', { class: 'bd-main', 'aria-label': '진행판' },
-      h('header', { class: 'bd-head' }), h('div', { class: 'bd-attn', role: 'group', 'aria-label': '지금 챙길 것' }), cols), side());
-    // 인형이 있으면 진행판 위의 포인터를 바라본다 (나가면 제자리로)
-    root.addEventListener('pointermove', (e) => { if (mascot && mascot.puppet) mascot.puppet.lookAt(e.clientX, e.clientY); });
-    root.addEventListener('pointerleave', () => { if (mascot && mascot.puppet) mascot.puppet.lookAt(null); });
-    loadMascot();
+    const home = h('section', { class: 'bd-main bd-home', 'aria-label': '홈', hidden: true });
+    const media = h('section', { class: 'bd-main bd-page-media', 'aria-label': '이미지·영상 작업대', hidden: true });
+    const novel = h('section', { class: 'bd-main bd-page-novel', 'aria-label': '소설 집필실', hidden: true });
+    const design = h('section', { class: 'bd-main bd-page-design', 'aria-label': '디자인 작업실', hidden: true });
+    root.append(sidebar(), home, media, novel, design, h('section', { class: 'bd-main bd-page-board', 'aria-label': '진행판' },
+      h('header', { class: 'bd-head' }), h('div', { class: 'bd-flow', role: 'group', 'aria-label': '지시별 진행' }), cols));
+    if (typeof Home !== 'undefined') Home.init(home, homeHelpers());
+    if (typeof Media !== 'undefined') Media.init(media, mediaHelpers());
+    if (typeof Rooms !== 'undefined') {
+      for (const [name, el] of [['novel', novel], ['design', design]]) { rooms[name] = Rooms.create(name); rooms[name].init(el, roomHelpers()); }
+    }
+    if (PRESENTER) {
+      root.classList.add('bd-has-side');
+      root.append(side());
+      // 인형이 있으면 진행판 위의 포인터를 바라본다 (나가면 제자리로)
+      root.addEventListener('pointermove', (e) => { if (mascot && mascot.puppet) mascot.puppet.lookAt(e.clientX, e.clientY); });
+      root.addEventListener('pointerleave', () => { if (mascot && mascot.puppet) mascot.puppet.lookAt(null); });
+      loadMascot();
+    }
   }
 
-  // ---- 왼쪽 메뉴: app.js의 data-action 동작을 그대로 쓴다. 흐린 가는 선으로 세 묶음: 보는 곳 | 관리 | 기록
+  // 홈 화면이 쓰는 도구 (홈은 board.js 안쪽을 직접 만지지 않는다)
+  function homeHelpers() {
+    return {
+      h, viewNow, attention, groups, oldestDays, ago, actionOf, focusCommand, shown, COLUMNS,
+      goBoard: (key) => { viewKey = VIEWS.some((v) => v.key === key) ? key : 'all'; query = ''; hooks.setView('board'); },
+    };
+  }
+
+  // 이미지·영상 작업대 화면이 쓰는 도구
+  function mediaHelpers() {
+    const producer = () => (Data.BY_ROLE.producer || Data.TEAM[0]).name;
+    return {
+      h,
+      notify: (text) => hooks.notify(producer(), text),
+      fail: (err) => hooks.fail(err),
+      openTask: (id) => { const t = Data.task(id); if (t) Popups.openTask(t); else Popups.taskCard(id); },
+      openWorkbench: () => hooks.setView('workbench'),
+    };
+  }
+
+  // 소설 집필실·디자인 작업실이 쓰는 도구
+  function roomHelpers() {
+    const producer = () => Data.BY_ROLE.producer || Data.TEAM[0];
+    return {
+      h,
+      producerName: () => producer().name,
+      notify: (text) => hooks.notify(producer().name, text),
+      fail: (err) => hooks.fail(err),
+      // 결재를 기다리는 일은 결재 창으로, 나머지는 작업 카드로 (진행판 카드와 같다)
+      openTask: (id) => { const t = Data.task(id); if (t && t.status === 'awaiting_approval') Popups.openTask(t); else Popups.taskCard(id); },
+      // 맡긴 일은 진행판에서 결재한다: 그 프로젝트의 일만 보이게 해서 연다
+      goBoard: (key) => { Data.setProject(key); project = key; saveProject(); viewKey = 'all'; query = ''; hooks.setView('board'); },
+    };
+  }
+
+  // 소설 집필실·디자인 작업실을 열고(프로젝트를 정해서) 보여 준다 (완성작·프로젝트 고르기 창에서)
+  function openRoom(mode, key = null) {
+    if (!rooms[mode]) return;
+    if (key) rooms[mode].select(key);
+    hooks.setView(mode);
+  }
+
+  // 왼쪽 메뉴의 홈·진행판·이미지·영상 작업대·소설 집필실·디자인 작업실 전환: 모두 같은 껍데기 안의 가운데 구역이다
+  function setPage(name) {
+    page = SHELL_PAGES.includes(name) ? name : 'board';
+    if (!root) return;
+    root.querySelector('.bd-home').hidden = page !== 'home';
+    root.querySelector('.bd-page-media').hidden = page !== 'media';
+    root.querySelector('.bd-page-novel').hidden = page !== 'novel';
+    root.querySelector('.bd-page-design').hidden = page !== 'design';
+    root.querySelector('.bd-page-board').hidden = page !== 'board';
+    for (const b of root.querySelectorAll('.bd-nav-btn')) {
+      if (!NAV_PAGES.includes(b.dataset.action)) continue;
+      const on = b.dataset.action === page;
+      b.classList.toggle('on', on);
+      if (on) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    }
+    if (typeof Media !== 'undefined') Media.setVisible(visible && page === 'media');
+    for (const [name, room] of Object.entries(rooms)) room.setVisible(visible && page === name);
+    if (visible) render();
+  }
+
+  // ---- 왼쪽 메뉴: app.js의 data-action 동작을 그대로 쓴다. 세 묶음: 작업 | 회사 | 기록 (묶음 제목은 작은 회색 글자)
+  // 옛 노드 편집기(workbench)는 메뉴에서 빼고, 이미지·영상 작업대 위쪽의 '노드 편집기 (고급)' 단추로만 연다
   const MENU = [
-    [['office', '사무실', 'home'], ['board', '진행판', 'scroll'], ['workbench', '기능 작업대', 'archive'], ['inbox', '결재함', 'doc'], ['meeting', '회의실', 'folder']],
-    [['team', '직원', 'team'], ['skills', '스킬 학습', 'star'], ['mcp', 'MCP 보관소', 'link'], ['schedules', '자동 업무', 'bolt']],
-    [['diary', '업무 일지', 'book'], ['trophies', '완성작', 'trophy']],
+    ['작업', [['home', '홈'], ['board', '진행판'], ['media', '이미지·영상 작업대'], ['novel', '소설 집필실'], ['design', '디자인 작업실'], ['inbox', '결재함'], ['meeting', '회의실']]],
+    ['회사', [['team', '직원'], ['skills', '스킬 학습'], ['mcp', 'MCP 보관소'], ['schedules', '자동 업무'], ['gateway', '외부 연결']]],
+    ['기록', [['diary', '업무 일지'], ['trophies', '완성작']]],
   ];
 
-  function sidebar() {
-    return h('nav', { class: 'bd-nav', 'aria-label': '메뉴' }, MENU.map((group) => h('div', { class: 'bd-nav-group' },
-      group.filter(([action]) => action !== 'office' || hooks.office).map(([action, label, icon]) => h('button', {
-        type: 'button', class: `bd-nav-btn ${action === 'board' ? 'on' : ''}`, 'data-action': action,
-        'aria-current': action === 'board' ? 'page' : null,
-      }, Popups.icon(icon), h('span', { text: label }), action === 'inbox' ? h('b', { class: 'bd-badge', hidden: true }) : null)))));
+  // 고정 SVG 선 아이콘 (데이터가 아님): 모두 같은 굵기·크기라 한 벌로 보인다 (색은 글자색을 따른다)
+  const NAV_SVG = {
+    home: '<svg viewBox="0 0 24 24"><path d="M4 11l8-6.5L20 11"/><path d="M6 9.5V19a1 1 0 0 0 1 1h3.5v-5h3v5H17a1 1 0 0 0 1-1V9.5"/></svg>',
+    digest: '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3.5v3M15 3.5v3"/></svg>',
+    board: '<svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="4.5" height="16" rx="1.5"/><rect x="9.75" y="4" width="4.5" height="10" rx="1.5"/><rect x="16" y="4" width="4.5" height="13" rx="1.5"/></svg>',
+    workbench: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/><path d="M10 7h2.5a2 2 0 0 1 2 2v5"/></svg>',
+    media: '<svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M10.2 9.3v5.4l4.5-2.7Z"/></svg>',
+    novel: '<svg viewBox="0 0 24 24"><path d="M4.5 19.5l1-4L16 5a2.1 2.1 0 0 1 3 3L8.5 18.5Z"/><path d="M14 7l3 3"/></svg>',
+    design: '<svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M3.5 9.5h17M9.5 9.5v10"/></svg>',
+    inbox: '<svg viewBox="0 0 24 24"><path d="M4 13l2.2-7a2 2 0 0 1 1.9-1.4h7.8a2 2 0 0 1 1.9 1.4L20 13"/><path d="M4 13v4.5A1.5 1.5 0 0 0 5.5 19h13a1.5 1.5 0 0 0 1.5-1.5V13h-4.5a1.5 1.5 0 0 0-1.5 1.5 1.5 1.5 0 0 1-1.5 1.5h-1a1.5 1.5 0 0 1-1.5-1.5A1.5 1.5 0 0 0 8.5 13Z"/></svg>',
+    meeting: '<svg viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5V16h-.5A2.5 2.5 0 0 1 4 13.5Z"/></svg>',
+    team: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.5-3.2 2.9-5 5.5-5s5 1.8 5.5 5"/><circle cx="17" cy="9.5" r="2.5"/><path d="M16 14.2c2.6-.3 4.5 1.2 5 4"/></svg>',
+    skills: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.4 5 5.4.7-4 3.8 1 5.4-4.8-2.6-4.8 2.6 1-5.4-4-3.8 5.4-.7Z"/></svg>',
+    mcp: '<svg viewBox="0 0 24 24"><path d="M9.5 14.5l5-5"/><path d="M11 6.8l1.3-1.3a3.5 3.5 0 0 1 5 5L16 11.8"/><path d="M13 17.2l-1.3 1.3a3.5 3.5 0 0 1-5-5L8 12.2"/></svg>',
+    schedules: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+    gateway: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.8 5.2 3.8 8.5s-1.2 6.1-3.8 8.5M12 3.5C9.4 5.9 8.2 8.7 8.2 12s1.2 6.1 3.8 8.5"/></svg>',
+    diary: '<svg viewBox="0 0 24 24"><path d="M5 5.5A1.5 1.5 0 0 1 6.5 4H19v14H6.5A1.5 1.5 0 0 0 5 19.5Z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/></svg>',
+    trophies: '<svg viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0Z"/><path d="M8 6H5a2 2 0 0 0 2 4M16 6h3a2 2 0 0 1-2 4"/><path d="M12 13v4M9 20h6M10 17h4"/></svg>',
+  };
+
+  function navIcon(name) {
+    const el = h('span', { class: 'icon', 'aria-hidden': 'true' });
+    el.innerHTML = NAV_SVG[name] || '';
+    return el;
   }
 
-  // ---- 오른쪽: 발표 캐릭터 + 지시별 진행
+  function sidebar() {
+    const item = ([action, name]) => h('button', {
+      type: 'button', class: `bd-nav-btn ${action === page ? 'on' : ''}`, 'data-action': action,
+      'aria-current': action === page ? 'page' : null,
+    }, navIcon(action), h('span', { text: name }), action === 'inbox' ? h('b', { class: 'bd-badge', hidden: true }) : null);
+    return h('nav', { class: 'bd-nav', 'aria-label': '메뉴' },
+      MENU.map(([label, items]) => h('div', { class: 'bd-nav-group', role: 'group', 'aria-label': label },
+        h('p', { class: 'bd-nav-label', 'aria-hidden': 'true', text: label }),
+        items.map(item))),
+      h('div', { class: 'bd-nav-foot' }, item(['digest', '주간 요약'])));
+  }
+
+  // ---- 오른쪽: 발표 캐릭터 + 지시별 진행 (PRESENTER가 true일 때만)
   function side() {
     return h('aside', { class: 'bd-side', 'aria-label': '진행 발표' },
       h('h2', { class: 'bd-side-title' }, h('span', { text: '진행 발표' }), h('small', { class: 'bd-mascot-name' })),
@@ -513,6 +709,8 @@ const Board = (() => {
   function setVisible(on) {
     visible = on;
     root.hidden = !on;
+    if (typeof Media !== 'undefined') Media.setVisible(on && page === 'media'); // 숨으면 3초 읽기도 멈춘다
+    for (const [name, room] of Object.entries(rooms)) room.setVisible(on && page === name);
     if (mascot && mascot.puppet) mascot.puppet.setActive(on); // 진행판을 떠나면 그리기를 멈춘다
     if (!on) { queue.length = 0; return; }
     if (dirty) render();
@@ -612,64 +810,181 @@ const Board = (() => {
     if (!root || !visible) return;
     dirty = false;
     const view = viewNow();
+    const att = attention(view.tasks, DEMO ? null : Data.inbox().length);
+    const badge = root.querySelector('.bd-badge');
+    if (badge) {
+      badge.hidden = !att.approvals;
+      badge.textContent = String(att.approvals);
+    }
+    if (page === 'home') {
+      if (typeof Home !== 'undefined') Home.render(view, att);
+      return;
+    }
+    if (page === 'media') {
+      if (typeof Media !== 'undefined') Media.render();
+      return;
+    }
+    if (rooms[page]) {
+      rooms[page].render();
+      return;
+    }
     const projects = view.projects || [];
     if (project && !projects.some((p) => p.key === project)) project = null;
-    const main = root.querySelector('.bd-main');
+    const main = root.querySelector('.bd-page-board');
     const colsEl = main.querySelector('.bd-cols');
     const focusKey = activeKey();
     const scroll = {};
     for (const col of colsEl.querySelectorAll('.bd-col')) scroll[col.dataset.key] = col.querySelector('.bd-cards').scrollTop;
+    const oldList = colsEl.querySelector('.bd-list-body');
+    const listTop = oldList ? oldList.scrollTop : 0;
 
-    const cols = columns(view.tasks, project);
-    const att = attention(view.tasks, DEMO ? null : Data.inbox().length);
-    main.querySelector('.bd-head').replaceChildren(...headerParts(view, projects));
-    main.querySelector('.bd-attn').replaceChildren(...attnParts(att));
-    colsEl.style.setProperty('--bd-cols', widths(cols).map((w) => `${w}fr`).join(' '));
-    colsEl.replaceChildren(...cols.map((c) => column(c, view)));
-    for (const col of colsEl.querySelectorAll('.bd-col')) {
-      const cards = col.querySelector('.bd-cards');
-      cards.scrollTop = scroll[col.dataset.key] || 0;
-      fade(cards);
+    const now = Date.now();
+    const cols = columns(view.tasks, project, { query, extraOf, view: viewKey, now, group: byProject && projects.length > 1, doneLimit: mode === 'list' ? LIST_DONE : DONE_SHOWN });
+    main.querySelector('.bd-head').replaceChildren(...headerParts(view, projects, cols, now));
+    main.querySelector('.bd-flow').replaceChildren(...flowParts(view));
+    colsEl.classList.toggle('bd-list-mode', mode === 'list');
+    if (mode === 'list') {
+      colsEl.style.removeProperty('--bd-cols');
+      colsEl.replaceChildren(listEl(cols, view));
+      const body = colsEl.querySelector('.bd-list-body');
+      if (body) body.scrollTop = listTop;
+    } else {
+      colsEl.style.setProperty('--bd-cols', widths(cols).map((w) => `${w}fr`).join(' '));
+      colsEl.replaceChildren(...cols.map((c) => column(c, view, project)));
+      for (const col of colsEl.querySelectorAll('.bd-col')) {
+        const cards = col.querySelector('.bd-cards');
+        cards.scrollTop = scroll[col.dataset.key] || 0;
+        fade(cards);
+      }
     }
     if (focusKey) {
       const again = root.querySelector(`[data-fk="${CSS.escape(focusKey)}"]`);
       if (again) again.focus({ preventScroll: true });
     }
 
-    const badge = root.querySelector('.bd-badge');
-    if (badge) {
-      badge.hidden = !att.approvals;
-      badge.textContent = String(att.approvals);
-    }
-
-    if (mascot) {
+    if (PRESENTER && mascot) {
       fillFront(view);
       if (!showing) setMood(baseMood());
     }
-    root.querySelector('.bd-now').replaceChildren(...nowLine(view));
-    const list = groups(view.tasks).slice(0, GROUPS_SHOWN);
-    root.querySelector('.bd-groups').replaceChildren(...(list.length ? list.map(groupRow) : [h('li', { class: 'bd-g-empty', text: '아직 없어요' })]));
+    if (PRESENTER) {
+      root.querySelector('.bd-now').replaceChildren(...nowLine(view));
+      const list = groups(view.tasks).slice(0, GROUPS_SHOWN);
+      root.querySelector('.bd-groups').replaceChildren(...(list.length ? list.map(groupRow) : [h('li', { class: 'bd-g-empty', text: '아직 없어요' })]));
+    }
   }
 
   function saveProject() {
     try { localStorage.setItem('studio.boardProject', project || ''); } catch (_) { /* 저장 못 해도 됨 */ }
   }
 
-  // 머리줄: 제목(픽셀) · 이번 주 목표 알약(눌러서 고치기) · 프로젝트 분절 단추
-  function headerParts(view, projects) {
+  // 머리줄: 위치(›) · 큰 제목 + 도구(프로젝트·묶기·보기 방식·내보내기·새 지시) · 보기 칩(개수) + 이번 주 목표 + 직원 얼굴
+  const SVG = {
+    kanban: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="4.5" height="16" rx="1.5"/><rect x="9.75" y="4" width="4.5" height="10" rx="1.5"/><rect x="16" y="4" width="4.5" height="13" rx="1.5"/></svg>',
+    list: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.5h12M8 12h12M8 17.5h12"/><circle cx="4.2" cy="6.5" r="1"/><circle cx="4.2" cy="12" r="1"/><circle cx="4.2" cy="17.5" r="1"/></svg>',
+    download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14"/></svg>',
+  };
+  const withSvg = (el, svg) => { el.innerHTML = svg; return el; };
+
+  function headerParts(view, projects, cols, now) {
     const goal = view.goals.week || '정하지 않음';
+    const pj = project ? (projects.find((p) => p.key === project) || {}).title : null;
+    const counts = viewCounts(view.tasks, project, now);
+    const filter = projects.length > 1 ? h('div', { class: 'bd-seg', role: 'group', 'aria-label': '프로젝트' },
+      [{ key: null, title: '전체' }, ...projects].map((p) => h('button', {
+        type: 'button', class: `bd-chip ${project === p.key ? 'on' : ''}`, 'data-fk': `chip:${p.key || ''}`, 'aria-pressed': String(project === p.key),
+        onclick: () => { project = p.key; saveProject(); render(); },
+      }, p.title))) : null;
+    const grouper = projects.length > 1 ? h('button', {
+      type: 'button', class: `bd-toggle ${byProject ? 'on' : ''}`, 'data-fk': 'group', role: 'switch', 'aria-checked': String(byProject), title: '칸 안에서 프로젝트별로 모아 보기',
+      onclick: () => { byProject = !byProject; try { localStorage.setItem('studio.boardGroup', byProject ? '1' : '0'); } catch (_) { /* 저장 못 해도 됨 */ } render(); },
+    }, h('span', { text: '프로젝트별로 묶기' }), h('i', { 'aria-hidden': 'true' })) : null;
+    const modeBtn = (key, label) => withSvg(h('button', {
+      type: 'button', class: `bd-chip bd-mode ${mode === key ? 'on' : ''}`, 'data-fk': `mode:${key}`, 'aria-pressed': String(mode === key), 'aria-label': `${label} 보기`, title: `${label} 보기`,
+      onclick: () => { mode = key; try { localStorage.setItem('studio.boardMode', key); } catch (_) { /* 저장 못 해도 됨 */ } render(); },
+    }), SVG[key]);
+    const exporter = withSvg(h('button', {
+      type: 'button', class: 'bd-iconbtn', 'data-fk': 'export', 'aria-label': '표 파일로 내려받기', title: '지금 보이는 일을 표 파일(CSV)로 내려받기',
+      onclick: () => exportCsv(view),
+    }), SVG.download);
     return [
-      h('h2', { text: '진행판' }),
-      h('button', { type: 'button', class: 'bd-goal', 'data-fk': 'goal', title: `이번 주 목표: ${goal} · 눌러서 고치기`,
-        onclick: DEMO ? null : () => Popups.memo('이번 주 목표', view.goals.week, '정하기', (text) => Data.setGoal(text.slice(0, 40)).catch(hooks.fail)) },
-      h('span', { text: '이번 주 목표' }), h('b', { text: goal })),
-      DEMO ? h('span', { class: 'bd-demo-tag', text: '개발용 가짜 작업' }) : null,
-      projects.length > 1 ? h('div', { class: 'bd-filter', role: 'group', 'aria-label': '프로젝트' },
-        [{ key: null, title: '전체' }, ...projects].map((p) => h('button', {
-          type: 'button', class: `bd-chip ${project === p.key ? 'on' : ''}`, 'data-fk': `chip:${p.key || ''}`, 'aria-pressed': String(project === p.key),
-          onclick: () => { project = p.key; saveProject(); render(); },
-        }, p.title))) : null,
-    ];
+      h('nav', { class: 'bd-crumb', 'aria-label': '위치' }, h('span', { text: '진행판' }), h('i', { 'aria-hidden': 'true', text: '›' }),
+        h('span', { class: 'cur', text: query ? `“${query}” 찾기` : `${pj || '전체'} · ${(VIEWS.find((v) => v.key === viewKey) || VIEWS[0]).label}` }),
+        query ? h('button', { type: 'button', class: 'bd-clear', text: '지우기', onclick: () => { query = ''; render(); } }) : null),
+      h('div', { class: 'bd-titlebar' }, h('h2', { text: '진행판' }), h('div', { class: 'bd-tools' }, filter, grouper,
+        h('div', { class: 'bd-seg bd-modes', role: 'group', 'aria-label': '보기 방식' }, modeBtn('kanban', '칸반'), modeBtn('list', '목록')), exporter, newButton())),
+      h('div', { class: 'bd-viewsrow' },
+        h('div', { class: 'bd-views', role: 'group', 'aria-label': '보기' }, VIEWS.map((v) => h('button', {
+          type: 'button', class: `bd-vchip ${v.key} ${viewKey === v.key ? 'on' : ''} ${counts[v.key] ? 'some' : 'zero'}`, 'data-fk': `view:${v.key}`, 'aria-pressed': String(viewKey === v.key),
+          onclick: () => { viewKey = v.key; render(); },
+        }, h('span', { text: v.label }), h('b', { text: String(counts[v.key]) })))),
+        DEMO ? h('span', { class: 'bd-demo-tag', text: '개발용 가짜 작업' }) : null,
+        h('button', { type: 'button', class: 'bd-goal', 'data-fk': 'goal', title: `이번 주 목표: ${goal} · 눌러서 고치기`,
+          onclick: DEMO ? null : () => Popups.memo('이번 주 목표', view.goals.week, '정하기', (text) => Data.setGoal(text.slice(0, 40)).catch(hooks.fail)) },
+        h('span', { text: '이번 주 목표' }), h('b', { text: goal })),
+        staffStack()),
+    ].filter(Boolean);
+  }
+
+  // 검은 알약 '새 지시': 아래 명령창으로 가서 바로 쓰게 한다
+  function newButton() {
+    const el = h('button', { type: 'button', class: 'bd-new', 'data-fk': 'new', onclick: focusCommand });
+    el.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+    el.append(h('span', { text: '새 지시' }));
+    return el;
+  }
+
+  function focusCommand() {
+    const input = document.getElementById('command-input');
+    const form = document.getElementById('command');
+    if (!input || input.disabled) return;
+    input.focus();
+    if (!form) return;
+    form.classList.remove('ping');
+    void form.offsetWidth; // 애니메이션을 처음부터
+    form.classList.add('ping');
+    setTimeout(() => form.classList.remove('ping'), 1200);
+  }
+
+  // 지금 보이는 일을 표 파일(CSV)로: 프로젝트·보기·찾기 거름을 그대로 따르고, 끝난 일도 모두 넣는다. 엑셀에서 한글이 안 깨지게 맨 앞에 BOM을 붙인다.
+  function exportCsv(view) {
+    const cols = columns(view.tasks, project, { query, extraOf, view: viewKey, now: Date.now(), doneLimit: 100000 });
+    const rows = [['번호', '제목', '단계', '종류', '프로젝트', '담당', '실행 횟수', '실행 분', '만든 때', '바뀐 때']];
+    for (const c of cols) {
+      for (const t of c.tasks) {
+        const u = t.usage || {};
+        rows.push([t.id, t.title, Data.statusLabel(t), Data.kindLabel(t), Data.projectTitle(t.project) || '', Data.owner(t).name, u.runs ?? '', u.minutes ?? '', t.created_at || '', t.updated_at || '']);
+      }
+    }
+    const url = URL.createObjectURL(new Blob([String.fromCharCode(0xFEFF) + toCsv(rows)], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ai-studio-진행판-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    hooks.notify((Data.BY_ROLE.producer || Data.TEAM[0]).name, `일 ${rows.length - 1}개를 표 파일로 내려받았어요`);
+  }
+
+  // 직원 얼굴을 겹쳐 놓고 일하는 직원은 초록 테두리
+  function staffStack() {
+    const team = Data.TEAM || [];
+    if (!team.length) return null;
+    const working = team.filter((p) => p.state === 'work').length;
+    return h('div', { class: 'bd-stack', role: 'img', 'aria-label': `직원 ${team.length}명, ${working}명 일하는 중` },
+      ...team.map((p) => h('span', { class: `bd-stack-item ${p.state === 'work' ? 'work' : ''}`.trim(), title: `${p.name} · ${p.title || ''}${p.state === 'work' ? ' · 일하는 중' : ''}` },
+        Popups.face(p.id, p.state === 'blocked' ? 'worried' : 'normal'))),
+      h('span', { class: 'bd-stack-txt', text: working ? `${working}명 일하는 중` : `직원 ${team.length}명` }));
+  }
+
+  // 지시별 진행: 아직 안 끝난 지시만 (최대 FLOW_SHOWN개). 다 끝났으면 줄이 없다
+  function flowParts(view) {
+    return groups(view.tasks).filter((g) => g.done < g.total).slice(0, FLOW_SHOWN).map((g) => {
+      const bar = h('span', { class: 'bd-g-bar' }, h('i'));
+      bar.firstChild.style.setProperty('--pct', `${g.pct}%`);
+      return h('div', { class: `bd-g ${g.blocked ? 'bad' : ''}`.trim(), title: `${g.title} · ${g.total}개 중 ${g.done}개 완료${g.blocked ? ` · 막힘 ${g.blocked}개` : ''}` },
+        h('span', { class: 'bd-g-title', text: g.title }), h('span', { class: 'bd-g-num', text: `${g.done}/${g.total}` }), bar);
+    });
   }
 
   // 고정 SVG 체크 표시 (데이터가 아님)
@@ -679,27 +994,17 @@ const Board = (() => {
     return el;
   }
 
-  // 한눈 요약 줄: 결재 기다림(호박, 결재함 열기) · 막힘(빨강, 첫 막힌 카드로) · 일하는 중(파랑, 안내). 셋 다 0이면 초록 한 줄.
-  function attnParts(att) {
-    if (att.idle) return [h('p', { class: 'bd-attn-clear' }, checkIcon(), h('span', { text: '지금은 사장님이 할 일이 없어요' }))];
-    const lamp = (tag, tone, label, n, hint, props = {}) => h(tag, {
-      class: ['bd-lamp', tone, n ? '' : 'zero'].filter(Boolean).join(' '), title: hint, ...props,
-    }, h('i', { class: 'dot', 'aria-hidden': 'true' }), h('span', { class: 'label', text: label }), h('b', { class: 'n', text: String(n) }));
-    return [
-      lamp('button', 'amber', '결재 기다림', att.approvals, '눌러서 결재함 열기', {
-        type: 'button', disabled: !att.approvals, 'data-fk': 'lamp:approvals', 'aria-label': `결재 기다림 ${att.approvals}건 · 눌러서 결재함 열기`,
-        onclick: () => Popups.inbox(),
-      }),
-      lamp('button', 'red', '막힘', att.blocked, '눌러서 막힌 카드로 가기', {
-        type: 'button', disabled: !att.blocked, 'data-fk': 'lamp:blocked', 'aria-label': `막힌 일 ${att.blocked}건 · 눌러서 막힌 카드로 가기`,
-        onclick: () => focusBlocked(att.firstBlocked),
-      }),
-      lamp('span', 'blue', '일하는 중', att.working, '지금 일하고 있는 일 (안내)'),
-    ];
-  }
-
   // 첫 막힌 카드로 스크롤하고 잠깐 강조 (프로젝트 거름 때문에 안 보이면 '전체'로)
   let flash = null; // { id, until }
+  let page = 'board'; // 'home' | 'board' | 'media' | 'novel' | 'design' (왼쪽 메뉴의 홈·진행판·이미지·영상 작업대·소설 집필실·디자인 작업실)
+  const SHELL_PAGES = ['home', 'media', 'novel', 'design']; // 진행판 말고 껍데기 안에서 따로 그리는 페이지
+  const NAV_PAGES = ['home', 'board', 'media', 'novel', 'design']; // 켜진 쪽이 표시되는 메뉴 단추
+  const rooms = {}; // 소설 집필실·디자인 작업실 (rooms.js)
+  let viewKey = 'all'; // 보기 칩 (VIEWS)
+  let byProject = false; // 프로젝트별로 묶기
+  let mode = 'kanban'; // 'kanban' | 'list'
+  let query = ''; // 빠른 찾기에서 '진행판에서 보기'로 넘어온 글 (없으면 빈 글)
+  const extraOf = (t) => `${Data.owner(t).name} ${Data.kindLabel(t)} ${Data.projectTitle(t.project) || ''}`; // 찾기에 보태는 글: 담당 이름·종류·프로젝트 이름
   function focusBlocked(id) {
     if (!id) return;
     const t = viewNow().tasks.find((x) => x.id === id);
@@ -724,17 +1029,73 @@ const Board = (() => {
     }, 1600);
   }
 
-  function column(c, view) {
+  // 빈 칸: 작은 그림 + 한 줄 안내 (대기 칸만 '새 지시' 단추)
+  const EMPTY_SVG = '<svg viewBox="0 0 120 72" aria-hidden="true"><rect x="8" y="10" width="72" height="44" rx="10" fill="#fff" stroke="#dfe2e8"/><rect x="20" y="22" width="30" height="6" rx="3" fill="#dfe2e8"/><rect x="20" y="34" width="46" height="6" rx="3" fill="#eceef2"/><rect x="60" y="28" width="48" height="36" rx="10" fill="#fff" stroke="#dfe2e8"/><circle cx="96" cy="46" r="10" fill="#e3e5ff"/><path d="M96 41v10M91 46h10" stroke="#4f46e5" stroke-width="2" stroke-linecap="round"/></svg>';
+  function emptyState(key) {
+    const el = h('div', { class: 'bd-empty' });
+    el.innerHTML = EMPTY_SVG;
+    const text = query ? '찾는 일이 없어요'
+      : viewKey !== 'all' ? (key === 'done' ? '끝난 일은 ‘전체’ 보기에서 볼 수 있어요' : '이 보기에는 해당하는 일이 없어요')
+        : key === 'list' ? '아직 일이 없어요. 새 지시를 적어 보세요' : EMPTY_TEXT[key];
+    el.append(h('p', { text }));
+    if ((key === 'waiting' || key === 'list') && !query && viewKey === 'all') el.append(newButton());
+    return el;
+  }
+
+  function column(c, view, projectKey) {
     const more = c.total - c.tasks.length;
     const has = c.tasks.length > 0;
+    const grouped = byProject && (view.projects || []).length > 1;
+    const items = [];
+    let last;
+    for (const t of c.tasks) {
+      if (grouped && t.project !== last) {
+        last = t.project;
+        items.push(h('p', { class: 'bd-glabel', text: Data.projectTitle(t.project) || '프로젝트 없음' }));
+      }
+      items.push(card(t, view));
+    }
     const cards = h('div', { class: 'bd-cards' },
-      has ? c.tasks.map((t) => card(t, view)) : h('p', { class: 'bd-empty', text: EMPTY_TEXT[c.key] }),
-      more > 0 ? h('button', { type: 'button', class: 'bd-more', 'data-action': 'diary', text: `더 보기 · 업무 일지 (${more}개)` }) : null);
+      has ? items : emptyState(c.key),
+      more > 0 ? h('button', { type: 'button', class: 'bd-more', 'data-action': 'diary', text: `${more}개 더 보기 · 업무 일지` }) : null);
     cards.addEventListener('scroll', () => fade(cards), { passive: true });
     // 빈 칸은 개수 알약(0)을 그리지 않는다 — 좁은 칸에서 제목이 잘리지 않게, 안내 글이 이미 비었다고 말한다
     return h('section', { class: `bd-col c-${c.key} ${has ? 'has' : 'empty'}`, 'data-key': c.key, 'aria-label': `${c.label} ${c.total}개` },
       h('h3', {}, h('i', { class: 'bd-dot', 'aria-hidden': 'true' }), h('span', { class: 'bd-col-name', text: c.label }), c.total ? h('b', { class: 'bd-count', text: String(c.total) }) : null),
       cards);
+  }
+
+  // 목록 보기: 같은 일을 한 줄씩 (단계 · 번호 · 제목 · 담당 · 종류 · 프로젝트 · 실행 · 바뀐 때). 줄을 누르면 카드와 같은 창이 열린다
+  const LIST_HEAD = ['단계', '번호', '제목', '담당', '종류', '프로젝트', '실행', '바뀐 때'];
+  function listEl(cols, view) {
+    const rows = cols.flatMap((c) => c.tasks.map((t) => listRow(t)));
+    const total = cols.reduce((n, c) => n + c.total, 0);
+    const more = total - rows.length;
+    return h('div', { class: 'bd-list', role: 'table', 'aria-label': `일 목록 ${total}개` },
+      h('div', { class: 'bd-list-head', role: 'row' }, LIST_HEAD.map((t) => h('span', { role: 'columnheader', text: t }))),
+      h('div', { class: 'bd-list-body' }, rows.length ? rows : emptyState('list'),
+        more > 0 ? h('button', { type: 'button', class: 'bd-more', 'data-action': 'diary', text: `${more}개 더 보기 · 업무 일지` }) : null));
+  }
+
+  function listRow(t) {
+    const p = Data.owner(t);
+    const blocked = t.status === 'blocked';
+    const open = DEMO ? () => {} : () => (t.status === 'awaiting_approval' ? Popups.openTask(t) : Popups.taskCard(t.id));
+    const u = t.usage || {};
+    const proj = Data.projectTitle(t.project) || '';
+    return h('div', {
+      class: `bd-row s-${stageKey(t.status)}`, role: 'row', tabindex: '0', 'data-id': t.id, 'data-fk': `row:${t.id}`,
+      'aria-label': `${t.title}, ${Data.statusLabel(t)}, ${p.name}`, onclick: open,
+      onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } },
+    },
+    h('span', { class: 'bd-row-st', role: 'cell' }, h('i', { class: 'bd-dot', 'aria-hidden': 'true' }), h('span', { text: Data.statusLabel(t) })),
+    h('span', { class: 'bd-row-id', role: 'cell', text: t.id }),
+    h('b', { class: 'bd-row-title', role: 'cell', text: t.title, title: t.title }),
+    h('span', { class: 'bd-row-who', role: 'cell' }, Popups.face(p.id, blocked ? 'worried' : 'normal', 'bd-face-mini'), h('span', { text: p.name })),
+    h('span', { class: 'bd-row-kind', role: 'cell', text: Data.kindLabel(t) }),
+    h('span', { class: 'bd-row-proj', role: 'cell', text: proj, title: proj }),
+    h('span', { class: 'bd-row-use', role: 'cell', text: u.runs ? `${u.runs}번 · ${u.minutes}분` : '–' }),
+    h('span', { class: 'bd-row-at', role: 'cell', text: ago(t.updated_at) }));
   }
 
   function card(t, view) {
@@ -743,6 +1104,7 @@ const Board = (() => {
     const open = DEMO ? () => {} : () => (t.status === 'awaiting_approval' ? Popups.openTask(t) : Popups.taskCard(t.id));
     const proj = Data.projectTitle(t.project);
     const lit = flash && flash.id === t.id && Date.now() < flash.until;
+    const u = t.usage || {};
     return h('article', {
       class: ['bd-card', `s-${stageKey(t.status)}`, blocked ? 'blocked' : '', lit ? 'flash' : ''].filter(Boolean).join(' '),
       tabindex: '0', role: 'button', 'data-id': t.id, 'data-fk': `card:${t.id}`,
@@ -750,12 +1112,13 @@ const Board = (() => {
       onclick: open,
       onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } },
     },
-    h('span', { class: 'bd-card-top' }, h('span', { class: 'bd-kind', text: Data.KIND_LABELS[t.kind] || t.kind }),
+    h('span', { class: 'bd-card-top' }, h('span', { class: 'bd-kind', text: Data.kindLabel(t) }),
       blocked ? h('span', { class: 'bd-flag', text: t.needs_plan_input ? '답변 필요' : '막힘' }) : null, h('span', { class: 'bd-id', text: t.id })),
     h('b', { class: 'bd-title', text: t.title, title: t.title }),
-    h('span', { class: 'bd-who' }, h('span', { class: 'bd-who-main' }, Popups.face(p.id, blocked ? 'worried' : 'normal', 'bd-face-mini'), h('span', { class: 'bd-name', text: p.name })),
-      proj ? h('span', { class: 'bd-proj', text: proj, title: proj }) : null),
+    proj ? h('span', { class: 'bd-proj', text: proj, title: proj }) : null,
     ...infoLines(t, view),
+    h('span', { class: 'bd-foot' }, h('span', { class: 'bd-who' }, Popups.face(p.id, blocked ? 'worried' : 'normal', 'bd-face-mini'), h('span', { class: 'bd-name', text: p.name })),
+      u.runs ? h('span', { class: 'bd-use', text: `실행 ${u.runs}번 · ${u.minutes}분` }) : null),
     action(t));
   }
 
@@ -797,31 +1160,32 @@ const Board = (() => {
       out.push(h('span', { class: 'bd-live', text: reviewing ? `리뷰 중 · ${Data.BY_ROLE[cur.role] ? Data.BY_ROLE[cur.role].name : ''}`.replace(/ · $/, '') : '신뢰 검사 중' }));
     }
     const tags = [qaText(t.qa), reviewText(t.review)].filter(Boolean).filter(() => ['checking', 'awaiting_approval', 'done', 'blocked'].includes(t.status));
-    const u = t.usage || {};
-    // 검사·리뷰 딱지와 실행 횟수는 한 줄에 이어 붙인다 (카드가 길어지지 않게)
-    if (tags.length || u.runs) {
-      out.push(h('span', { class: 'bd-tags' }, tags.map(([text, tone]) => h('span', { class: `bd-tag ${tone}`, text })),
-        u.runs ? h('span', { class: 'bd-use', text: `실행 ${u.runs}번 · ${u.minutes}분` }) : null));
-    }
+    if (tags.length) out.push(h('span', { class: 'bd-tags' }, tags.map(([text, tone]) => h('span', { class: `bd-tag ${tone}`, text }))));
     // 배운 스킬: 하나면 ★ 제목, 둘 이상이면 ★ 스킬 N개 · 따른 정도 (따랐다고 알렸으면 초록). 자세한 이름은 title과 작업 카드에서
     const used = Popups.skillUse(t);
     if (used.length) out.push(h('span', { class: 'bd-skills' }, skillChip(used)));
     return out;
   }
 
-  function action(t) {
-    const stopped = Data.get().stopped;
-    const b = (label, cls, run, needsRun = false) => h('button', {
-      type: 'button', class: `bd-act ${cls}`, disabled: needsRun && stopped, title: needsRun && stopped ? '정지 중이에요' : null,
-      onclick: (e) => { e.stopPropagation(); if (!DEMO) run(); },
-    }, label);
-    if ((t.status === 'ready' || (t.status === 'queued' && (t.created_by || '').startsWith('supervisor:')))) {
-      return b('실행', 'go', () => Data.act(t.id, 'run').then(() => hooks.notify(Data.owner(t).name, `${t.title} 시작할게요!`)).catch(hooks.fail), true);
+  // 카드·홈이 함께 쓰는 '다음에 할 행동': 실행 · 결재하기 · 도와주기. 없으면 null
+  function actionOf(t) {
+    if (t.status === 'ready' || (t.status === 'queued' && (t.created_by || '').startsWith('supervisor:'))) {
+      return { label: '실행', cls: 'go', needsRun: true, run: () => Data.act(t.id, 'run').then(() => hooks.notify(Data.owner(t).name, `${t.title} 시작할게요!`)).catch(hooks.fail) };
     }
     // 기획은 회의실에서 퀘스트를 고르는 결재라 이름을 그렇게
-    if (t.status === 'awaiting_approval') return b(t.kind === 'plan' ? '퀘스트 고르기' : '결재하기', 'approve', () => Popups.openTask(t));
-    if (t.status === 'blocked') return b(t.needs_plan_input ? '질문 보기' : '도와주기', 'help', () => Popups.taskCard(t.id));
+    if (t.status === 'awaiting_approval') return { label: t.kind === 'plan' ? '퀘스트 고르기' : '결재하기', cls: 'approve', run: () => Popups.openTask(t) };
+    if (t.status === 'blocked') return { label: t.needs_plan_input ? '질문 보기' : '도와주기', cls: 'help', run: () => Popups.taskCard(t.id) };
     return null;
+  }
+
+  function action(t) {
+    const a = actionOf(t);
+    if (!a) return null;
+    const stopped = Data.get().stopped;
+    return h('button', {
+      type: 'button', class: `bd-act ${a.cls}`, disabled: a.needsRun && stopped, title: a.needsRun && stopped ? '정지 중이에요' : null,
+      onclick: (e) => { e.stopPropagation(); if (!DEMO) a.run(); },
+    }, a.label);
   }
 
   // 지금 하는 일: 점 있는 알약 (일하면 파란 점, 없으면 회색 점, 긴급 정지면 빨간 점)
@@ -881,7 +1245,7 @@ const Board = (() => {
     });
   }
 
-  return { logic, init, update, setVisible, render, demoFlip, demoPose, demoRig, isVisible: () => visible };
+  return { logic, init, update, setVisible, setPage, render, view: () => viewNow(), focusCommand, actionOf, openRoom, setQuery: (q) => { query = String(q || '').trim(); render(); }, demoFlip, demoPose, demoRig, isVisible: () => visible };
 })();
 
 if (typeof module !== 'undefined') module.exports = Board; // tools/dev/board_sim.js (node)

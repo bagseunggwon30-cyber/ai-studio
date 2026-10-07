@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#2e2b3d">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="color-scheme" content="light">
   <meta name="referrer" content="no-referrer">
   <title>AI 스튜디오 리모컨</title>
   <link rel="icon" href="/favicon.svg">
@@ -11,19 +12,21 @@
   <script src="/m.js" defer></script>
 </head>
 <body>
-  <!-- 휴대폰 리모컨: 결재·지시·긴급 정지. 데이터는 m.js가 /m/api에서 읽어 textContent로만 넣는다 -->
-  <header class="top">
-    <b class="name" id="name">AI 스튜디오</b>
-    <span class="energy" id="energy"></span>
-    <button class="stop" id="stop" type="button" hidden>긴급 정지</button>
-  </header>
-  <div class="banner" id="banner" role="status" hidden></div>
+  <!-- 휴대폰 리모컨: 결재·지시·긴급 정지. 데이터는 m.js가 /m/api에서 읽어 textContent로만 넣는다 (선 아이콘만 고정 SVG 글자열) -->
+  <div class="topwrap">
+    <header class="top">
+      <b class="name" id="name">AI 스튜디오</b>
+      <span class="energy" id="energy" hidden><span class="ic" data-icon="bolt" aria-hidden="true"></span><span class="lbl">에너지</span><span id="energy-text"></span></span>
+      <button class="stop" id="stop" type="button" hidden>긴급 정지</button>
+    </header>
+    <div class="banner" id="banner" role="status" hidden></div>
+  </div>
   <main class="app" id="app"></main>
   <nav class="tabs" id="tabs" aria-label="화면" hidden>
-    <button type="button" data-tab="inbox">결재함<span class="badge" id="badge" hidden></span></button>
-    <button type="button" data-tab="work">진행</button>
-    <button type="button" data-tab="order">지시</button>
-    <button type="button" data-tab="alerts">알림</button>
+    <button type="button" data-tab="inbox"><span class="ti" data-icon="inbox" aria-hidden="true"></span><span>결재함</span><span class="badge" id="badge" hidden></span></button>
+    <button type="button" data-tab="work"><span class="ti" data-icon="board" aria-hidden="true"></span><span>진행</span></button>
+    <button type="button" data-tab="order"><span class="ti" data-icon="send" aria-hidden="true"></span><span>지시</span></button>
+    <button type="button" data-tab="alerts"><span class="ti" data-icon="bell" aria-hidden="true"></span><span>알림</span></button>
   </nav>
 </body>
 </html>

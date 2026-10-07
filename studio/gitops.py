@@ -31,6 +31,15 @@ def git(args: list[str], cwd: Path, *, check: bool = True, timeout: int = 120) -
     return subprocess.CompletedProcess(cmd, p.returncode, out, err)
 
 
+def git_bytes(args: list[str], cwd: Path, *, timeout: int = 120) -> bytes:
+    """git 출력을 글로 바꾸지 않고 그대로 (그림 파일 읽기용). 실패하면 GitError."""
+    cmd = ["git", "-c", "core.quotepath=false", "-c", "core.longpaths=true", *args]
+    p = subprocess.run(cmd, cwd=str(cwd), capture_output=True, timeout=timeout, creationflags=no_window_flags())
+    if p.returncode != 0:
+        raise GitError(f"git {' '.join(args[:3])} 실패 ({p.returncode}): {p.stderr.decode('utf-8', 'replace').strip()[:500]}")
+    return p.stdout
+
+
 def is_repo(path: Path) -> bool:
     return (Path(path) / ".git").exists()
 

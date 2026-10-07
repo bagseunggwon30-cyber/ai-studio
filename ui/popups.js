@@ -12,7 +12,7 @@ const Popups = (() => {
   const host = document.getElementById('popup-host');
   const stack = [];
   let lastFocus = null;
-  let hooks = { notify: () => {}, onOpen: () => {}, onClose: () => {} };
+  let hooks = { notify: () => {}, onOpen: () => {}, onClose: () => {}, goRoom: () => {} };
 
   // ---------------------------------------------------------------- 작은 도구
   function h(tag, props, ...kids) {
@@ -112,7 +112,7 @@ const Popups = (() => {
   // ---------------------------------------------------------------- 쌓기
   function open(render, opts = {}) {
     if (!stack.length) lastFocus = document.activeElement;
-    stack.push({ render, st: {}, keep: Boolean(opts.keep), taskId: opts.taskId || null });
+    stack.push({ render, st: {}, keep: Boolean(opts.keep), taskId: opts.taskId || null, reviewOf: opts.reviewOf || null });
     hooks.onOpen();
     draw(true);
   }
@@ -249,6 +249,70 @@ const Popups = (() => {
 
   function soon(title, step) { dialog(title, `${step}단계에서 연결돼요.`, [{ label: '닫기', kind: 'primary' }]); }
 
+  // ---------------------------------------------------------------- 결재 대기 취소 (결재 창·보고서·회의실·스킬·도구·결재함·업무 카드 공통)
+  // 취소는 서버의 기존 취소(Engine.cancel)를 그대로 쓴다. 되돌릴 수 없으니 늘 확인 창을 거친다.
+  const CANCEL_WAITING_NOTE = '취소하면 작업이 끝나고 되돌릴 수 없어요. 만들어진 결과 파일은 지우지 않아요.';
+
+  // 한 작업의 결재 창(결재·보고서·회의실 …)이 맨 위에 겹쳐 있으면 함께 닫는다 (업무 카드에서 취소했을 때 밑의 결재 창이 남지 않게)
+  function closeReviewOf(id) {
+    let closed = false;
+    while (stack.length && stack[stack.length - 1].reviewOf === id) { stack.pop(); closed = true; }
+    if (closed) draw(true);
+  }
+
+  // 결재 대기 작업 한 건: 확인 창 → 취소 → 열려 있던 창(st)과 그 결재 창을 닫고 알린다
+  function cancelWaiting(t, { st = null } = {}) {
+    dialog('결재 대기 중인 작업을 취소할까요?', `${t.title}\n${CANCEL_WAITING_NOTE}`, [
+      { label: '아니요' },
+      { label: '취소하기', kind: 'danger', needsRun: true, run: () => Data.act(t.id, 'cancel')
+        .then(() => { if (st) closeOwn(st); closeReviewOf(t.id); hooks.notify(Data.owner(t).name, '취소했어요'); }).catch(fail) },
+    ]);
+  }
+
+  // 결재함의 묶음 취소 그룹: 프로젝트 + 종류 이름 (순서는 처음 나온 순서). 종류 이름은 편지의 칩(tagOf)과 같다.
+  // 다만 개발 카드의 칩은 검사 결과('품질 합격'·'검사 없음')라서 종류 이름(개발·디자인·집필)을 쓴다. 프로젝트가 하나뿐이면 프로젝트 이름은 붙이지 않는다
+  function waitingGroups(list) {
+    const groups = new Map();
+    for (const t of list) {
+      const kind = t.kind === 'build' ? Data.kindLabel(t) : tagOf(t)[0];
+      const key = `${t.project}|${kind}`;
+      if (!groups.has(key)) groups.set(key, { name: `${Data.projectTitle(t.project) ? `${Data.projectTitle(t.project)} ` : ''}${kind}`, tasks: [] });
+      groups.get(key).tasks.push(t);
+    }
+    return [...groups.values()];
+  }
+
+  // 결재함의 '그룹별 취소': 그 그룹(같은 프로젝트·같은 종류)의 결재 대기만 한 번에 (서버는 한 번에 100건까지라 나눠 보낸다).
+  // 다른 그룹의 카드는 건드리지 않는다. 결재 대기가 아니게 된 것은 서버가 건너뛴다
+  function cancelGroupWaiting(group) {
+    const list = group.tasks;
+    const ids = list.map((t) => t.id);
+    if (!ids.length) return;
+    const clip = (s) => (s.length > 36 ? `${s.slice(0, 35)}…` : s);
+    const shown = list.slice(0, 5).map((t) => `· ${t.id} ${clip(t.title)}`);
+    const more = list.length > 5 ? [`외 ${list.length - 5}건`] : [];
+    dialog(`${group.name} ${ids.length}건을 모두 취소할까요?`, `${[...shown, ...more].join('\n')}\n\n취소하면 되돌릴 수 없고 결과 파일은 지우지 않아요.`, [
+      { label: '아니요' },
+      { label: `${ids.length}건 모두 취소`, kind: 'danger', needsRun: true, run: async () => {
+        const who = (Data.BY_ROLE.producer || Data.TEAM[0]).name;
+        const done = []; const skipped = [];
+        try {
+          for (let i = 0; i < ids.length; i += 100) {
+            const part = await Data.cancelWaiting(ids.slice(i, i + 100));
+            done.push(...part.cancelled); skipped.push(...part.skipped);
+          }
+        } catch (err) {
+          // 중간에 끊겨도 이미 된 것은 알린다
+          hooks.notify(who, done.length ? `${done.length}건을 취소하고 멈췄어요. ${err.message || err}` : (err.message || String(err)));
+          return;
+        }
+        hooks.notify(who, skipped.length
+          ? `${done.length}건을 취소했어요. ${skipped.length}건은 건너뛰었어요. (${skipped[0].id}: ${skipped[0].reason})`
+          : `${done.length}건을 모두 취소했어요`);
+      } },
+    ]);
+  }
+
   function memo(title, placeholder, sendLabel, onSend) {
     open((st) => {
       const area = h('textarea', { class: 'memo-input', maxlength: '2000', placeholder, text: st.text || '', 'aria-label': title, 'data-focus-key': 'memo-text', autofocus: true, oninput: (e) => { st.text = e.target.value; } });
@@ -306,6 +370,15 @@ const Popups = (() => {
     blocked ? h('span', { class: 'ribbon', text: t.needs_plan_input ? '답변 필요' : '막힘' }) : null);
   }
 
+  // 프로젝트 종류 칩 (개발·Godot·문서·디자인·소설) · 설명이 없을 때 보이는 기본 글 · 작업실로 가는 길
+  const KIND_HINT = { godot: '게임 프로젝트', design: '디자인 프로젝트', novel: '소설 작품', docs: '문서 프로젝트' };
+  const kindChip = (kind) => { const name = Data.projectKindLabel(kind || 'generic'); return name ? h('i', { class: `pj-kind ${kind || 'generic'}`, text: name }) : null; };
+  function goRoom(mode, key) { closeAll(); hooks.goRoom(mode, key); }
+  function roomsHint(text) {
+    return h('div', { class: 'pj-rooms' }, h('p', { text }),
+      btn('새 작품 만들기 (소설 집필실)', '', () => goRoom('novel')), btn('새 디자인 프로젝트 만들기 (디자인 작업실)', '', () => goRoom('design')));
+  }
+
   function chooseProject() {
     open(() => h('div', { class: 'pop dialog paper project-picker', role: 'dialog', 'aria-modal': 'true', 'aria-label': '작업 대상 선택' },
       closeBtn(), h('h2', { text: '어느 프로젝트에서 일할까요?' }),
@@ -313,8 +386,9 @@ const Popups = (() => {
       h('div', { class: 'project-options' }, Data.get().projects.map((p) => h('button', {
         type: 'button', class: 'project-option', 'aria-pressed': String(p.key === Data.currentProject()?.key),
         onclick: () => { close(); Data.setProject(p.key); },
-      }, h('b', { text: p.title }), h('span', { text: p.description || (p.kind === 'godot' ? '게임 프로젝트' : '등록된 제품 프로젝트') }),
+      }, kindChip(p.kind), h('b', { text: p.title }), h('span', { text: p.description || KIND_HINT[p.kind] || '등록된 제품 프로젝트' }),
       h('small', { text: `작업 파일: ${(p.default_allowed_paths || []).join(', ') || '프로젝트의 허용 범위'}` })))),
+      roomsHint('소설이나 디자인 프로젝트는 작업실에서 새로 만들 수 있어요.'),
       btn('프로젝트 등록', 'primary', () => registerProject())));
   }
 
@@ -326,10 +400,22 @@ const Popups = (() => {
     return h('label', { class: 'project-field' }, h('span', { text: label }), h(multiline ? 'textarea' : 'input', props));
   }
 
+  // 등록할 프로젝트 종류 (기본은 일반 개발). 서버가 kind를 받아 종류별 작업 지침을 쓴다
+  const REGISTER_KINDS = [['generic', '일반 개발'], ['godot', 'Godot 게임'], ['docs', '문서'], ['design', '디자인'], ['novel', '소설']];
+  function kindPicker(st) {
+    const box = h('div', { class: 'pj-kindrow', role: 'radiogroup', 'aria-label': '프로젝트 종류' });
+    for (const [value, text] of REGISTER_KINDS) {
+      box.append(h('button', { type: 'button', class: 'pj-kindchip', role: 'radio', 'data-value': value, 'data-focus-key': `register-kind-${value}`, 'aria-checked': String((st.kind || 'generic') === value),
+        onclick: () => { st.kind = value; box.querySelectorAll('.pj-kindchip').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.value === value))); } }, text));
+    }
+    return h('div', { class: 'project-field' }, h('span', { text: '프로젝트 종류' }), box,
+      h('span', { class: 'pj-kindhelp', text: '종류에 따라 직원에게 가는 작업 지침이 달라져요. 잘 모르면 일반 개발로 두세요.' }));
+  }
+
   function registerProject() {
     open((st) => {
       const applyPreset = () => Data.projectDefaults().then((d) => {
-        Object.assign(st, { key: 'ai-studio', title: 'AI Studio', repo: d.repo, main_branch: d.main_branch,
+        Object.assign(st, { key: 'ai-studio', title: 'AI Studio', kind: 'generic', repo: d.repo, main_branch: d.main_branch,
           description: 'AI Studio 감독 프로그램의 화면과 디자인 개선', paths: d.allowed_paths.join('\n') });
         if (isTop(st)) draw();
       }).catch(fail);
@@ -337,7 +423,7 @@ const Popups = (() => {
         if (st.busy) return;
         st.busy = true; st.error = ''; hold(st);
         try {
-          const result = await Data.registerProject({ key: st.key, title: st.title, repo: st.repo,
+          const result = await Data.registerProject({ key: st.key, title: st.title, kind: st.kind || 'generic', repo: st.repo,
             main_branch: st.main_branch, description: st.description || '',
             allowed_paths: (st.paths || '').split('\n').map(x => x.trim()).filter(Boolean), confirm_scope: Boolean(st.confirmed) });
           Data.setProject(result.project); closeOwn(st);
@@ -349,10 +435,11 @@ const Popups = (() => {
         closeBtn(), h('h2', { text: '프로젝트 등록' }),
         h('div', { class: 'project-form-body', 'data-scroll-key': 'register-body', tabindex: '0' },
           btn('AI Studio 자체 입력', '', applyPreset),
-          projectField(st, 'title', '프로젝트 이름'), projectField(st, 'key', '프로젝트 ID (영문 소문자)'),
+          projectField(st, 'title', '프로젝트 이름'), projectField(st, 'key', '프로젝트 ID (영문 소문자)'), kindPicker(st),
           projectField(st, 'repo', 'Git 폴더 전체 경로'), projectField(st, 'main_branch', '기준 브랜치'),
           projectField(st, 'description', '설명'), projectField(st, 'paths', '수정 허용 경로 (한 줄에 하나)', true),
           h('p', { text: '기존 로컬 Git 저장소만 등록합니다. 작업 사본은 커밋 기준으로 만들므로 아직 커밋하지 않은 변경은 포함되지 않습니다.' }),
+          roomsHint('소설이나 디자인 프로젝트를 처음부터 만들고 싶다면 작업실에서 새로 만들 수 있어요.'),
           h('label', { class: 'project-confirm' }, h('input', { type: 'checkbox', checked: st.confirmed,
             'data-focus-key': 'register-confirm', onchange: e => { st.confirmed = e.target.checked; } }),
             '폴더·브랜치·수정 범위를 확인했습니다. 자동 검증은 아직 없으며 리뷰와 CEO 확인이 필요합니다.'),
@@ -419,7 +506,8 @@ const Popups = (() => {
       }
       const onShelf = Data.get().trophies.some((x) => x.task === t.id);
       if (t.status === 'done' && t.kind === 'build' && !onShelf) {
-        actions.push(btn('완성작에 올리기', 'lav-btn', () => Data.addTrophy(t.id)
+        const shelfKind = ['novel', 'design'].includes(Data.projectKind(t.project)) ? Data.projectKind(t.project) : 'game'; // 소설·디자인 프로젝트의 일은 그 종류로 올린다
+        actions.push(btn('완성작에 올리기', 'lav-btn', () => Data.addTrophy(t.id, shelfKind)
           .then(() => { close(); hooks.notify(p.name, '완성작 선반에 올렸어요!'); }).catch(fail), { iconName: 'star' }));
       }
       if (t.status === 'blocked') {
@@ -431,11 +519,12 @@ const Popups = (() => {
         }
       }
       if (t.status === 'awaiting_approval') actions.push(btn('열기', 'primary', () => { close(); openTask(t); }));
-      if (!['done', 'cancelled', 'awaiting_approval'].includes(t.status)) {
-        actions.push(btn('취소', 'danger', () => dialog('작업을 취소할까요?', t.title, [
+      if (!['done', 'cancelled'].includes(t.status)) {
+        // 결재 대기는 되돌릴 수 없다는 안내가 든 확인 창 (결과 파일은 지우지 않는다), 그 밖의 상태는 예전 글 그대로
+        actions.push(btn('취소', 'danger', () => (t.status === 'awaiting_approval' ? cancelWaiting(t, { st }) : dialog('작업을 취소할까요?', t.title, [
           { label: '아니요' },
           { label: '취소하기', kind: 'danger', needsRun: true, run: () => Data.act(id, 'cancel').then(close).catch(fail) },
-        ]), { needsRun: true }));
+        ])), { needsRun: true }));
       }
       return h('div', { class: 'pop tc paper', role: 'dialog', 'aria-modal': 'true', 'aria-label': t.title },
         closeBtn(),
@@ -582,15 +671,29 @@ const Popups = (() => {
     open((st) => {
       const list = Data.inbox(Boolean(st.archived));
       const later = Data.inbox(true).length;
+      const groups = waitingGroups(list);
+      // 편지는 몇 통이든 모두 이 칸 안에서 스크롤로 닿는다 (칸이 길어지면 이 칸만 스크롤, 아래 단추는 늘 보인다).
+      // 확인 창을 다녀오거나 편지가 줄어 다시 그려도 스크롤 자리를 지킨다 (한 통씩 연달아 취소할 때 맨 위로 튀지 않게)
+      const tray = h('div', { class: `ib-tray ${list.length ? '' : 'empty'}`.trim(), 'data-focus-key': 'inbox-tray',
+        tabindex: list.length ? '0' : null, role: list.length ? 'region' : null, 'aria-label': list.length ? `결재할 편지 ${list.length}통` : null,
+        onscroll: (e) => { st.scroll = e.currentTarget.scrollTop; } },
+      list.length ? list.map((t, i) => letter(t, i === 0 && !st.archived))
+        : h('p', { class: 'ib-empty', text: st.archived ? '미뤄 둔 편지가 없어요' : '결재할 게 없어요. 다들 잘하고 있어요!' }));
+      queueMicrotask(() => { if (st.scroll) tray.scrollTop = st.scroll; }); // 화면에 붙은 직후
       return h('div', { class: 'pop ib', role: 'dialog', 'aria-modal': 'true', 'aria-label': '결재함' },
         closeBtn(),
         h('h2', { class: 'ib-sign', text: st.archived ? `나중에 보기 ${list.length}` : `결재함 ${list.length}` }),
-        h('div', { class: 'ib-tray' },
-          list.length ? list.slice(0, 4).map((t, i) => letter(t, i === 0 && !st.archived))
-            : h('p', { class: 'ib-empty', text: st.archived ? '미뤄 둔 편지가 없어요' : '결재할 게 없어요. 다들 잘하고 있어요!' }),
-          list.length > 4 ? h('p', { class: 'ib-more', text: `그 밖에 ${list.length - 4}통` }) : null),
-        later || st.archived ? h('button', { type: 'button', class: 'ib-later',
-          onclick: () => { st.archived = !st.archived; draw(); } }, icon('archive'), st.archived ? '결재함으로' : `나중에 보기 ${later}`) : null);
+        tray,
+        later || st.archived || list.length ? h('div', { class: `ib-foot ${list.length ? '' : 'solo'}`.trim() },
+          later || st.archived ? h('button', { type: 'button', class: 'ib-later',
+            onclick: () => { st.archived = !st.archived; st.scroll = 0; draw(); } }, icon('archive'), st.archived ? '결재함으로' : `나중에 보기 ${later}`) : null,
+          groups.length ? h('div', { class: 'ib-groups', role: 'group', 'aria-label': '결재 대기 그룹별 취소' }, groups.map((g) => {
+            // 그룹이 하나면 '모두 취소 (N)', 여럿이면 그룹마다 '<프로젝트> <종류> 모두 취소 (N)' (전부 한꺼번에 지우는 단추는 두지 않는다: 다른 그룹을 같이 지우는 실수를 막으려고)
+            const label = groups.length === 1 ? `모두 취소 (${g.tasks.length})` : `${g.name} 모두 취소 (${g.tasks.length})`;
+            const b = btn(label, 'danger soft ib-cancel-group', () => cancelGroupWaiting(g), { needsRun: true, aria: `${g.name} 모두 취소 (${g.tasks.length})` });
+            if (!b.title) b.title = `${g.name} ${g.tasks.length}건`; // 긴 이름이 잘려 보여도 전체를 볼 수 있게 (정지 중에는 '정지 중이에요')
+            return b;
+          })) : null) : null);
     });
   }
 
@@ -603,7 +706,10 @@ const Popups = (() => {
       h('div', { class: 'letter-body' }, h('span', { class: 'letter-title', text: t.title, title: t.title }),
         h('span', { class: 'letter-tags' }, h('span', { class: `tag ${tone}`, text: tag }),
           Data.projectTitle(t.project) ? h('span', { class: 'letter-proj', text: Data.projectTitle(t.project) }) : null)),
-      btn('열기', 'wood', () => openTask(t)));
+      // 열기 옆의 작은 보조 단추: 결재 창을 열지 않고 바로 취소 (확인 창을 거친다)
+      h('div', { class: 'letter-actions' },
+        btn('열기', 'wood', () => openTask(t)),
+        btn('취소', 'ib-cancel', () => cancelWaiting(t), { needsRun: true, aria: `${t.title} 취소` })));
   }
 
   // ---------------------------------------------------------------- 결재 창 (03)
@@ -656,9 +762,10 @@ const Popups = (() => {
                 } }, h('span', { text: st.stamped ? '승인!' : '승인' })),
               btn('수정 요청', 'paper-btn', () => memo('수정 요청', `${p.name}에게 무엇을 고쳐 달라고 할까요?`, '보내기',
                 (note) => Data.act(id, 'request-changes', { note }).then(() => { close(); hooks.notify(p.name, '고쳐서 다시 올릴게요!'); }).catch(fail)),
-              { needsRun: true }))]));
+              { needsRun: true }),
+              btn('결재 취소', 'danger soft', () => cancelWaiting(t, { st }), { needsRun: true, disabled: done }))]));
       return sheet;
-    });
+    }, { reviewOf: id });
   }
 
   function diffView(t, st) {
@@ -737,9 +844,10 @@ const Popups = (() => {
             btn('질문하기', 'paper-btn', () => memo('질문하기', `${p.name}에게 무엇을 물어볼까요?`, '보내기',
               (note) => Data.act(id, 'request-changes', { note }).then(() => { close(); hooks.notify(p.name, '찾아보고 다시 올릴게요!'); }).catch(fail)),
             { needsRun: true }),
+            btn('결재 취소', 'danger soft', () => cancelWaiting(t, { st }), { needsRun: true }),
             btn('', 'paper-btn square', () => Data.act(id, 'archive').then(() => { close(); hooks.notify(p.name, '나중에 보기로 옮겼어요'); }).catch(fail),
               { iconName: 'archive', aria: t.archived ? '결재함으로 되돌리기' : '나중에 보기로 보관' })) : null));
-    });
+    }, { reviewOf: id });
   }
 
   function sources(r) {
@@ -767,9 +875,9 @@ const Popups = (() => {
     else dialog('회의실', '지금은 회의가 없어요.', [{ label: '닫기', kind: 'primary' }]);
   }
 
-  // 퀘스트로 붙이기: 고른 카드는 본사 퀘스트 보드 쪽으로 날아가고, 안 고른 카드는 흐려진다.
-  // 승인과 날아가기가 둘 다 끝나면 닫는다 (닫히면 본사 벽에 새 쪽지가 떨어진다, app.js).
-  const BOARD = [902, 200]; // 본사 퀘스트 보드 가운데 (캔버스 좌표)
+  // 퀘스트로 붙이기: 고른 카드는 화면 위쪽 가운데로 날아가고, 안 고른 카드는 흐려진다.
+  // 승인과 날아가기가 둘 다 끝나면 닫는다.
+  const BOARD = [902, 200]; // 카드가 날아가 모이는 자리 (캔버스 좌표)
 
   function attachQuests(st, id, picked, producer) {
     if (stopped() || !begin(st)) return;
@@ -811,7 +919,9 @@ const Popups = (() => {
           h('header', {}, h('h2', { text: d.proposal.simulation ? 'MOCK / 모의 목표 기획' : 'AI 목표 기획 · CEO 결재' })),
           h('div', { class: 'mt-content' }, h('pre', { text: JSON.stringify(d.proposal.review, null, 2) }),
             h('p', { text: '검증된 기술 버전·연결·검증 조건을 확인하세요. 외부 실행은 별도 요청별 승인과 비용 미상 동의가 필요합니다.' })),
-          h('footer', {}, btn('작업대에서 검토', 'primary', () => { close(); document.dispatchEvent(new CustomEvent('studio:planner-review', { detail: d.proposal.workbench_plan })); })), closeBtn());
+          h('footer', {},
+            t.status === 'awaiting_approval' ? btn('결재 취소', 'danger soft', () => cancelWaiting(t, { st }), { needsRun: true }) : null,
+            btn('작업대에서 검토', 'primary', () => { close(); document.dispatchEvent(new CustomEvent('studio:planner-review', { detail: d.proposal.workbench_plan })); })), closeBtn());
       }
       const questions = (d.proposal && d.proposal.questions) || [];
       const picked = cards.filter((c) => c.checked).length;
@@ -843,6 +953,7 @@ const Popups = (() => {
           h('footer', { class: 'mt-footer' },
             h('div', {}, h('b', { class: 'mt-picked', 'aria-live': 'polite', text: needsInput ? '답변 기다림' : `선택 ${picked} / ${cards.length}` }), h('p', { text: say })),
             pending ? h('div', { class: 'mt-actions' },
+              btn('결재 취소', 'danger soft', () => cancelWaiting(t, { st }), { needsRun: true }),
               btn('다시 기획', '', () => memo('다시 기획', '어떻게 바꿔 볼까요?', '보내기',
                 (note) => Data.act(id, 'request-changes', { note }).then(() => { close(); hooks.notify(producer.name, '다시 나눠 볼게요!'); }).catch(fail)), { needsRun: true }),
               cards.length ? btn('퀘스트로 붙이기', 'primary', () => {
@@ -850,13 +961,13 @@ const Popups = (() => {
                 attachQuests(st, id, picked, producer);
               }, { needsRun: true }) : null) : needsInput ? h('div', { class: 'mt-actions' }, btn('답변하고 다시 기획', 'primary', () => replyToPlan(id), { needsRun: true })) : h('p', { class: 'panel-status', text: waiting ? '확인이 필요한 기획안 · 승인할 작업 없음' : '정리된 기획안 · 선택 변경 불가' }))),
         closeBtn());
-    });
+    }, { reviewOf: id });
   }
 
   // 회의실 직원: 꾸미기가 적용된 정지 그림 (역할로 찾는다)
   function sprite(role, action, cls, height) {
     const p = Data.BY_ROLE[role];
-    const c = Scene.still(p ? p.id : 'sol', action, p ? p.look : null, height);
+    const c = Stills.still(p ? p.id : 'sol', action, p ? p.look : null, height);
     c.classList.add('mt-sprite', cls);
     return c;
   }
@@ -1129,6 +1240,9 @@ const Popups = (() => {
   }
 
   // ---------------------------------------------------------------- 완성작 (10)
+  // 종류 이름: 게임 · 소설 · 디자인 · (나머지는 보고서). 소설·디자인은 '열기'가 그 작업실에서 연다
+  const TROPHY_KIND = { game: '게임', novel: '소설', design: '디자인' };
+  const TROPHY_ROOMS = ['novel', 'design'];
   function trophies() {
     open(() => {
       const s = Data.get();
@@ -1137,8 +1251,8 @@ const Popups = (() => {
         closeBtn(),
         h('h2', { class: 'tr-sign', text: '완성작' }),
         h('p', { class: 'tr-intro', text: '완료한 작품을 모아 뒀어요. 아래 목록에서 결과를 확인하세요.' }),
-        h('div', { class: 'tr-shelves', tabindex: '0', role: 'region', 'aria-label': '완성작 목록', 'data-scroll-key': 'trophies', 'data-focus-key': 'trophies' }, slots.length ? slots.map((item) => h('article', { class: `tr-slot ${item.kind}` },
-          h('div', { class: 'tr-info' }, h('span', { class: 'panel-kicker', text: item.kind === 'game' ? '게임' : '보고서' }),
+        h('div', { class: 'tr-shelves', tabindex: '0', role: 'region', 'aria-label': '완성작 목록', 'data-scroll-key': 'trophies', 'data-focus-key': 'trophies' }, slots.length ? slots.map((item) => h('article', { class: `tr-slot ${item.kind}${TROPHY_ROOMS.includes(item.kind) ? ' report' : ''}` },
+          h('div', { class: 'tr-info' }, h('span', { class: 'panel-kicker', text: TROPHY_KIND[item.kind] || '보고서' }),
             h('h3', { text: item.title }), h('p', { class: 'tr-meta', text: (Data.task(item.task) || {}).project || item.task })),
           item.kind === 'game' ? [
               h('span', { class: 'tr-item' }, h('span', { class: 'cart' }, h('span', { class: 'cart-label', text: item.title })), icon('trophy', 'tr-cup')),
@@ -1146,8 +1260,8 @@ const Popups = (() => {
                 .then(() => hooks.notify((Data.BY_ROLE.builder || {}).name || '솔', 'Godot로 게임을 켰어요!')).catch(fail), { iconName: 'play' })]
               : [
                 h('span', { class: 'frame' }, h('span', { class: 'frame-title', text: item.title }),
-                  face((Data.BY_ROLE.analyst || { id: 'luna' }).id, 'normal', 'frame-face'), h('span', { class: 'frame-lines' })),
-                btn('열기', 'lav-btn', () => report(item.task), { iconName: 'doc' })])) : h('p', { class: 'panel-empty', text: '아직 완성작이 없어요. 작업을 끝내고 결재하면 여기에 모여요.' })),
+                  face((TROPHY_ROOMS.includes(item.kind) ? (Data.BY_ROLE.builder || { id: 'sol' }) : (Data.BY_ROLE.analyst || { id: 'luna' })).id, 'normal', 'frame-face'), h('span', { class: 'frame-lines' })),
+                btn('열기', 'lav-btn', () => (TROPHY_ROOMS.includes(item.kind) ? goRoom(item.kind, item.project) : report(item.task)), { iconName: 'doc' })])) : h('p', { class: 'panel-empty', text: '아직 완성작이 없어요. 작업을 끝내고 결재하면 여기에 모여요.' })),
         h('p', { class: 'tr-plate', text: `완성 ${s.trophies.length} · 이번 달 목표 ${s.goals.month}` }));
     });
   }
@@ -1183,13 +1297,16 @@ const Popups = (() => {
   }
 
   // 스킬을 쓰는 곳: 프로젝트·일 종류. 비어 있으면 모든 곳 (studio/skills.py in_scope)
-  // 셋째는 칩에 다는 도움말. '디자인 일'은 종류가 아니라 조건 (다른 종류와 함께 고르면 그 종류의 디자인 일만)
+  // 셋째는 칩에 다는 도움말. '디자인 일'·'소설 작품 일'은 종류가 아니라 조건 (다른 종류와 함께 고르면 그 종류의 그런 일만)
   const SCOPE_KINDS = [['plan', '기획'], ['build', '개발'], ['research', '리서치'], ['review', '리뷰'], ['study', '스킬 공부'], ['tool', 'MCP 만들기'],
-    ['design', '디자인 일', '화면·그림·글자 모양을 다루는 일일 때만 붙어요']];
+    ['design', '디자인 일', '화면·그림·글자 모양을 다루는 일일 때만 붙어요'],
+    ['novel', '소설 작품 일', '소설 프로젝트의 일일 때만 붙어요']];
+  const SCOPE_CONDITIONS = ['design', 'novel'];
   const kindLabel = (k) => (SCOPE_KINDS.find(([x]) => x === k) || [k, k])[1];
   function kindsText(kinds) {
-    const work = kinds.filter((k) => k !== 'design').map(kindLabel).join('·');
-    return kinds.includes('design') ? (work ? `${work} 중 디자인 일` : '디자인 일') : work;
+    const work = kinds.filter((k) => !SCOPE_CONDITIONS.includes(k)).map(kindLabel).join('·');
+    const only = kinds.filter((k) => SCOPE_CONDITIONS.includes(k)).map(kindLabel).join('·');
+    return only ? (work ? `${work} 중 ${only}` : only) : work;
   }
   function projectName(key) {
     const p = Data.get().projects.find((x) => x.key === key);
@@ -1498,6 +1615,7 @@ const Popups = (() => {
           h('div', { class: 'skd-learn skd-scope' }, h('span', { class: 'skd-label', text: '쓰는 곳' }),
             scopeToggles(st.scope, (next) => { st.scope = next; })),
           h('div', { class: 'row-btns' },
+            btn('결재 취소', 'danger soft', () => cancelWaiting(t, { st }), { needsRun: true }),
             btn('다시 공부', 'paper-btn', () => memo('다시 공부', `${p.name}에게 무엇을 더 공부해 오라고 할까요?`, '보내기',
               (note) => Data.act(id, 'request-changes', { note }).then(() => { close(); hooks.notify(p.name, '더 공부해 올게요!'); }).catch(fail)),
             { needsRun: true }),
@@ -1514,7 +1632,7 @@ const Popups = (() => {
               }).catch((err) => { end(st, true); fail(err); });
             }, { needsRun: true }))]
           : h('p', { class: 'skd-meta', text: '이미 정리된 공부예요.' }));
-    });
+    }, { reviewOf: id });
   }
 
   // ---------------------------------------------------------------- MCP 보관소 (왼쪽 서재)
@@ -1679,6 +1797,7 @@ const Popups = (() => {
           h('div', { class: 'skd-learn' }, h('span', { class: 'skd-label', text: '장착할 직원' }),
             whoToggles(st.equip, (role, on) => { st.equip = on ? [...new Set([...st.equip, role])] : st.equip.filter((r) => r !== role); }, { people: mcpPeople() })),
           h('div', { class: 'row-btns' },
+            btn('결재 취소', 'danger soft', () => cancelWaiting(t, { st }), { needsRun: true }),
             btn('다시 만들기', 'paper-btn', () => memo('다시 만들기', `${p.name}에게 무엇을 고쳐 오라고 할까요?`, '보내기',
               (note) => Data.act(id, 'request-changes', { note }).then(() => { close(); hooks.notify(p.name, '고쳐 올게요!'); }).catch(fail)),
             { needsRun: true }),
@@ -1694,7 +1813,7 @@ const Popups = (() => {
               }).catch((err) => { end(st, true); fail(err); });
             }, { needsRun: true }))]
           : h('p', { class: 'skd-meta', text: `${Data.STATUS_LABELS[t.status]} 상태예요.` }));
-    });
+    }, { reviewOf: id });
   }
 
   // 바깥 MCP 등록: 명령으로 띄우기(stdio) 또는 주소로 잇기(http). 토큰은 하나까지 여기서, 더 있으면 등록 뒤 자세히 보기에서.
@@ -1969,10 +2088,10 @@ const Popups = (() => {
       const styles = Object.entries((opts.styles || {})[id] || { base: '기본' });
       const canColor = Looks.colorable(id);
       // 미리보기 (몸 막대를 끄는 동안에는 이 그림만 바꾼다)
-      const preview = h('div', { class: 'cz-preview' }, h('span', { class: 'cz-floor' }), Scene.still(id, 'step', st.look, 300), faceEl);
+      const preview = h('div', { class: 'cz-preview' }, h('span', { class: 'cz-floor' }), Stills.still(id, 'step', st.look, 300), faceEl);
       const refreshPreview = () => {
         const old = preview.querySelector('.sprite-still');
-        const next = Scene.still(id, 'step', st.look, 300);
+        const next = Stills.still(id, 'step', st.look, 300);
         if (old) old.replaceWith(next);
         else preview.prepend(next);
       };
@@ -2220,7 +2339,7 @@ const Popups = (() => {
             }).catch((err) => { end(st, true); fail(err); });
           }, { needsRun: true }))
           : h('p', { class: 'skd-meta', text: `${Data.STATUS_LABELS[t.status]} 상태예요.` }));
-    });
+    }, { reviewOf: id });
   }
 
   // ---------------------------------------------------------------- 캐릭터 제조실 (새 직원)
@@ -2250,7 +2369,7 @@ const Popups = (() => {
       h('span', { text: waiting.length ? `만드는 중 ${waiting.length}명` : `빈 책상 ${max - made}자리` }));
   }
 
-  // 층 늘리기 (studio/floors.py): 책상과 휴식터가 있는 층이 하나 생긴다. 열면 그 층을 보여 준다.
+  // 층 늘리기 (studio/floors.py): 책상과 휴식터가 있는 층이 하나 생긴다 (새 직원을 더 뽑을 수 있는 자리).
   function addFloor() {
     const f = Data.get().floors;
     const n = f.count + 1;
@@ -2258,7 +2377,7 @@ const Popups = (() => {
       { label: '아니요' },
       { label: `${n}층 열기`, kind: 'primary', needsRun: true, run: () => Data.addFloor()
         .then(() => Data.refresh())
-        .then(() => { closeAll(); Scene.showFloor(n); Sfx.play('cheer'); hooks.notify('하나', `${n}층을 열었어요!`); })
+        .then(() => { closeAll(); Sfx.play('cheer'); hooks.notify('하나', `${n}층을 열었어요!`); })
         .catch(fail) },
     ]);
   }
@@ -2350,13 +2469,11 @@ const Popups = (() => {
             Data.act(id, 'approve', { inherit_skills: st.inherit !== false }).then(() => pause(700)).then(() => {
               closeOwn(st);
               end(st);
-              const m = Data.TEAM.find((x) => x.name === ex.name);
               hooks.notify(ex.name, '잘 부탁드려요!');
-              if (m) Scene.setState(m.id, 'celebrate', { text: '안녕하세요!' });
             }).catch((err) => { end(st, true); fail(err); });
           }, { needsRun: true }))
           : h('p', { class: 'skd-meta', text: `${Data.STATUS_LABELS[t.status]} 상태예요.` }));
-    });
+    }, { reviewOf: id });
   }
 
   function openTarget(target) {

@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
-from . import __version__, ai, company, evidence, floors, gitops, login, mcp, qr, remote, schedules, skills, wardrobe, grok_everywhere
+from . import __version__, ai, company, evidence, floors, gitops, login, mcp, mcp_gateway, modes, projects, qr, remote, schedules, skills, wardrobe, grok_everywhere
 from .supervisor import Supervisor, AccessError
 from .config import Config
 from .checkpoints import digest
@@ -110,6 +110,7 @@ class StudioServer(ThreadingHTTPServer):
         self.parent = parent
         self.lan_mode = parent is not None
         self.remote = parent.remote if parent else remote.Remote(cfg)
+        self.gateway = parent.gateway if parent else mcp_gateway.Gateway(cfg, store, engine)  # MCP 연결 문 (기본 꺼짐, 별도 서버)
         self.lan_server: StudioServer | None = None
         self.token = secrets.token_urlsafe(24)
         self.boot = parent.boot if parent else secrets.token_hex(3)  # 재시작하면 버전이 0부터 다시 세어도 화면이 새로 읽게
@@ -242,6 +243,8 @@ class StudioHandler(BaseHTTPRequestHandler):
                 return self._json(self._remote_info())
             if path == "/api/remote/check":
                 return self._json(self._remote_check())
+            if path == "/api/gateway":  # 외부 연결 (MCP 연결 문): 상태·권한·연결 목록·최근 기록. 토큰·번호는 담지 않는다
+                return self._json(self.server.gateway.status())
             if path == "/api/remote/qr.svg":
                 return self._send(200, qr.svg(query.get("u", "")).encode("utf-8"), "image/svg+xml; charset=utf-8")
             if path in ("/", "/index.html"):
@@ -264,6 +267,10 @@ class StudioHandler(BaseHTTPRequestHandler):
                 return self._json({"skills": grok_everywhere.catalog(), "connection": self.server.engine.workbench.grok_executor.status()})
             if path == "/api/workbench/ledger":
                 return self._json({"runs": self.server.engine.workbench.ledger()})
+            if path == "/api/workbench/media":
+                wb = self.server.engine.workbench
+                return self._json({"jobs": wb.media_jobs(), "connection": wb.grok_executor.status(),
+                                   "capabilities": {"image": wb.capability("grok_image"), "video": wb.capability("grok_video")}})
             if path.startswith("/api/workbench/runs/") and path.count("/") == 7 and path.split("/")[5] == "artifacts":
                 parts = path.split("/")
                 artifact, media_kind = self.server.engine.workbench.provider_artifact(parts[4], parts[6], int(parts[7]))
@@ -288,6 +295,21 @@ class StudioHandler(BaseHTTPRequestHandler):
                 return self._json(self._diary(query.get("day")))
             if path.startswith("/api/skills/"):
                 return self._json(self._skill_detail(path.split("/")[3]))
+            if path == "/api/modes":
+                return self._json(modes.describe())
+            parts = path.split("/")
+            if len(parts) == 5 and parts[:3] == ["", "api", "projects"] and parts[4] in ("tree", "file", "raw"):
+                cfg = self.server.cfg
+                try:
+                    if parts[4] == "tree":
+                        return self._json({"files": projects.tree(cfg, parts[3])})
+                    if parts[4] == "file":
+                        return self._json(projects.read_text(cfg, parts[3], query.get("path", "")))
+                    data, ctype = projects.read_raw(cfg, parts[3], query.get("path", ""))
+                    # 그림 파일은 이미지로만 쓰이게: SVG 안의 글·스크립트가 이 주소에서 실행되지 않도록 별도 제한을 더한다
+                    return self._send(200, data, ctype, {"Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:"})
+                except (ValueError, gitops.GitError) as exc:
+                    return self._error(HTTPStatus.NOT_FOUND, str(exc))
             if path == "/api/projects/defaults":
                 cfg = self.server.cfg
                 branch = gitops.current_branch(cfg.root) if gitops.is_repo(cfg.root) else "main"
@@ -420,7 +442,7 @@ class StudioHandler(BaseHTTPRequestHandler):
         try:
             if path == "/api/grok-everywhere/plan":
                 try:
-                    return self._json(grok_everywhere.plan(body))
+                    return self._json(grok_everywhere.plan(body, mode=engine.workbench.grok_executor.status().get("mode")))
                 except grok_everywhere.ContractError as exc:
                     return self._error(HTTPStatus.BAD_REQUEST, str(exc))
             if path == "/api/grok-everywhere/execute":
@@ -432,6 +454,8 @@ class StudioHandler(BaseHTTPRequestHandler):
                         return self._json(grok_everywhere.connection_plan(body))
                     if path.endswith("/configure"):
                         return self._json(executor.configure(body))
+                    if path.endswith("/disconnect") and not body:
+                        return self._json(executor.disconnect())
                     if path.endswith("/consent"):
                         return self._json(executor.approve_request(body))
                     if path.endswith("/video-get") and set(body) == {"execution_id", "download"} and type(body["download"]) is bool:
@@ -483,6 +507,27 @@ class StudioHandler(BaseHTTPRequestHandler):
             if path == "/api/projects":
                 project = engine.register_project(body)
                 return self._json({"ok": True, "project": project.key})
+            if path == "/api/projects/new":  # 소설·디자인 프로젝트를 새 Git 저장소로 만든다
+                project = engine.create_project(body)
+                return self._json({"ok": True, "project": project.key, "kind": project.kind})
+            if path == "/api/modes/start":  # 시작 버튼(템플릿): 칸 값을 채워 기획 지시로 보낸다
+                key = str(body.get("project", ""))
+                project = self.server.cfg.projects.get(key)
+                if not project:
+                    return self._error(HTTPStatus.NOT_FOUND, "프로젝트를 찾을 수 없습니다.")
+                if set(body) - {"project", "template", "values"}:
+                    return self._error(HTTPStatus.BAD_REQUEST, "알 수 없는 입력이 있습니다.")
+                try:
+                    text = modes.render_template(project.kind, str(body.get("template", "")), body.get("values", {}))
+                except ValueError as exc:
+                    return self._error(HTTPStatus.BAD_REQUEST, str(exc))
+                title = next((t["title"] for t in modes.templates(project.kind) if t["id"] == body.get("template")), None)
+                task = engine.submit_directive(text, key, extra={"template": str(body.get("template", ""))}, title=title)
+                return self._json({"ok": True, "task": task.id})
+            if path == "/api/tasks/cancel-waiting":  # 결재 대기 묶음 취소 (PC 화면만. 휴대폰 /m/api에는 이 길이 없다). 아래 5칸 경로 검사보다 앞에서 받는다
+                if set(body) - {"ids"}:
+                    return self._error(HTTPStatus.BAD_REQUEST, "알 수 없는 입력이 있어요.")
+                return self._json({"ok": True, **engine.cancel_waiting(body.get("ids"))})
             if path.startswith("/api/tasks/"):
                 parts = path.split("/")
                 if len(parts) != 5:
@@ -632,6 +677,15 @@ class StudioHandler(BaseHTTPRequestHandler):
                 self.server.remote.remove_device(path.split("/")[4])
                 self.server.store.event("remote.forgot", "휴대폰 연결 끊음")
                 return self._json({"ok": True, **self._remote_info()})
+            # 외부 연결 (MCP 연결 문, 이 PC에서만): 켜기·끄기·공개 주소, 권한, 연결 번호, 끊기. 연결 문 서버는 127.0.0.1에만 열린다
+            if path == "/api/gateway/config":
+                return self._json({"ok": True, **self.server.gateway.configure(body)})
+            if path == "/api/gateway/permissions":
+                return self._json({"ok": True, **self.server.gateway.set_permissions(body)})
+            if path == "/api/gateway/code":
+                return self._json({"ok": True, **self.server.gateway.new_code()})
+            if path == "/api/gateway/revoke":
+                return self._json({"ok": True, **self.server.gateway.revoke(body)})
             # 다른 아이디로 로그인 (한도·로그인 만료로 멈췄을 때): 로그인 창 열기, 로그인 끝 → 재개·다시 하기
             if path == "/api/login/open":
                 return self._json({"ok": True, **engine.open_login(str(body.get("runtime") or ""))})
@@ -758,7 +812,8 @@ class StudioHandler(BaseHTTPRequestHandler):
             return r.name if r else str(company.left_staff(cfg).get(role, {}).get("name") or role)
 
         def item(t: Any) -> dict[str, Any]:
-            return {"id": t.id, "kind": t.kind, "kind_label": KIND_LABELS.get(t.kind, t.kind), "status": t.status,
+            proj = cfg.projects.get(t.project)
+            return {"id": t.id, "kind": t.kind, "kind_label": modes.task_label(proj.kind if proj else "", t.kind, KIND_LABELS.get(t.kind, t.kind)), "status": t.status,
                     "status_label": STATUS_LABELS.get(t.status, t.status), "title": t.title, "who": who(t.role),
                     "project": t.project, "updated_at": t.updated_at, "blocked_reason": t.blocked_reason or "",
                     "waiting": engine.waiting_reason(t, tasks), "run_requested": t.run_requested}
@@ -1076,6 +1131,11 @@ def serve(cfg: Config, *, port: int | None = None, open_browser: bool = True) ->
             print(f"  휴대폰 리모컨 (같은 와이파이): {server.start_lan()}", flush=True)
         except ValueError as e:
             store.event("remote.lan", f"휴대폰 리모컨을 켜지 못했어요: {e}")
+    gateway_error = server.gateway.autostart()  # 외부 연결을 켜 둔 채 껐으면 다시 연다 (터널이 없으면 어차피 안 닿는다)
+    if server.gateway.running():
+        print(f"  외부 연결 문 (이 PC 안에서만): http://127.0.0.1:{server.gateway.port}/", flush=True)
+    elif gateway_error:
+        print(f"  외부 연결 문을 열지 못했어요: {gateway_error}", flush=True)
     engine.start()
     server.refresh_doctor()
     url = f"http://127.0.0.1:{port}/"
@@ -1090,6 +1150,7 @@ def serve(cfg: Config, *, port: int | None = None, open_browser: bool = True) ->
     finally:
         store.event("company.closed", "감독 프로그램 종료")
         server.stop_lan(save=False)
+        server.gateway.stop()
         # Keep the lifetime lock until the worker and its child have exited.
         engine.shutdown(timeout=None)
         server.server_close()

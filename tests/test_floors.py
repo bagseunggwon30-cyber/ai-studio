@@ -1,9 +1,8 @@
-"""층 (CEO 결정 2026-09-29): 층 수·책상 수·새 직원 상한·책상 번호, 화면 좌표 파일과 맞는지."""
+"""층 (CEO 결정 2026-09-29): 층 수·책상 수·새 직원 상한·책상 번호. (화면 좌표 파일 ui/assets/bg/floors.json은 도트 사무실과 함께 없앴다 — 2026-10-06)"""
 
-import json
 import unittest
 
-from tests.helpers import ROOT, TempStudio
+from tests.helpers import TempStudio
 from studio import company, floors
 from studio.config import RoleConfig
 from studio.engine import EngineError
@@ -49,22 +48,6 @@ class Floors(unittest.TestCase):
         self.assertEqual([floors.floor_of(n) for n in (0, 5, 6, 13, 14, 21, 99)], [1, 1, 2, 2, 3, 3, 3])
         team = {m["key"]: m for m in company.team(self.cfg, self.store, [], None)}
         self.assertEqual((team["staff3"]["seat"], team["staff3"]["floor"]), (6, 2))
-
-    def test_screen_coordinates_match_desks(self):
-        doc = json.loads((ROOT / "ui" / "assets" / "bg" / "floors.json").read_text(encoding="utf-8"))
-        by_n = {f["n"]: f for f in doc["floors"]}
-        counts = [len((by_n[f["like"]] if "like" in f else f)["desks"]) for f in doc["floors"]]
-        self.assertEqual(tuple(counts), floors.DESKS, "floors.json 책상 수 = floors.py DESKS")
-        for f in doc["floors"]:
-            if "like" in f:
-                continue
-            self.assertTrue((ROOT / "ui" / "assets" / "bg" / f["bg"]).is_file())
-            self.assertGreaterEqual(len(f["rest"]), len(f["desks"]), "책상마다 쉴 자리")
-            for i, _ in enumerate(f.get("fronts", [])):
-                stem = f["bg"].rsplit(".", 1)[0]
-                self.assertTrue((ROOT / "ui" / "assets" / "bg" / f"{stem}.front-{i}.png").is_file(), "make_fronts.gd를 돌렸는지")
-            covered = sorted(d for fr in f.get("fronts", []) for d in fr["desks"])
-            self.assertEqual(covered, list(range(len(f["desks"]))), "모든 의자에 앞 그림")
 
 
 if __name__ == "__main__":

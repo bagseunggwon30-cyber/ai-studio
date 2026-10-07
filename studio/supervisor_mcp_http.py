@@ -5,7 +5,7 @@ import socket
 from urllib.parse import urlparse
 
 from .mcp_builtin.base import MAX_TEXT, ToolError
-from .supervisor import Supervisor, AccessError
+from .supervisor import Supervisor, AccessError, can_run
 from .supervisor_mcp import tools_server
 
 PROTOCOLS = ("2025-11-25", "2025-06-18", "2025-03-26")
@@ -63,14 +63,16 @@ def reject_stream(handler):
         send(handler,405,None,{"Allow":"POST"})
 
 
-def post(handler):
+def post(handler, authorize=None, tools=None):
+    """authorize: guard 대신 쓸 인증 함수 (연결 문이 OAuth 토큰으로 확인). tools: 인증 결과를 받아 이 요청에 보이는 도구 이름
+    집합을 돌려주는 함수 (없으면 전부). 둘 다 없으면 기존 동작 그대로다."""
     handler.connection.settimeout(10)
     try:
         raw=handler._read_body()
     except (OSError,socket.timeout):
         handler.close_connection=True
         return error(handler,408,-32000,"MCP request timeout")
-    access=guard(handler)
+    access=(authorize or guard)(handler)
     if access is None:return
     if raw is None:return error(handler,413,-32600,"MCP request too large")
     if handler.headers.get("Transfer-Encoding"):
@@ -109,11 +111,24 @@ def post(handler):
         if len(output)>MAX_TEXT:raise ToolError("MCP 응답 크기 상한 초과: 로컬 감독 API로 조회하세요.")
         return output
     srv=tools_server(invoke)
+    hidden=set()
+    if tools is not None:
+        visible=tools(access)
+        hidden={n for n in srv.tools if n not in visible}
+    elif not can_run(actor):
+        hidden={"run_task"}  # 옛 감독 토큰 길: 어느 프로젝트에도 run:true가 없으면 실행 시작 도구는 보이지 않는다 (불러도 거절된다)
+    for n in hidden:srv.tools.pop(n)
     try:
         if method == "tools/call":
             params=msg.get("params",{})
             name=params.get("name")
             args=params.get("arguments",{})
+            if isinstance(name,str) and name in hidden:
+                # 보이지 않는 도구는 부르지도 못한다: 이유를 글로 알린다 (모델이 사용자에게 설명할 수 있게)
+                why=("권한이 부족해요: 이 연결에는 실행을 시작할 권한이 없어요. 사장님이 외부 연결 화면에서 프로젝트를 '일 맡기기 + 실행 시작'으로 허용해야 해요."
+                     if name == "run_task" else
+                     "권한이 부족해요: 이 연결에는 이 도구를 쓸 권한이 없어요. 사장님이 외부 연결 화면에서 '일 맡기기'를 허용해야 해요.")
+                return send(handler,200,{"jsonrpc":"2.0","id":rid,"result":{"content":[{"type":"text","text":why}],"isError":True}})
             tool=srv.tools.get(name) if isinstance(name,str) else None
             if (not tool or not isinstance(args,dict)
                     or set(args)-set(tool.schema["properties"])

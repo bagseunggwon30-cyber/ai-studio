@@ -155,4 +155,53 @@ check('인형 엔진이 없어도(node·읽기 실패) cleanMascot이 깨지지 
   } finally { globalThis.Puppet = Puppet; }
 });
 
+// ---- 홈·진행판 새 기능 (2026-10-05): 보기 칩 · 묶기 · 찾기 · 얼마 전 · 표 파일
+const NOW = Date.parse('2026-10-05T12:00:00');
+const day = (n) => new Date(NOW - n * 86400000).toISOString();
+
+check('보기 칩 개수: 열린 일만, 전체 = 열린 일 수 (끝난 일·취소·보관은 안 센다), 프로젝트 거름 안에서', () => {
+  const tasks = [
+    T('T01', 'ready', { created_at: day(5) }), T('T02', 'awaiting_approval', { created_at: day(1) }), T('T03', 'blocked', { created_at: day(4) }),
+    T('T04', 'running', { created_at: day(0) }), T('T05', 'done', { created_at: day(9) }), T('T06', 'cancelled', { created_at: day(9) }),
+    T('T07', 'ready', { project: 'docs', created_at: day(3) }),
+  ];
+  assert.deepStrictEqual(L.viewCounts(tasks, null, NOW), { all: 5, approval: 1, blocked: 1, old: 3 });
+  assert.deepStrictEqual(L.viewCounts(tasks, 'docs', NOW), { all: 1, approval: 0, blocked: 0, old: 1 });
+  assert.strictEqual(L.inView(T('T09', 'done', { created_at: day(30) }), 'old', NOW), false, '끝난 일은 오래된 일이 아니다');
+  assert.strictEqual(L.inView(T('T09', 'ready', { created_at: day(3) }), 'old', NOW), true, '3일부터 오래된 일');
+  assert.strictEqual(L.inView(T('T09', 'ready', { created_at: day(2) }), 'old', NOW), false);
+  assert.strictEqual(L.ageDays({ created_at: '엉망' }, NOW), 0, '시각을 모르면 0일');
+});
+
+check('columns 옵션: 보기·찾기·끝난 일 개수·프로젝트별 묶기 (순서는 그대로 유지)', () => {
+  const tasks = [
+    T('T01', 'ready', { project: 'docs', title: '보고서 쓰기' }), T('T02', 'ready', { project: 'core', title: 'HUD 만들기' }), T('T03', 'ready', { project: 'docs', title: '표지' }),
+    T('T04', 'awaiting_approval', { title: '결재 HUD' }), ...Array.from({ length: 7 }, (_, i) => T(`T1${i}`, 'done')),
+  ];
+  const ids = (cols, key) => cols.find((c) => c.key === key).tasks.map((t) => t.id);
+  assert.deepStrictEqual(ids(L.columns(tasks, null, { view: 'approval', now: NOW }), 'waiting'), [], '결재 기다림 보기에는 대기 칸이 비는다');
+  assert.deepStrictEqual(ids(L.columns(tasks, null, { view: 'approval', now: NOW }), 'awaiting'), ['T04']);
+  assert.deepStrictEqual(L.columns(tasks, null, { view: 'approval', now: NOW }).find((c) => c.key === 'done').total, 0, '끝난 일은 열린 일 보기에서 안 보인다');
+  assert.deepStrictEqual(ids(L.columns(tasks, null, { query: 'hud' }), 'waiting'), ['T02'], '찾기: 대소문자 무시');
+  assert.deepStrictEqual(ids(L.columns(tasks, null, { query: '보고서 쓰기' }), 'waiting'), ['T01'], '찾기: 띄어쓰기로 나눈 낱말이 모두 있어야');
+  assert.deepStrictEqual(ids(L.columns(tasks, null, { query: '없는말' }), 'waiting'), []);
+  const done = L.columns(tasks, null, { doneLimit: 3 }).find((c) => c.key === 'done');
+  assert.strictEqual(done.tasks.length, 3);
+  assert.strictEqual(done.total, 7);
+  assert.deepStrictEqual(ids(L.columns(tasks, null, { group: true }), 'waiting'), ['T02', 'T01', 'T03'], '묶으면 프로젝트별(core, docs) · 안의 차례는 그대로');
+  assert.deepStrictEqual(ids(L.columns(tasks, null), 'waiting'), ['T01', 'T02', 'T03'], '묶지 않으면 만든 차례');
+  assert.deepStrictEqual(ids(L.columns(tasks, null, { query: '담당솔', extraOf: () => '담당솔 개발' }), 'waiting'), ['T01', 'T02', 'T03'], 'extraOf가 주는 글(담당 이름)도 찾는다');
+});
+
+check('찾기·며칠·얼마 전·표 파일(CSV)', () => {
+  assert.strictEqual(L.matches(T('T01', 'ready', { title: 'Steam 보고서' }), 'steam 보'), true);
+  assert.strictEqual(L.matches(T('T01', 'ready'), ''), true, '빈 글은 모두');
+  assert.strictEqual(L.oldestDays([T('T01', 'ready', { created_at: day(6) }), T('T02', 'running', { created_at: day(2) }), T('T03', 'done', { created_at: day(30) })], NOW), 6, '끝난 일은 빼고 가장 오래된 열린 일');
+  assert.strictEqual(L.oldestDays([], NOW), 0);
+  assert.deepStrictEqual([0.2, 5, 130, 60 * 30, 60 * 24 * 3].map((m) => L.ago(new Date(NOW - m * 60000).toISOString(), NOW)), ['방금', '5분 전', '2시간 전', '1일 전', '3일 전']);
+  assert.strictEqual(L.ago('엉망', NOW), '');
+  const csv = L.toCsv([['번호', '제목'], ['T1', '쉼표, 있는 "제목"'], ['T2', '두\n줄']]);
+  assert.strictEqual(csv, ['번호,제목', 'T1,"쉼표, 있는 ""제목"""', 'T2,"두\n줄"'].join('\r\n'));
+});
+
 console.log(`진행판 점검 통과 (${n}개)`);

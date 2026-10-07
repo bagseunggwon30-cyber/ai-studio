@@ -1,6 +1,6 @@
 'use strict';
 // Local Edge + disposable fixture only. No supplier access or downloaded code.
-const { chromium } = require('C:/Users/bark/AppData/Local/npm-cache/_npx/31e32ef8478fbf80/node_modules/playwright-core');
+const { chromium } = require(process.env.PLAYWRIGHT_CORE || 'playwright-core');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
