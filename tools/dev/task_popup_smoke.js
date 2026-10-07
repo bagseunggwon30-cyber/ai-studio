@@ -9,6 +9,8 @@ async (page) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.reload();
   await page.setViewportSize({ width: 1536, height: 1024 });
+  // 처음 화면은 홈이다 (2026-10-05): 카드는 진행판에 있으니 왼쪽 메뉴에서 진행판으로
+  await page.locator('.bd-nav').getByRole('button', { name: '진행판', exact: true }).click();
   await page.waitForFunction(() => Data.loaded && Data.task('T0001')?.needs_plan_input);
   assert(await page.evaluate(() => Data.get().studio.fake === true), '가짜 실행기 회사 확인');
   await page.locator('#project-chip').click();

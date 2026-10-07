@@ -259,7 +259,7 @@ const Workbench = (() => {
       h('div', { class: 'wb-layout' }, h('aside', { class: 'wb-drawer', id: 'wb-toolbox', hidden: true, 'aria-label': '기능 서랍' }),
         h('main', { class: 'wb-main', 'aria-label': '노드 연결 작업대' }), detailPane),
       h('details', { class: 'wb-run-history' }, h('summary', { text: '이 업무의 실행 이력 · 펼쳐 보기' }), h('section', { class: 'wb-ledger', 'aria-label': '실행 장부' })));
-    root.querySelector('.wb-header-actions').append(button('목표로 AI 기획', goalPlanner));
+    root.querySelector('.wb-header-actions').append(button('목표로 AI 기획', goalPlanner), button('Grok 그림·영상 연결', grokConnect));
     root.addEventListener('keydown', e => {
       if (e.key === 'Escape' && !dialogEl && toolboxOpen) { e.preventDefault(); toggleToolbox(false); return; }
       if (e.key === 'Escape' && !dialogEl && detailOpen && detailPane.contains(e.target)) { e.preventDefault(); closeDetail(); return; }
@@ -1162,6 +1162,35 @@ const Workbench = (() => {
     approve.disabled = true;
     d.querySelector('footer').append(button('닫기', closeDialog), approve,
       button('검증된 결과를 재사용 묶음으로 저장', async () => { await Data.workbenchPost('planner/save', { id: identifier }); await loadCatalog(); message('검증된 실행을 재사용 묶음으로 저장했습니다.'); }, { disabled: record.status !== 'approved' }));
+  }
+
+  // 공식 Grok 프로그램(내 grok.com 로그인)으로 그림·영상을 만드는 연결. 로그인 정보 파일은 읽지 않는다.
+  async function grokConnect() {
+    const state = await Data.grokGet('/catalog'), conn = state.connection || {};
+    const connected = Boolean(conn.enabled && conn.mode === 'official_cli');
+    const d = modal('Grok 그림·영상 연결'), body = d.querySelector('.wb-dialog-body');
+    let review = null;
+    try { review = await Data.grokPost('connection-plan', { mode: 'official_cli' }); } catch (e) { body.append(h('p', { class: 'wb-hint', text: e.message })); }
+    body.append(h('p', { class: 'wb-plan-summary', text: connected ? '연결됨 · 이 PC의 공식 Grok 프로그램을 씁니다.' : (conn.configured && conn.mode === 'official_cli' ? '연결 확인에 실패했어요. 다시 연결해 주세요.' : '아직 연결되지 않았어요.') }),
+      h('ul', { class: 'wb-grok-notes' }, [
+        '이 PC에 설치된 공식 Grok 프로그램을 그대로 불러 그림과 영상을 만들어요. 로그인 정보 파일은 AI 스튜디오가 읽지 않아요.',
+        'Grok이 쓸 수 있는 도구를 그림·영상 만들기로만 막아 두었고, 요청마다 한 번씩 승인을 받아요.',
+        '영상은 먼저 그림 한 장을 만든 뒤 그 그림으로 만들어요 (길이 1~15초). 조사(리서치)는 이 연결로 하지 않아요.',
+        '구독 요금제로 되는지는 확인되지 않았어요. 추가 요금은 승인하지 않았고, 비용은 알 수 없음으로 기록해요.',
+      ].map(text => h('li', { text }))),
+      review ? h('p', { class: 'wb-hint', text: `찾은 프로그램: ${review.config.cli_path} · ${review.cli_version}` }) : null);
+    const confirmed = h('input', { type: 'checkbox', name: 'grok-connect-confirm' });
+    body.append(field('위 내용을 확인했고 이 연결을 허용합니다', confirmed, 'wb-check'));
+    const connect = button(connected ? '다시 연결' : '연결하기', async () => {
+      if (!confirmed.checked || !review) return;
+      await Data.grokPost('configure', { mode: 'official_cli', review_hash: review.review_hash, consents: review.consents });
+      await loadCatalog(); renderDrawer(); closeDialog(); message('Grok 그림·영상 연결을 켰어요. 실행할 때 로그인을 한 번 더 확인해요.');
+    }, { class: 'wb-btn primary', disabled: true });
+    confirmed.addEventListener('change', () => { connect.disabled = !confirmed.checked || !review; });
+    const footer = d.querySelector('footer');
+    footer.append(button('닫기', closeDialog));
+    if (conn.configured) footer.append(button('연결 끊기', async () => { await Data.grokPost('disconnect', {}); await loadCatalog(); renderDrawer(); closeDialog(); message('Grok 연결을 껐어요.'); }));
+    footer.append(connect);
   }
 
   async function goalPlanner() {

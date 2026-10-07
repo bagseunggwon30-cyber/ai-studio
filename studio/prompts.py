@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import skills
+from . import modes, skills
 from .config import Config, ProjectConfig
 from .model import KIND_LABELS, Task
 
@@ -67,6 +67,25 @@ REVIEW_SCHEMA = {
     },
 }
 
+# 개발·리서치 리뷰: 검토 직원이 수용 기준(A1, A2…)마다 그 기준을 보여 주는 후보 파일을 짚는다.
+# 감독 프로그램은 짚은 파일이 허용 범위 안의 검증 사본에 실제로 있는지만 확인해 근거로 쓴다 (engine._fill_evidence).
+WORK_REVIEW_SCHEMA = {
+    **REVIEW_SCHEMA,
+    "required": REVIEW_SCHEMA["required"] + ["criteria"],
+    "properties": {
+        **REVIEW_SCHEMA["properties"],
+        "criteria": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["id", "files"],
+                "properties": {"id": {"type": "string"}, "files": {"type": "array", "items": {"type": "string"}}},
+            },
+        },
+    },
+}
+
 
 def _read(path: Path, limit: int = 20000) -> str:
     try:
@@ -78,6 +97,11 @@ def _read(path: Path, limit: int = 20000) -> str:
 
 def _bullets(items: list[str]) -> str:
     return "\n".join(f"- {x}" for x in items) if items else "- (없음)"
+
+
+def _numbered(items: list[str]) -> str:
+    """수용 기준에 A1, A2… 번호를 붙인다 (리뷰가 기준마다 근거 파일을 짚을 때 쓰는 이름)."""
+    return "\n".join(f"- A{i + 1}. {x}" for i, x in enumerate(items)) if items else "- (없음)"
 
 
 def skill_context(task: Task | None, kind: str = "") -> dict[str, str]:
@@ -120,11 +144,17 @@ def project_context(cfg: Config, project: ProjectConfig, max_files: int = 200) -
         ]
         shown = files[:max_files]
         parts.append("### 현재 파일\n" + "\n".join(f"- {f}" for f in shown) + ("\n- …" if len(files) > max_files else ""))
-        for doc in ("README.md", "docs/GAME_BRIEF.md", "docs/INTERFACES.md"):
+        for doc in modes.CONTEXT_DOCS.get(project.kind) or ("README.md", "docs/GAME_BRIEF.md", "docs/INTERFACES.md"):
             text = _read(repo / doc, 8000)
             if text:
                 parts.append(f"### {doc}\n\n{text}")
     return "\n\n".join(p for p in parts if p)
+
+
+def _mode_block(project: ProjectConfig, stage: str) -> str:
+    """소설·디자인 프로젝트에만 붙는 작업 지침 (개발·문서 프로젝트는 빈 글 — 프롬프트가 지금과 같다)."""
+    text = modes.guidance(project.kind, stage)
+    return f"\n{text}\n" if text else ""
 
 
 def plan_prompt(cfg: Config, task: Task, project: ProjectConfig, existing: list[Task], role: str = "producer") -> str:
@@ -145,7 +175,7 @@ def plan_prompt(cfg: Config, task: Task, project: ProjectConfig, existing: list[
 # 프로젝트 정보
 
 {project_context(cfg, project)}
-
+{_mode_block(project, "plan")}
 # 진행 중이거나 대기 중인 작업
 {_bullets([f"{t.id} [{t.status}] {t.title}" for t in open_tasks])}
 
@@ -195,7 +225,7 @@ def build_prompt(cfg: Config, task: Task, project: ProjectConfig, attempt: int, 
 
 ## 수정 금지
 {_bullets(project.all_protected())}
-
+{_mode_block(project, "research" if task.kind == "research" else "build")}
 ## CEO 메모
 {ceo_notes or '- (없음)'}
 {fb}
@@ -218,14 +248,14 @@ def review_prompt(cfg: Config, task: Task, project: ProjectConfig, diff: str, tr
             lines.append(f"- {'통과' if t.get('ok') else '실패'} {t.get('name')}: {t.get('message', '')}")
         qa_text = "\n".join(lines)
     return f"""{_header(cfg, reviewer, task, "review")}
-
+{_mode_block(project, "review")}
 # 검토할 작업 {task.id}: {task.title}
 
 ## 목표
 {task.brief}
 
 ## 수용 기준
-{_bullets(task.acceptance)}
+{_numbered(task.acceptance)}
 
 ## 자동 검증 결과 (감독 프로그램이 실행)
 {qa_text}
@@ -237,6 +267,7 @@ def review_prompt(cfg: Config, task: Task, project: ProjectConfig, diff: str, tr
 ```
 
 현재 폴더는 후보 커밋의 스냅샷이다. 필요하면 파일을 읽어서 확인한다.
+`criteria`에는 위 수용 기준마다 하나씩(id는 A1, A2… 그대로) 그 기준을 충족했음을 보여 주는 파일의 상대 경로(이 폴더 기준, 예: `reports/a.md`)를 적는다. 직접 열어 확인한 파일만 적고, 보여 주는 파일이 없으면 빈 배열로 둔다 (지어내지 않는다). 수용 기준이 없으면 빈 배열.
 JSON으로만 답한다.
 """
 

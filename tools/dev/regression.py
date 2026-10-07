@@ -42,6 +42,12 @@ def main():
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30, creationflags=no_window_flags())
             log.write(run.stdout.decode("utf-8", "replace"))
             ui.append({"file": path.name, "pass": run.returncode == 0})
+        ui_suites = []
+        for name in ("home_sim.js", "finder_sim.js", "media_sim.js", "rooms_sim.js", "gateway_sim.js", "m_sim.js"):
+            run = subprocess.run(["node", "tools/dev/" + name], cwd=ROOT, env=env,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60, creationflags=no_window_flags())
+            log.write(run.stdout.decode("utf-8", "replace"))
+            ui_suites.append({"file": name, "pass": run.returncode == 0})
         board = subprocess.run(["node", "tools/dev/board_sim.js"], cwd=ROOT, env=env,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60, creationflags=no_window_flags())
         output = board.stdout.decode("utf-8", "replace")
@@ -52,8 +58,9 @@ def main():
                 (("failure", result.failures), ("error", result.errors)) for test, _ in group]
     stable = before == after
     report = {"status": "pass" if result.wasSuccessful() and all(row["pass"] for row in ui)
-              and board.returncode == 0 and match and stable else "fail",
+              and board.returncode == 0 and match and stable and all(row["pass"] for row in ui_suites) else "fail",
               "code": before, "source_unchanged_during_run": stable,
+              "ui_suites": ui_suites,
               "python": {"total": result.testsRun,
                   "passed": result.testsRun - len(result.skipped) - len(result.failures) - len(result.errors)
                             - len(result.expectedFailures) - len(result.unexpectedSuccesses),

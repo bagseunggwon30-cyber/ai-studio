@@ -188,7 +188,12 @@ class Workbench:
         if operation.startswith("grok_") and self._grok_mock:
             return {"enabled": True, "reason": "MOCK / 모의 실행 · 실제 생성 아님", "mode": "code", "simulation": True}
         if operation.startswith("grok_"):
-            if self.grok_executor.status()["enabled"]:
+            status = self.grok_executor.status()
+            if status["enabled"] and status.get("mode") == grok_everywhere.OFFICIAL:
+                if operation == "grok_research":
+                    return {"enabled": False, "reason": "공식 Grok CLI 연결은 그림·영상만 만들어요. 조사는 Grok 텍스트 직원(읽기 전용)을 쓰세요.", "mode": "unsupported"}
+                return {"enabled": True, "reason": "공식 Grok CLI 연결됨 · 로그인은 실행 때 확인 · 요청마다 일회 승인 필요", "mode": "model", "simulation": False}
+            if status["enabled"]:
                 return {"enabled": True, "reason": "Configured; session unverified. Exact one-use consent required.", "mode": "model", "simulation": False}
             return {"enabled": False, "reason": grok_everywhere.BLOCKED, "mode": "unsupported"}
         if op["mode"] == "unsupported":
@@ -675,6 +680,44 @@ class Workbench:
                      "flow": r["snapshot"].get("flow"),
                      "usage": self._usage(r)} for r in rows]
 
+    def media_jobs(self, limit=60):
+        """작업대 장부에서 그림·영상 노드를 찾아 한 줄씩 알려 준다 (이미지·영상 제작 작업대의 '내 작업물').
+        글 지시·상태·산출물 주소만 준다. 산출물은 기존 산출물 주소(해시 검사)로만 열린다."""
+        jobs = []
+        with self.store.lock:
+            for key in reversed(self._doc("workbench-ledger", {"ids": []})["ids"]):
+                try:
+                    run = self.run(key)
+                except WorkbenchError:
+                    continue
+                graph = run["snapshot"]["graph"]
+                upstream = {e["to"]: e["from"] for e in graph["edges"]}
+                nodes = {n["id"]: n for n in graph["nodes"]}
+                for n in graph["nodes"]:
+                    operation = n["definition"]["spec"]["operation"]
+                    if operation not in ("grok_image", "grok_video"):
+                        continue
+                    kind, state = operation[5:], run["nodes"].get(n["id"], {})
+                    output = state.get("output") if isinstance(state.get("output"), dict) else {}
+                    prompt = state.get("inputs")
+                    if not isinstance(prompt, str):
+                        source = nodes.get(upstream.get(n["id"]), {})
+                        prompt = source.get("params", {}).get("text", "") if source.get("definition", {}).get("spec", {}).get("operation") == "input" else ""
+                    refs = output.get("artifact_refs") if isinstance(output.get("artifact_refs"), list) else []
+                    jobs.append({
+                        "id": run["id"] + "/" + n["id"], "run": run["id"], "node": n["id"], "title": run["title"], "created_at": run["created_at"],
+                        "kind": kind, "status": state.get("status", "pending"), "run_status": run["status"], "error": state.get("error") or "",
+                        "prompt": prompt, "duration": n["params"].get("duration") if kind == "video" else None,
+                        "simulation": output.get("simulation") is True, "transport": output.get("transport"),
+                        "requested_duration": output.get("requested_duration"), "measured_duration_s": output.get("measured_duration_s"),
+                        "duration_check": output.get("duration_check"), "model_verified": output.get("model_verified") is True,
+                        "task": state.get("task"),
+                        "assets": [{"kind": ref.get("kind", kind), "sha256": ref.get("sha256"),
+                                    "url": f"/api/workbench/runs/{run['id']}/artifacts/{n['id']}/{i}"} for i, ref in enumerate(refs) if isinstance(ref, dict)]})
+                    if len(jobs) >= limit:
+                        return jobs
+        return jobs
+
     def _usage(self, run):
         tasks = {s["task"] for s in run["nodes"].values() if s.get("task")}
         records = [r for r in self.store.runs() if r.get("task") in tasks and r.get("simulation") is not True]
@@ -797,7 +840,7 @@ class Workbench:
             return
         state["provider_request_id"] = record.get("request_id")
         if record.get("status") != "completed":
-            state.update(status="blocked", error="Provider outcome uncertain; explicit known-ID GET only")
+            state.update(status="blocked", error=record.get("error") if record.get("status") == "blocked_before_submission" and record.get("error") else "Provider outcome uncertain; explicit known-ID GET only")
             task = self.store.get(state["task"])
             if task.status == "running":
                 self.store.block(task, state["error"])

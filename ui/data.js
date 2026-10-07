@@ -18,8 +18,15 @@ const Data = (() => {
   };
   const KIND_LABELS = { plan: '기획', build: '개발', research: '리서치', skill: '스킬 공부', look: '의상 제작', hire: '새 직원', tool: 'MCP 만들기' };
   const KIND_ROLE = { plan: 'producer', build: 'builder', research: 'analyst', skill: 'reviewer', look: 'builder', hire: 'producer' };
+  // 같은 일 종류라도 소설·디자인 프로젝트에서는 이렇게 부른다 (서버 modes.TASK_LABELS와 같은 표). 개발 프로젝트·다른 종류는 위 KIND_LABELS 그대로
+  const PROJECT_TASK_LABELS = {
+    design: { build: '디자인', research: '디자인 조사' },
+    novel: { build: '집필', research: '자료 조사' },
+  };
+  // 프로젝트 종류 이름 (칩·고르기 창). 서버 modes.KIND_LABELS는 '일반 개발'처럼 더 길게 부른다
+  const PROJECT_KIND_LABELS = { generic: '개발', godot: 'Godot', docs: '문서', design: '디자인', novel: '소설' };
 
-  // 서버를 읽기 전에도 장면을 그릴 수 있게 기본 직원 (studio.toml의 기본값과 같다)
+  // 서버를 읽기 전에도 화면을 그릴 수 있게 기본 직원 (studio.toml의 기본값과 같다)
   const DEFAULT_TEAM = [
     { id: 'hana', role: 'producer', name: '하나', title: '기획', memo: '', skills: [] },
     { id: 'sol', role: 'builder', name: '솔', title: '개발', memo: '', skills: [] },
@@ -362,11 +369,31 @@ const Data = (() => {
   function projectDefaults() { return request('GET', '/api/projects/defaults'); }
   function registerProject(data) { return post('/api/projects', data); }
   function retarget(id, data) { return post(`/api/tasks/${encodeURIComponent(id)}/retarget`, data); }
+  // 결재 대기 묶음 취소 (결재함의 '모두 취소'): 결과는 {cancelled: [번호], skipped: [{id, reason}]}. 한 번에 100건까지
+  function cancelWaiting(ids) { return post('/api/tasks/cancel-waiting', { ids }); }
   function currentProject() { return view.projects.find((p) => p.key === project) || null; }
   function workbenchGet(suffix = '') { return request('GET', `/api/workbench${suffix}`); }
   function workbenchPost(action, body = {}) { return request('POST', `/api/workbench/${action}`, body); }
   function grokPost(action, body = {}) { return request('POST', `/api/grok-everywhere/${action}`, body); }
+  function grokGet(suffix = '') { return request('GET', `/api/grok-everywhere${suffix}`); }
   function statusLabel(t) { return t.needs_plan_input ? '답변 필요' : (STATUS_LABELS[t.status] || t.status); }
+
+  // 작업 종류 이름: 소설·디자인 프로젝트의 집필·디자인 일은 그 이름으로, 나머지는 KIND_LABELS 그대로 (모르는 종류는 그대로 보인다)
+  function kindLabel(t) {
+    const project = view.projects.find((p) => p.key === (t && t.project));
+    const own = PROJECT_TASK_LABELS[project && project.kind];
+    return (own && own[t && t.kind]) || KIND_LABELS[t && t.kind] || (t && t.kind) || '';
+  }
+  function projectKind(key) { return (view.projects.find((p) => p.key === key) || {}).kind || ''; }
+  function projectKindLabel(kind) { return PROJECT_KIND_LABELS[kind] || ''; }
+
+  // 작업 모드 화면(소설 집필실·디자인 작업실): 모드 설명(시작 버튼 포함) · 기준 브랜치의 파일 목록·글·그림 · 새 프로젝트 · 시작 버튼
+  function modesGet() { return request('GET', '/api/modes'); }
+  function projectTree(key) { return request('GET', `/api/projects/${encodeURIComponent(key)}/tree`); }
+  function projectFile(key, path) { return request('GET', `/api/projects/${encodeURIComponent(key)}/file?path=${encodeURIComponent(path)}`); }
+  function projectRawUrl(key, path) { return `/api/projects/${encodeURIComponent(key)}/raw?path=${encodeURIComponent(path)}`; }
+  function createProject(body) { return post('/api/projects/new', body); }
+  function startMode(body) { return post('/api/modes/start', body); }
 
   // 작업이 어느 프로젝트 것인지 (프로젝트가 둘 이상일 때만 이름을 준다. 하나면 굳이 보이지 않는다)
   function projectTitle(key) {
@@ -379,7 +406,7 @@ const Data = (() => {
   function setStopped(value) { return post(value ? '/api/control/stop' : '/api/control/resume'); }
   function saveLook(role, look) { return post(`/api/team/${encodeURIComponent(role)}/look`, { look }); }
   function addFloor() { return post('/api/floors/add', {}); }
-  function addTrophy(id) { return post('/api/trophies/add', { task: id, kind: 'game' }); }
+  function addTrophy(id, kind = 'game') { return post('/api/trophies/add', { task: id, kind }); }
   function removeTrophy(id) { return post('/api/trophies/remove', { task: id }); }
   function play(id) { return post('/api/trophies/play', { task: id }); }
 
@@ -445,10 +472,11 @@ const Data = (() => {
     get TEAM() { return team; },
     get BY_ROLE() { return byRole; },
     get BY_ID() { return byId; },
-    STATUS_LABELS, KIND_LABELS, statusLabel,
+    STATUS_LABELS, KIND_LABELS, PROJECT_KIND_LABELS, statusLabel, kindLabel, projectKind, projectKindLabel,
+    modesGet, projectTree, projectFile, projectRawUrl, createProject, startMode,
     start, refresh, on, get, task, owner, columns, inbox, sheet, unreadAlerts, markAlertsRead,
     detail, report, diff, diary, loadDiary, skill, skillGrades, planCards, editCard, retry, projectTitle,
-    act, directive, setProject, currentProject, projectDefaults, registerProject, retarget, workbenchGet, workbenchPost, grokPost, setGoal, setStopped, saveLook, addFloor, addTrophy, removeTrophy, play,
+    act, cancelWaiting, directive, setProject, currentProject, projectDefaults, registerProject, retarget, workbenchGet, workbenchPost, grokPost, grokGet, setGoal, setStopped, saveLook, addFloor, addTrophy, removeTrophy, play,
     teachSkill, studySkill, learnSkill, setSkillScope, removeSkill, setSelfLearning, mcpAdd, mcpAction, mcpOrder, addSchedule, scheduleAction,
     remoteInfo, remoteCheck, remotePair, remoteLan, remoteTailscale, remoteForget, loginOpen, loginDone, aiOptions, setAI, resetAI, orderOutfit, removeLook, restoreLook, lookPreview, hire, dismiss, assign,
     isOnline: () => online,

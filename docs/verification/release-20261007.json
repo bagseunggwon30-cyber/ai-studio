@@ -1,0 +1,183 @@
+{
+  "date": "2026-10-07",
+  "status": "pass",
+  "regression": {
+    "status": "pass",
+    "code": {
+      "commit": "0c6715e1eeb75522c94216bb76a3767d22cf760a",
+      "source_sha256": "dda7d3f47a7300414cba5ad4695661182cfccddef21ae2f490f55b5ca547ff72",
+      "source_files": 458
+    },
+    "source_unchanged_during_run": true,
+    "ui_suites": [
+      {
+        "file": "home_sim.js",
+        "pass": true
+      },
+      {
+        "file": "finder_sim.js",
+        "pass": true
+      },
+      {
+        "file": "media_sim.js",
+        "pass": true
+      },
+      {
+        "file": "rooms_sim.js",
+        "pass": true
+      },
+      {
+        "file": "gateway_sim.js",
+        "pass": true
+      },
+      {
+        "file": "m_sim.js",
+        "pass": true
+      }
+    ],
+    "python": {
+      "total": 522,
+      "passed": 521,
+      "skipped": 1,
+      "failures": 0,
+      "errors": 0,
+      "expected_failures": 0,
+      "unexpected_successes": 0,
+      "skipped_tests": [
+        "tests.test_lifecycle.ChildProcessTests.test_timeout_isolates_and_reaps_child"
+      ],
+      "failed_tests": []
+    },
+    "progress_board": {
+      "pass": true,
+      "total": 15
+    },
+    "javascript_syntax": [
+      {
+        "file": "app.js",
+        "pass": true
+      },
+      {
+        "file": "board.js",
+        "pass": true
+      },
+      {
+        "file": "data.js",
+        "pass": true
+      },
+      {
+        "file": "effects.js",
+        "pass": true
+      },
+      {
+        "file": "finder.js",
+        "pass": true
+      },
+      {
+        "file": "gateway.js",
+        "pass": true
+      },
+      {
+        "file": "home.js",
+        "pass": true
+      },
+      {
+        "file": "looks.js",
+        "pass": true
+      },
+      {
+        "file": "m.js",
+        "pass": true
+      },
+      {
+        "file": "media.js",
+        "pass": true
+      },
+      {
+        "file": "popups.js",
+        "pass": true
+      },
+      {
+        "file": "puppet.js",
+        "pass": true
+      },
+      {
+        "file": "rooms.js",
+        "pass": true
+      },
+      {
+        "file": "sound.js",
+        "pass": true
+      },
+      {
+        "file": "stills.js",
+        "pass": true
+      },
+      {
+        "file": "workbench.js",
+        "pass": true
+      }
+    ],
+    "duration_s": 1182.6,
+    "model_generation_calls": 0,
+    "real_logins_required": false,
+    "runtime": {
+      "python": "3.12.9",
+      "platform": "win32"
+    },
+    "raw_log_published": false
+  },
+  "browser": {
+    "retired_office_removed": {
+      "total": 56,
+      "passed": 56
+    },
+    "novel_and_design": {
+      "total": 116,
+      "passed": 116
+    },
+    "media": {
+      "total": 79,
+      "passed": 79
+    },
+    "gateway": {
+      "total": 64,
+      "passed": 64
+    },
+    "cancel_and_mobile": {
+      "total": 85,
+      "passed": 85
+    },
+    "presenter": {
+      "status": "pass",
+      "views": [
+        "home",
+        "board"
+      ],
+      "presenter_dom": 0,
+      "presenter_asset_requests": 0,
+      "page_errors": [],
+      "real_model_calls": 0,
+      "mode": "disposable company / real browser"
+    }
+  },
+  "supervisor_stdio": {
+    "status": "pass",
+    "models": "fake",
+    "model_calls": 0
+  },
+  "public_file_audit": {
+    "status": "pass",
+    "staged_text_files": 457,
+    "credential_findings": [],
+    "forbidden_paths": [],
+    "oversized_files": [],
+    "method": "pattern scan of staged blobs and path allowlist; no secret values emitted"
+  },
+  "security_fix": "OAuth refresh downscoping now binds the issued access token to the reduced scope; tools and calls remain read-only after reload.",
+  "limits": [
+    "One POSIX process-group test skipped on Windows.",
+    "Real Codex/Grok generation, physical mobile device and cloud client connection were not executed.",
+    "Existing local production dashboard was not reachable; UI checks used disposable companies."
+  ]
+}

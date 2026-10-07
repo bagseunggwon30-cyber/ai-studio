@@ -16,6 +16,7 @@ from tests.helpers import ROOT, TempStudio
 
 TOKEN="fixture-mcp-writer-"+ "a"*48
 READER="fixture-mcp-reader-"+ "b"*48
+RUNNER="fixture-mcp-runner-"+ "c"*48
 
 
 class McpHTTP(unittest.TestCase):
@@ -23,9 +24,11 @@ class McpHTTP(unittest.TestCase):
         self.company=TempStudio()
         self.addCleanup(self.company.close)
         rows=[]
-        for actor,token,write in (("writer",TOKEN,True),("reader",READER,False)):
+        for actor,token,write,run in (("writer",TOKEN,True,None),("reader",READER,False,None),("runner",RUNNER,True,True)):
+            grant={"read":True,"write":write,"paths":["docs/**"]}
+            if run is not None:grant["run"]=run  # 옛 설정에는 run 칸이 없다 (writer·reader)
             rows.append({"id":actor,"enabled":True,"token_sha256":hashlib.sha256(token.encode()).hexdigest(),
-                "projects":{"demo":{"read":True,"write":write,"paths":["docs/**"]}}})
+                "projects":{"demo":grant}})
         atomic_write_json(self.company.cfg.data_dir/"supervisors.json",{"enabled":True,"clients":rows})
         self.server=StudioServer(self.company.cfg,self.company.store,self.company.engine,0)
         self.port=self.server.server_address[1]
@@ -53,16 +56,21 @@ class McpHTTP(unittest.TestCase):
         conn.close()
         return status,out,json.loads(raw) if raw else None
 
-    def call(self,name,**arguments):
+    def call(self,name,token=TOKEN,**arguments):
         status,_,msg=self.request({"jsonrpc":"2.0","id":10,"method":"tools/call",
-                                  "params":{"name":name,"arguments":arguments}})
+                                  "params":{"name":name,"arguments":arguments}},token=token)
         self.assertEqual(status,200)
         return msg["result"]
 
-    def data(self,name,**arguments):
-        result=self.call(name,**arguments)
+    def data(self,name,token=TOKEN,**arguments):
+        result=self.call(name,token=token,**arguments)
         self.assertFalse(result["isError"],result)
         return json.loads(result["content"][0]["text"])
+
+    def tool_names(self,token):
+        status,_,msg=self.request({"jsonrpc":"2.0","id":2,"method":"tools/list"},token=token)
+        self.assertEqual(status,200)
+        return [t["name"] for t in msg["result"]["tools"]],msg["result"]["tools"]
 
     def submit(self):
         return self.data("submit_task",project="demo",key="mcp-http-one",payload=self.payload)["task"]["id"]
@@ -79,8 +87,9 @@ class McpHTTP(unittest.TestCase):
         status,_,msg=self.request({"jsonrpc":"2.0","id":2,"method":"tools/list"})
         self.assertEqual(status,200)
         tools=msg["result"]["tools"]
-        self.assertEqual(len(tools),6)
-        self.assertEqual(sum(t["annotations"]["readOnlyHint"] for t in tools),4)
+        self.assertEqual(len(tools),8,"run:true가 없는 옛 감독 설정에는 run_task가 보이지 않는다")
+        self.assertNotIn("run_task",[t["name"] for t in tools])
+        self.assertEqual(sum(t["annotations"]["readOnlyHint"] for t in tools),6)
         for method in ("GET","DELETE"):
             status,headers,msg=self.request(method=method)
             self.assertEqual((status,headers.get("Allow"),msg),(405,"POST",None))
@@ -113,6 +122,36 @@ class McpHTTP(unittest.TestCase):
         self.assertEqual(artifact["sha256"],hashlib.sha256(raw).hexdigest())
         self.assertIn(b"42",raw)
         self.assertTrue(self.call("task_artifact",project="demo",task=tid,path="../outside.txt")["isError"])
+
+    def test_run_task_is_listed_only_for_a_grant_with_run_and_calls_are_checked_again(self):
+        for token in (TOKEN,READER):
+            names,_=self.tool_names(token)
+            self.assertEqual(len(names),8);self.assertNotIn("run_task",names)
+        names,tools=self.tool_names(RUNNER)
+        self.assertEqual(len(names),9);self.assertIn("run_task",names)
+        self.assertEqual(sum(t["annotations"]["readOnlyHint"] for t in tools),6)
+        run=next(t for t in tools if t["name"]=="run_task")
+        self.assertFalse(run["annotations"]["readOnlyHint"])
+        self.assertEqual(set(run["inputSchema"]["required"]),{"project","task"})
+        self.assertIn("결재·병합·완료는 항상 사장님이 해요",run["description"])
+        submit=next(t for t in tools if t["name"]=="submit_task")
+        self.assertIn("맡기기만으로는 실행되지 않아요",submit["description"])
+        # 보이지 않는 도구를 불러도 거절되고 일은 시작되지 않는다
+        tid=self.data("submit_task",token=RUNNER,project="demo",key="runner-one",payload=self.payload)["task"]["id"]
+        for token in (TOKEN,READER):
+            result=self.call("run_task",token=token,project="demo",task=tid)
+            self.assertTrue(result["isError"]);self.assertIn("권한이 부족해요",result["content"][0]["text"])
+            self.assertIn("실행 시작",result["content"][0]["text"])
+        self.assertFalse(self.company.store.get(tid).run_requested)
+        out=self.data("run_task",token=RUNNER,project="demo",task=tid)
+        self.assertEqual((out["started"],out["replayed"],out["task"]["status"]),(True,False,"ready"))
+        self.assertTrue(self.company.store.get(tid).run_requested)
+        self.assertTrue(self.data("run_task",token=RUNNER,project="demo",task=tid)["replayed"])
+        self.assertEqual(self.company.store.runs(),[],"엔진은 돌지 않는다: 실제 직원 호출 없음")
+        # 같은 grant여도 다른 연결(writer)이 맡긴 일은 시작시킬 수 없다
+        other=self.data("submit_task",project="demo",key="writer-one",payload=self.payload)["task"]["id"]
+        self.assertTrue(self.call("run_task",token=RUNNER,project="demo",task=other)["isError"])
+        self.assertFalse(self.company.store.get(other).run_requested)
 
     def test_authentication_cannot_use_dashboard_token_or_session_id(self):
         for token in (None,"invalid",self.server.token):
@@ -181,7 +220,7 @@ class McpCLI(unittest.TestCase):
             self.assertEqual(result.returncode,0,result.stderr)
             replies=[json.loads(line) for line in result.stdout.splitlines()]
             self.assertEqual(len(replies),2)
-            self.assertEqual(len(replies[1]["result"]["tools"]),6)
+            self.assertEqual(len(replies[1]["result"]["tools"]),9)
             self.assertEqual(list(Path(folder).iterdir()),[])
 
     def test_client_config_has_no_token_values_and_uses_absolute_entrypoint(self):

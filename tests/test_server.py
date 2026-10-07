@@ -2,6 +2,7 @@
 
 import http.client
 import json
+import re
 import shutil
 import socket
 import threading
@@ -219,7 +220,7 @@ class ServerSecurity(unittest.TestCase):
         self.assertEqual(res.status, 200)
         self.assertIn("application/json", res.getheader("Content-Type"))
         # index.html이 부르는 화면 파일이 모두 나와야 한다
-        for path, ctype in (("/data.js", "javascript"), ("/popups.js", "javascript"), ("/scene.js", "javascript"), ("/effects.js", "javascript"),
+        for path, ctype in (("/data.js", "javascript"), ("/popups.js", "javascript"), ("/stills.js", "javascript"), ("/effects.js", "javascript"),
                             ("/sound.js", "javascript"), ("/popups.css", "text/css"), ("/assets/portraits.png", "image/png"),
                             ("/assets/bg/meeting.png", "image/png"), ("/assets/ui/icon-logo.png", "image/png"),
                             ("/assets/fonts/Galmuri11.woff2", "font/woff2")):
@@ -229,6 +230,35 @@ class ServerSecurity(unittest.TestCase):
         for bad in ("/assets/../../studio.toml", "/assets/..%2F..%2Fstudio.toml", "/assets/nope.png", "/notes.txt", "/../ui-old/app.js"):
             res, _ = self.req("GET", bad)
             self.assertEqual(res.status, 404, bad)
+
+    def test_office_screen_gone(self):
+        # 옛 도트 사무실 화면은 없앴다 (CEO 결정 2026-10-06): 처음 받는 화면 · 화면 코드 · 그림 파일 어디에도 없다
+        res, raw = self.req("GET", "/")
+        html = raw.decode("utf-8")
+        for gone in ("layer-bg", "layer-sprites", "office", 'class="bg"', 'class="dock"', 'id="floors"', "devpanel", "hotspot", "scene.js"):
+            self.assertNotIn(gone, html, gone)
+        self.assertIn('<div id="stage" class="view-board">', html, "첫 그림부터 모던 화면 바탕 (스크립트가 늦거나 실패해도)")
+        self.assertNotIn("office-off", html)
+        ui = ROOT / "ui"
+        code = [ui / "index.html", ui / "m.html"] + sorted(ui.glob("*.js")) + sorted(ui.glob("*.css"))
+        for f in code:
+            text = f.read_text(encoding="utf-8")
+            for gone in ("office-f1", "layer-bg", "layer-sprites", "office-off", "OFFICE", "scene.js", "Scene."):
+                self.assertNotIn(gone, text, f"{f.name}: {gone}")
+        for gone in ("scene.js", "assets/bg/floors.json", "assets/bg/office.png", "assets/bg/office-f1.png", "assets/bg/office-f2.png", "assets/ui/cat.png"):
+            self.assertFalse((ui / gone).exists(), gone)
+        self.assertFalse(list((ui / "assets" / "bg").glob("office*")), "사무실 배경·의자 앞 그림 파일")
+        # 화면 코드가 글자 그대로 가리키는 그림(/assets/….png)은 모두 실제로 있다 (지운 그림을 가리키는 곳이 없다)
+        missing = []
+        for f in code:
+            for ref in re.findall(r"assets/[A-Za-z0-9_@+./-]+\.(?:png|woff2)", f.read_text(encoding="utf-8")):
+                if not ref.startswith("assets/custom/") and not (ui / ref).is_file():
+                    missing.append(f"{f.name}: {ref}")
+        self.assertEqual(missing, [])
+        # 도트 아이콘 이름표(popups.js PIXEL)가 가리키는 그림도 있다
+        block = re.search(r"const PIXEL = \{(.*?)\};", (ui / "popups.js").read_text(encoding="utf-8"), re.S).group(1)
+        for name in re.findall(r":\s*'([a-z-]+)'", block):
+            self.assertTrue((ui / "assets" / "ui" / f"{name}.png").is_file(), name)
 
     def test_board_files_and_mascot(self):
         # 진행판 화면 파일과 기본 발표 캐릭터 (index.html이 부른다)

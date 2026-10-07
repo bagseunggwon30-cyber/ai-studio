@@ -10,39 +10,21 @@
   <link rel="stylesheet" href="/popups.css">
   <link rel="stylesheet" href="/board.css">
   <link rel="stylesheet" href="/workbench.css">
+  <link rel="stylesheet" href="/modern.css">
+  <link rel="stylesheet" href="/media.css">
+  <link rel="stylesheet" href="/rooms.css">
+  <link rel="stylesheet" href="/popups-a.css">
+  <link rel="stylesheet" href="/popups-b.css">
+  <link rel="stylesheet" href="/popups-c.css">
+  <link rel="stylesheet" href="/gateway.css">
 </head>
 <body>
-  <div id="stage">
+  <div id="stage" class="view-board">
 
-    <!-- ① 배경 -->
-    <div class="layer" id="layer-bg" data-name="① 배경">
-      <img class="bg" src="/assets/bg/office-f1.png" alt="" draggable="false" loading="lazy">
-      <!-- 본사(1층)에만 있는 것 (class hq): 층을 바꾸면 숨는다 -->
-      <span class="sign quest plated hq">퀘스트 보드</span>
-      <span class="sign meeting hq">회의실</span>
-      <span class="sign trophy hq">완성작</span>
-      <span class="sign skill plated hq">스킬 학습</span>
-      <span class="sign mcp plated hq">MCP 보관소</span>
-      <span class="sign lounge" id="lounge-sign">휴식터</span>
-      <div class="wall-clock hq" id="wall-clock" aria-hidden="true"><i class="hand hour"></i><i class="hand minute"></i></div>
-      <div class="wall-notes hq" id="wall-notes"></div>
-      <div class="shelf-items hq" id="shelf-items"></div>
-      <div class="skill-notes hq" id="skill-notes"></div>
-      <button class="hotspot quests hq" type="button" data-action="quests" aria-label="퀘스트 보드"></button>
-      <button class="hotspot meeting hq" type="button" data-action="meeting" aria-label="회의실"></button>
-      <button class="hotspot trophies hq" type="button" data-action="trophies" aria-label="완성작"></button>
-      <button class="hotspot skills hq" type="button" data-action="skills" aria-label="스킬 학습"></button>
-      <button class="hotspot mcp hq" type="button" data-action="mcp" aria-label="MCP 보관소 (서재)"></button>
-      <button class="hotspot clock hq" type="button" data-action="schedules" aria-label="자동 업무 (벽시계)"></button>
-    </div>
+    <!-- ① 화면 바탕: 홈 · 진행판 · 이미지·영상 작업대 · 소설 집필실 · 디자인 작업실 (board.js가 채운다). 스크립트가 늦거나 실패해도 처음부터 이 모던 바탕만 보인다 -->
+    <div class="layer" id="layer-board" data-name="① 모던 화면"></div>
 
-    <!-- ② 캐릭터·소품: scene.js가 채운다 -->
-    <div class="layer" id="layer-sprites" data-name="② 캐릭터·소품"></div>
-
-    <!-- ②¼ 진행판 (칸반 보드 + 진행 발표 캐릭터): board.js가 채운다. 켜면 사무실(①②)은 숨는다 -->
-    <div class="layer" id="layer-board" data-name="②¼ 진행판" hidden></div>
-
-    <!-- ②½ 긴급 정지: 붉은 조명, 경광등, 가운데 배너 -->
+    <!-- ② 긴급 정지: 붉은 조명, 경광등, 가운데 배너 -->
     <div class="layer" id="layer-alarm" hidden>
       <div class="alarm-tint"></div>
       <div class="alarm-glow"></div>
@@ -70,32 +52,41 @@
           <span class="clock" id="hud-clock"></span>
         </div>
 
+        <!-- 빠른 찾기 (Ctrl K): 일·직원·스킬·화면. 결과는 finder.js가 아래 목록에 채운다 -->
+        <div class="hud-search" id="finder" role="search">
+          <svg class="hs-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+          <input id="board-search" type="text" autocomplete="off" spellcheck="false" placeholder="일 · 직원 · 스킬 · 화면 찾기" aria-label="빠른 찾기" role="combobox" aria-expanded="false" aria-controls="finder-list" aria-autocomplete="list">
+          <kbd aria-hidden="true">Ctrl K</kbd>
+          <div class="finder-list" id="finder-list" role="listbox" aria-label="찾은 것" hidden></div>
+        </div>
+
         <button class="energy" type="button" data-action="energy" aria-describedby="energy-tip">
-          <img class="bolt" src="/assets/ui/icon-bolt.png" alt="" draggable="false">
+          <svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3L5 13.5h6L10 21l8-10.5h-6Z"/></svg>
           <span class="bar"><span class="fill" id="hud-energy-fill"></span></span>
           <span class="energy-text" id="hud-energy-text"></span>
         </button>
 
         <div class="hud-right">
-          <button class="icon-btn phone-btn" type="button" data-action="remote" aria-label="휴대폰 연결">
-            <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="9" y="3" width="14" height="26" rx="3" fill="#F6F0E4" stroke="#1F1C2B" stroke-width="1.6"/><rect x="11.5" y="7" width="9" height="15" rx="1" fill="#7F6AD6"/><circle cx="16" cy="25.5" r="1.4" fill="#1F1C2B"/></svg>
+          <button class="icon-btn phone-btn" type="button" data-action="remote" aria-label="휴대폰 연결" title="휴대폰 연결">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>
           </button>
-          <button class="icon-btn" type="button" data-action="inbox" aria-label="결재함">
-            <img src="/assets/ui/icon-mail.png" alt="" draggable="false">
-            <span class="badge" id="hud-inbox"></span>
+          <button class="icon-btn" type="button" data-action="inbox" aria-label="결재함" title="결재함">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="3"/><path d="M4 7.5l8 6 8-6"/></svg>
+            <span class="badge" id="hud-inbox" hidden></span>
           </button>
-          <button class="icon-btn" type="button" data-action="alerts" aria-label="알림">
-            <img src="/assets/ui/icon-bell.png" alt="" draggable="false">
-            <span class="badge dot" id="hud-alerts"></span>
+          <button class="icon-btn" type="button" data-action="alerts" aria-label="알림" title="알림">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg>
+            <span class="badge dot" id="hud-alerts" hidden></span>
           </button>
           <button class="icon-btn fx-btn" type="button" data-action="motion" aria-pressed="true" aria-label="효과 켜짐 · 누르면 끄기">
-            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M15 3L18 12L27 15L18 18L15 27L12 18L3 15L12 12Z" fill="#F7C53C"/><path d="M26 3L27.2 6.8L31 8L27.2 9.2L26 13L24.8 9.2L21 8L24.8 6.8Z" fill="#F6F0E4"/><circle cx="6" cy="27" r="2.2" fill="#F6F0E4"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3.5l1.7 4.8 4.8 1.7-4.8 1.7-1.7 4.8-1.7-4.8L4 10l4.8-1.7Z"/><path d="M18.5 14l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8Z"/></svg>
           </button>
           <button class="icon-btn snd-btn" type="button" data-action="sound" aria-pressed="false" aria-label="소리 꺼짐 · 누르면 켜기">
-            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 12H10L17 6V26L10 20H4Z" fill="#F6F0E4" stroke="#1F1C2B" stroke-width="1.5" stroke-linejoin="round"/><path class="wave" d="M21 11C23 13 23 19 21 21M24.5 8C28 12 28 20 24.5 24" stroke="#F6F0E4" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4Z"/><path class="wave" d="M15.5 9a4.5 4.5 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"/></svg>
           </button>
           <button class="stop-btn" type="button" data-action="stop" aria-label="긴급 정지" aria-pressed="false">
-            <img src="/assets/ui/icon-stop.png" alt="" draggable="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></svg>
+            <span class="stop-text">긴급 정지</span>
           </button>
         </div>
       </header>
@@ -124,42 +115,30 @@
         <span class="notice-text" id="notice-text"></span>
       </button>
 
-      <div class="devpanel" id="devpanel" hidden></div>
-
-      <!-- 층 버튼 (app.js renderFloors): 위층이 위, 맨 위 +는 층 늘리기 -->
-      <nav class="floors" id="floors" aria-label="층"></nav>
-
-      <nav class="dock" aria-label="바로가기">
-        <button class="dock-btn" type="button" data-action="board" aria-label="진행판 (칸반 보드)">
-          <img src="/assets/ui/icon-scroll.png" alt="" draggable="false">
-        </button>
-        <button class="dock-btn" type="button" data-action="team" aria-label="직원">
-          <img src="/assets/ui/icon-team.png" alt="" draggable="false">
-        </button>
-        <button class="dock-btn" type="button" data-action="diary" aria-label="업무 일지">
-          <img src="/assets/ui/icon-book.png" alt="" draggable="false">
-        </button>
-      </nav>
-
       <form class="command" id="command" autocomplete="off">
         <button class="project-chip" id="project-chip" type="button" data-action="project" hidden></button>
         <input id="command-input" type="text" maxlength="4000" placeholder="무엇을 시킬까요?" aria-label="지시 입력">
         <button class="send" type="submit" aria-label="보내기">
-          <img src="/assets/ui/icon-send.png" alt="" draggable="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V6M6.5 11.5L12 6l5.5 5.5"/></svg>
         </button>
       </form>
     </div>
   </div>
 
-  <section id="workbench-screen" hidden aria-label="기능 작업대"></section>
+  <section id="workbench-screen" hidden aria-label="노드 편집기"></section>
   <script src="/data.js"></script>
   <script src="/sound.js"></script>
   <script src="/effects.js"></script>
   <script src="/looks.js"></script>
-  <script src="/scene.js"></script>
+  <script src="/stills.js"></script>
   <script src="/popups.js"></script>
   <script src="/puppet.js"></script>
+  <script src="/home.js"></script>
+  <script src="/media.js"></script>
+  <script src="/rooms.js"></script>
+  <script src="/gateway.js"></script>
   <script src="/board.js"></script>
+  <script src="/finder.js"></script>
   <script src="/workbench.js"></script>
   <script src="/app.js"></script>
 </body>

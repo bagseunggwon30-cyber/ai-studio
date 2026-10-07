@@ -53,7 +53,7 @@ class StdioClient:
             raise RuntimeError("stdio bridge failed; inspect private local output")
         responses = {r["id"]:r for r in (json.loads(line) for line in process.stdout.splitlines())}
         tools = responses[2]["result"]["tools"]
-        assert len(tools) == 6
+        assert len(tools) == 9
         result = responses[3]["result"]
         if result.get("isError"):
             raise RuntimeError("MCP operation failed: " + name)

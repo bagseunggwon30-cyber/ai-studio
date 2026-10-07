@@ -79,7 +79,7 @@ const Looks = (() => {
   }
 
   // 띠 하나를 꾸미기대로 칠하고(색) 몸을 조절한(막대) 그림과 그 meta. 준비가 안 됐으면 원본 그림(또는 null)을 주고 뒤에서 만든다.
-  // 몸 조절을 하면 프레임 크기·anchor가 바뀌므로 scene.js·Scene.still은 여기서 받은 meta로 그린다.
+  // 몸 조절을 하면 프레임 크기·anchor가 바뀌므로 Stills.still은 여기서 받은 meta로 그린다.
   function strip(id, action, look, onReady) {
     const w = who(id, look);
     const meta = index[`${w}.${action}`] || index[`${id}.${action}`];
@@ -224,7 +224,7 @@ const Looks = (() => {
   const ATLAS_MAX = 16;
   const atlases = new Map();  // 열 구성 키 → blob 주소 (오래 안 쓴 것부터)
   const building = new Map(); // 키 → 만드는 중인 Promise (같은 키를 두 번 만들어 주소가 새지 않게)
-  let pinned = null;          // 장면(#stage)이 쓰는 아틀라스 키: 밀려나도 없애지 않는다
+  let pinned = null;          // 화면(#stage)이 쓰는 아틀라스 키: 밀려나도 없애지 않는다
 
   function trimAtlases(keep) {
     for (const [k, url] of atlases) {
@@ -235,7 +235,7 @@ const Looks = (() => {
     }
   }
 
-  // pin: 장면 배경(#stage --portraits)에 쓸 아틀라스면 true (꾸미기 미리보기처럼 잠깐 쓰는 것은 false)
+  // pin: 화면 바탕(#stage --portraits)에 쓸 아틀라스면 true (꾸미기 미리보기처럼 잠깐 쓰는 것은 false)
   // 결과: { url, ids } — ids는 그 그림의 열 구성, url이 null이면 기본 portraits.png (기본 4명 그대로일 때). 그림을 못 불렀으면 null.
   async function portraits(looksById, pin = false) {
     const cols = FACE_COLS.slice(); // 만드는 동안 직원이 바뀌어도 이 구성대로 끝까지 만든다
@@ -462,7 +462,7 @@ const Looks = (() => {
       ...meta, frameWidth: fw2, frameHeight: fh2,
       anchor: { x: (meta.anchor ? meta.anchor.x : fw / 2) + margin, y: (meta.anchor ? meta.anchor.y : fh) + shift },
       contentHeight: (meta.contentHeight || fh) + shift,
-      grown: shift, // 몸 조절로 늘어난(줄면 음수) 높이: 미리보기(Scene.still)가 원래 배율을 지키게
+      grown: shift, // 몸 조절로 늘어난(줄면 음수) 높이: 미리보기(Stills.still)가 원래 배율을 지키게
     };
     return { meta: meta2, image: out };
   }

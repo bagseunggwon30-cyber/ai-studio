@@ -14,7 +14,7 @@ const Sfx = (() => {
   let ctx = null;
   let master = null;
   const last = {};
-  const GAP = { sparkle: 160, notify: 400, pop: 100, drop: 90, flip: 120, warp: 260 };
+  const GAP = { sparkle: 160, notify: 400, pop: 100, flip: 120 };
 
   function audio() {
     if (!ctx) {
@@ -77,9 +77,7 @@ const Sfx = (() => {
     page() { noise({ dur: 0.38, vol: 0.2, from: 600, to: 3600, q: 0.6 }); },
     whoosh() { noise({ dur: 0.5, vol: 0.22, from: 300, to: 2600, q: 1.2 }); },
     pop() { tone(880, { dur: 0.07, vol: 0.16, to: 1320 }); },
-    drop() { tone(660, { dur: 0.09, vol: 0.14, to: 330 }); tone(196, { at: 0.08, dur: 0.06, type: 'triangle', vol: 0.3 }); },
     notify() { tone(1047, { dur: 0.09, vol: 0.13 }); tone(1397, { at: 0.08, dur: 0.14, vol: 0.13 }); },
-    call() { tone(784, { dur: 0.1, vol: 0.14 }); tone(988, { at: 0.1, dur: 0.16, vol: 0.14 }); },
     cheer() { [523, 659, 784, 1047].forEach((f, i) => tone(f, { at: i * 0.09, dur: i === 3 ? 0.32 : 0.1, vol: 0.16 })); },
     oops() { tone(330, { dur: 0.14, vol: 0.16 }); tone(247, { at: 0.13, dur: 0.24, vol: 0.16 }); },
     alarm() {
@@ -88,12 +86,6 @@ const Sfx = (() => {
         tone(660, { at: i * 0.5 + 0.25, dur: 0.24, type: 'sawtooth', vol: 0.1, to: 880 });
       }
     },
-    // 소환 '뾰로롱': 빠르게 올라가는 반짝 음 + 바람
-    warp() {
-      [784, 1047, 1319, 1568, 2093].forEach((f, i) => tone(f, { at: i * 0.045, dur: 0.09, type: 'triangle', vol: 0.13, to: f * 1.06 }));
-      noise({ at: 0.02, dur: 0.3, vol: 0.08, from: 1500, to: 6000, q: 1.5 });
-    },
-    meow() { tone(650, { dur: 0.12, type: 'triangle', vol: 0.22, to: 950 }); tone(950, { at: 0.1, dur: 0.3, type: 'triangle', vol: 0.22, to: 480 }); },
   };
 
   function play(name) {

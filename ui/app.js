@@ -1,8 +1,8 @@
-/* AI 스튜디오 — 게임 화면 (SPEC 1~4단계)
+/* AI 스튜디오 — 화면 (모던 화면: 홈 · 진행판 · 이미지·영상 작업대 · 소설 집필실 · 디자인 작업실)
  *
- * 상단 바, 명령창, 알림 말풍선, 본사 소품(벽 쪽지·완성작 선반), 긴급 정지 화면을 그리고
- * 버튼을 팝업(popups.js)과 장면(scene.js)에 잇는다. 데이터는 data.js(감독 프로그램 API)에서만 읽는다.
- * 직원의 모습(일·휴식·막힘)은 서버가 정하고, 새 알림(결재 올림·합격)은 잠깐 동작으로 보여 준다.
+ * 상단 바, 명령창, 알림 말풍선, 긴급 정지 화면을 그리고 버튼을 팝업(popups.js)과 화면 전환(board.js)에 잇는다.
+ * 데이터는 data.js(감독 프로그램 API)에서만 읽는다. 직원 정지 그림(얼굴·꾸미기 미리보기)은 stills.js·looks.js.
+ * 옛 도트 사무실(직원이 걷는 본사 화면)은 CEO 결정 2026-10-06으로 완전히 없앴다: 어떤 주소·기억값으로 열어도 나오지 않는다.
  * CSP 때문에 style 속성과 인라인 이벤트는 쓰지 않는다 (CSSOM, addEventListener만).
  */
 'use strict';
@@ -14,18 +14,8 @@ const NOTICE_MS = 5000;
 const $ = (sel, root = document) => root.querySelector(sel);
 const stage = $('#stage');
 const hash = new URLSearchParams(location.hash.slice(1));
-const demo = hash.get('demo'); // 개발용: 장면 자세를 고정해 캡처할 때 (서버 상태로 덮지 않는다)
-// 사무실(도트 본사) 화면은 쓰지 않는다 (CEO 결정 2026-09-30): 진행판(칸반)만. 개발·캡처용 주소(#view=office, #floor, 진행판이 아닌 #demo)일 때만 다시 켠다.
+const demo = hash.get('demo'); // 개발용: #demo=boardflip(진행판 보드를 뒤집은 채로) · #demo=rig(인형 뼈대 맞추기)
 const BOARD_DEMOS = ['boardflip', 'rig'];
-const OFFICE = hash.get('view') === 'office' || Boolean(hash.get('floor')) || Boolean(demo && !BOARD_DEMOS.includes(demo));
-stage.classList.toggle('office-off', !OFFICE);
-// #demo=bodies·bodieswork: 기본 4명에게 서로 다른 몸 막대를 입혀 본다 (저장하지 않는다)
-const DEMO_BODIES = demo && demo.startsWith('bodies') ? {
-  hana: { shoulders: -1, chest: 1, waist: -1, hips: 1, height: -1 }, // 여성형 + 키 작게
-  sol: { shoulders: 1, hips: -1, build: 1 },                          // 남성형 + 체격 듬직하게
-  clo: { shoulders: -1, chest: 1, waist: -1, hips: 1, head: 1 },      // 여성형 + 머리 크게
-  luna: { height: 2 },                                                // 중간 + 키 아주 크게
-} : null;
 
 // ---------------------------------------------------------------- 캔버스 확대
 function fit() {
@@ -33,7 +23,7 @@ function fit() {
   stage.style.setProperty('--s', String(scale));
 }
 
-// ---------------------------------------------------------------- 상단 바·명령창·본사 소품 그리기
+// ---------------------------------------------------------------- 상단 바·명령창 그리기
 function clockText(day, now = new Date()) {
   const h = now.getHours();
   const m = String(now.getMinutes()).padStart(2, '0');
@@ -42,10 +32,8 @@ function clockText(day, now = new Date()) {
   return `${day}일차 · ${half} ${h12}:${m}`;
 }
 
-const NOTE_ICON = { build: 'pad', plan: 'doc', research: 'link', skill: 'star', look: 'star', hire: 'team', tool: 'link' };
-const NOTE_COLOR = { build: 'yellow', plan: 'pink', research: 'purple', skill: 'green', look: 'pink', hire: 'pink', tool: 'green' };
-
 let loginShownAt = null; // 한도 알림 창을 이미 연 멈춤 (같은 멈춤에는 한 번만)
+let lastInbox = null;
 
 function render() {
   const s = Data.get();
@@ -80,14 +68,12 @@ function render() {
 
   renderMotion();
   renderSound();
-  if (OFFICE) {
-    renderFloors();
-    renderWallClock();
-  }
 
   const stop = $('.stop-btn');
   stop.setAttribute('aria-pressed', String(s.stopped));
   stop.setAttribute('aria-label', s.stopped ? '긴급 정지 중 · 누르면 재개' : '긴급 정지');
+  const stopText = stop.querySelector('.stop-text');
+  if (stopText) stopText.textContent = s.stopped ? '정지 중 · 재개' : '긴급 정지';
   $('#layer-alarm').hidden = !s.stopped;
   $('#alarm-reason').textContent = s.stopReason && s.stopReason !== 'CEO 긴급 정지' ? s.stopReason : '';
 
@@ -98,45 +84,11 @@ function render() {
   input.placeholder = s.stopped ? '정지 중이에요' : '무엇을 시킬까요?';
   const project = Data.currentProject();
   const chip = $('#project-chip');
-  chip.textContent = project ? `대상: ${project.title}` : '프로젝트 없음';
+  const kindTag = project && (project.kind === 'novel' || project.kind === 'design') ? `${Data.projectKindLabel(project.kind)} · ` : ''; // 소설·디자인 프로젝트는 종류가 앞에 붙는다 (이름이 길어 잘려도 종류는 보이게)
+  chip.textContent = project ? `대상: ${kindTag}${project.title}` : '프로젝트 없음';
   chip.hidden = !s.projects.length;
-  chip.title = project ? `작업 대상: ${project.title} · 눌러서 선택` : '프로젝트 없음';
-  chip.setAttribute('aria-label', `지시할 프로젝트: ${project ? project.title : '없음'} (누르면 바꾸기)`);
-
-  // 벽 쪽지·선반은 팝업이 모두 닫혔을 때만 바꾼다 (새로 생긴 것이 떨어지는 모습을 CEO가 보도록).
-  // 팝업이 닫히면 Popups가 onClose로 render()를 다시 부른다.
-  if (OFFICE && !Popups.isOpen()) {
-    // 벽의 퀘스트 보드: 대기·진행 중·결재 대기 작업 수만큼 쪽지 (최대 4장, SPEC 6.1)
-    const open = Data.columns().slice(0, 3).flatMap((c) => c.tasks).slice(0, 4);
-    const notes = renderItems('wall', $('#wall-notes'), open, (t) => `${t.id}:${t.kind}`, (t) => {
-      const n = document.createElement('span');
-      n.className = `wall-note ${NOTE_COLOR[t.kind] || 'yellow'}`;
-      n.append(Popups.icon(NOTE_ICON[t.kind] || 'doc'));
-      return n;
-    });
-    if (notes.length) {
-      Sfx.play('drop');
-      Fx.sparkle($('#layer-bg'), 902, 200, { count: 14, spread: 120 });
-    }
-    // 스킬 학습 게시판: 배운 스킬 수만큼 초록 쪽지 (최대 6장, 새 스킬은 떨어진다)
-    const learned = renderItems('skills', $('#skill-notes'), s.skills.slice(-6), (sk) => sk.slug, () => {
-      const n = document.createElement('span');
-      n.className = 'skill-note';
-      n.append(Popups.icon('star'));
-      return n;
-    });
-    if (learned.length) Fx.sparkle($('#layer-bg'), 190, 440, { count: 12, spread: 90 });
-    // 완성작 선반: 완성작 수만큼 트로피·액자, 나머지는 배경의 점선 칸
-    const items = renderItems('shelf', $('#shelf-items'), s.trophies.slice(0, 5), (item) => `${item.task}:${item.kind}`, (item) => {
-      const n = document.createElement('span');
-      n.className = 'shelf-item';
-      n.append(Popups.icon(item.kind === 'game' ? 'trophy' : 'frame'));
-      return n;
-    });
-    for (const i of items) Fx.sparkle($('#layer-bg'), SHELF_X[i], 512, { count: 12, spread: 80 });
-  }
-
-  if (OFFICE) Scene.setStopped(s.stopped);
+  chip.title = project ? `작업 대상: ${kindTag}${project.title} · 눌러서 선택` : '프로젝트 없음';
+  chip.setAttribute('aria-label', `지시할 프로젝트: ${project ? `${kindTag}${project.title}` : '없음'} (누르면 바꾸기)`);
 }
 
 // 효과 스위치 (상단 바의 별): 켜짐 = 도장·책장·카드·반짝임이 움직인다 (effects.js)
@@ -157,33 +109,7 @@ function renderSound() {
   btn.title = on ? '소리 켜짐' : '소리 꺼짐';
 }
 
-// 벽 쪽지·선반 물건: 목록이 그대로면 건드리지 않는다 (도는 애니메이션이 끊기지 않게).
-// 새로 생긴 것에만 .drop을 준다. 처음 그릴 때(서버를 읽기 전후)는 떨어뜨리지 않는다. 새 것의 자리 번호를 돌려준다.
-let lastInbox = null;
-const drawn = {};
-const SHELF_X = [1100, 1183, 1265, 1354, 1435]; // 완성작 선반 칸 가운데 (popups.css .shelf-items)
-
-function renderItems(which, box, list, keyOf, make) {
-  const keys = list.map(keyOf);
-  const prev = drawn[which];
-  if (prev && prev.join('|') === keys.join('|')) return [];
-  const fresh = [];
-  box.replaceChildren(...list.map((item, i) => {
-    const n = make(item);
-    if (prev && !prev.includes(keys[i])) {
-      n.classList.add('drop');
-      n.style.setProperty('--delay', `${fresh.length * 140}ms`);
-      n.addEventListener('animationend', () => n.classList.remove('drop'), { once: true });
-      fresh.push(i);
-    }
-    return n;
-  }));
-  if (Data.loaded) drawn[which] = keys;
-  return fresh;
-}
-
-// ---------------------------------------------------------------- 직원 모습 (서버 상태 → 장면)
-const applied = {};
+// ---------------------------------------------------------------- 직원 얼굴 (서버 상태 → 얼굴 그림)
 let facesKey = '';
 let facesSeq = 0;
 
@@ -192,31 +118,14 @@ let spriteVersion = null; // 그림 목록(index.json) 버전: 바뀌면 새 옷
 function applyTeam() {
   const opts = Data.get().lookOptions || {};
   Looks.setOptions(opts);
-  if (opts.version && spriteVersion && opts.version !== spriteVersion) Scene.reloadStrips().then(() => applyTeam());
+  if (opts.version && spriteVersion && opts.version !== spriteVersion) Stills.reload().then(() => applyTeam());
   if (opts.version) spriteVersion = opts.version;
-  // 새 직원: 서버가 준 책상(층)에 앉히고, 앞으로 만들 얼굴 그림의 열 구성을 직원 수에 맞춘다.
+  // 새 직원: 앞으로 만들 얼굴 그림의 열 구성을 직원 수에 맞춘다.
   // 화면에 걸린 그림은 그대로라(합친 그림이 준비되기 전에는 기본 4열) 새 직원 얼굴은 준비될 때까지 비워 둔다 (Looks.syncFaces)
-  for (const p of Data.TEAM) if (!Scene.people[p.id]) Scene.addPerson(p.id, { job: p.job, desk: p.desk, name: p.name, title: p.title });
-  // 내보낸 직원은 장면에서 빼고(연습용 #demo 직원은 두고), 명부가 당겨져 책상이 바뀐 직원은 새 책상으로 옮긴다
-  if (Data.loaded) {
-    const ids = new Set(Data.TEAM.map((p) => p.id));
-    for (const [id, def] of Object.entries(Scene.people)) if (def.guest && !ids.has(id) && !id.startsWith('demo')) Scene.removePerson(id);
-    for (const p of Data.TEAM) Scene.moveDesk(p.id, p.desk);
-  }
   Looks.setFaceCols(Data.TEAM.map((p) => p.id));
   Looks.syncFaces(Data.TEAM.map((p) => p.id));
   const looks = {};
-  for (const p of Data.TEAM) {
-    Scene.setPerson(p.id, { name: p.name, title: p.title });
-    Scene.setLook(p.id, DEMO_BODIES && DEMO_BODIES[p.id] ? { ...p.look, ...DEMO_BODIES[p.id] } : p.look);
-    looks[p.id] = p.look;
-    if (demo) continue;
-    const key = `${p.state}|${p.phase || ''}`;
-    if (applied[p.id] !== key) {
-      Scene.setState(p.id, p.state || 'rest', { text: p.phase, instant: applied[p.id] === undefined });
-      applied[p.id] = key;
-    }
-  }
+  for (const p of Data.TEAM) looks[p.id] = p.look;
   // 얼굴: 꾸미기가 바뀌었을 때만 다시 칠한다
   const key = JSON.stringify(looks);
   if (key !== facesKey) {
@@ -232,66 +141,6 @@ function applyTeam() {
       Looks.commitFaces(res.ids);
     });
   }
-}
-
-// ---------------------------------------------------------------- 층 (studio/floors.py, scene.js showFloor)
-// 왼쪽 엘리베이터 판: 위층이 위. 연 층만 버튼이 있고, 결재를 기다리거나 막힌 직원이 있는 층에는 빨간 점. 맨 위 +는 층 늘리기.
-let floorsKey = '';
-
-function renderFloors() {
-  const f = Data.get().floors;
-  const needs = new Set();
-  for (const p of Data.TEAM) if (p.state === 'blocked') needs.add(p.floor);
-  for (const t of Data.inbox()) { const o = Data.owner(t); if (o) needs.add(o.floor || 1); }
-  const key = `${f.count}|${f.max}|${Scene.floor}|${[...needs].sort().join(',')}`;
-  if (key === floorsKey) return;
-  floorsKey = key;
-  const nav = $('#floors');
-  const buttons = [];
-  if (f.count < f.max) {
-    const add = document.createElement('button');
-    add.type = 'button';
-    add.className = 'floor-btn add';
-    add.textContent = '+';
-    add.title = '층 늘리기';
-    add.setAttribute('aria-label', `층 늘리기 (${f.count + 1}층, 책상 ${f.next_desks}개)`);
-    add.addEventListener('click', () => Popups.addFloor());
-    buttons.push(add);
-  }
-  for (let n = f.count; n >= 1; n--) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'floor-btn';
-    b.textContent = `${n}층`;
-    b.setAttribute('aria-pressed', String(Scene.floor === n));
-    b.setAttribute('aria-label', `${n}층${n === 1 ? ' 본사' : ''}${needs.has(n) ? ' · 도움이 필요한 직원 있음' : ''}`);
-    if (needs.has(n)) b.append(Object.assign(document.createElement('span'), { className: 'dot' }));
-    b.addEventListener('click', () => Scene.showFloor(n));
-    buttons.push(b);
-  }
-  nav.replaceChildren(...buttons);
-  nav.hidden = f.max <= 1;
-}
-
-// 층이 바뀌면: 본사 전용 표시(hq) 숨기기, 휴식터 간판 옮기기, 층 버튼 다시 그리기
-function onFloorChanged(n, f) {
-  stage.dataset.floor = String(n);
-  const sign = $('#lounge-sign');
-  sign.textContent = n === 1 ? '휴식터' : `${f.name} 휴식터`;
-  if (f.lounge) {
-    sign.style.left = `${f.lounge[0]}px`;
-    sign.style.top = `${f.lounge[1]}px`;
-  }
-  floorsKey = '';
-  renderFloors();
-}
-
-// 본사 벽시계 바늘 (지금 시각)
-function renderWallClock(now = new Date()) {
-  const m = now.getMinutes();
-  const h = (now.getHours() % 12) + m / 60;
-  $('#wall-clock .hour').style.setProperty('--a', `${h * 30}deg`);
-  $('#wall-clock .minute').style.setProperty('--a', `${m * 6}deg`);
 }
 
 // ---------------------------------------------------------------- 알림 말풍선
@@ -311,26 +160,32 @@ function notify(name, text, target = null) {
 
 function fail(err) { notify((Data.BY_ROLE.producer || Data.TEAM[0]).name, err.message || String(err)); }
 
-// ---------------------------------------------------------------- 사무실 ↔ 진행판
-// 진행판(board.js)은 사무실과 같은 데이터를 칸반으로 본다. 마지막으로 본 화면은 이 브라우저에만 기억한다.
+// ---------------------------------------------------------------- 홈 · 진행판 · 이미지·영상 작업대 · 소설 집필실 · 디자인 작업실 · 노드 편집기
+// 홈·진행판·이미지·영상 작업대·소설 집필실·디자인 작업실은 같은 껍데기(board.js) 안의 가운데 구역이고, 같은 Data(/api/state)를 본다. 마지막으로 본 화면은 이 브라우저에만 기억한다.
+const SHELL_PAGES = ['home', 'media', 'novel', 'design']; // 진행판 말고 껍데기 안에서 따로 그리는 페이지
 function setView(name, remember = true) {
   const workbench = name === 'workbench';
   Workbench.setVisible(workbench);
   stage.hidden = workbench;
-  const board = !OFFICE || name === 'board'; // 사무실을 안 쓰면 언제나 진행판
-  stage.classList.toggle('view-board', board);
-  Board.setVisible(board && !workbench);
+  const inShell = SHELL_PAGES.includes(name) ? name : 'board';
+  Board.setVisible(!workbench);
+  Board.setPage(inShell);
   if (!remember) return;
-  try { localStorage.setItem('studio.view', workbench ? 'workbench' : board ? 'board' : 'office'); } catch (_) { /* 기억 못 해도 된다 */ }
+  try { localStorage.setItem('studio.view', workbench ? 'workbench' : inShell); } catch (_) { /* 기억 못 해도 된다 */ }
 }
 
-// 처음 화면: 주소의 #view=… → 개발용 주소(#demo·#open·#floor)면 사무실 → 이 브라우저가 기억한 것. 주소로 연 화면은 기억하지 않는다 (캡처가 서로 섞이지 않게).
+// 처음 화면: 주소의 #view=… → 개발용 진행판 주소 → 이 브라우저가 기억한 화면 → 홈. 주소로 연 화면은 기억하지 않는다 (캡처가 서로 섞이지 않게).
+// 옛 사무실 값(기억된 값이나 옛 주소)은 알 수 없는 화면이라 그냥 홈으로 간다.
+const PAGES = ['home', 'board', 'media', 'novel', 'design', 'workbench'];
 function savedView() {
-  if (hash.get('view') === 'workbench') return 'workbench';
-  if (!OFFICE) return 'board';
-  if (hash.get('view')) return hash.get('view');
-  if (demo || hash.get('open') || hash.get('floor')) return 'office';
-  try { return localStorage.getItem('studio.view') || 'office'; } catch (_) { return 'office'; }
+  const asked = hash.get('view');
+  if (PAGES.includes(asked)) return asked;
+  if (hash.get('boarddemo') || BOARD_DEMOS.includes(demo)) return 'board';
+  try {
+    const mem = localStorage.getItem('studio.view');
+    if (PAGES.includes(mem)) return mem;
+  } catch (_) { /* 기억 못 해도 된다 */ }
+  return 'home';
 }
 
 // ---------------------------------------------------------------- 동작
@@ -379,10 +234,13 @@ const ACTIONS = {
     if (noticeTarget) Popups.openTarget(noticeTarget);
   },
   project: () => Popups.chooseProject(),
-  quests: () => Popups.questBoard(),
+  home: () => setView('home'),
   board: () => setView('board'),
-  workbench: () => setView('workbench'),
-  office: () => { if (OFFICE) setView('office'); },
+  digest: () => { if (typeof Home !== 'undefined') Home.digest(); },
+  media: () => setView('media'),
+  novel: () => setView('novel'),
+  design: () => setView('design'),
+  workbench: () => setView('workbench'), // 옛 노드 편집기 (이미지·영상 작업대의 '노드 편집기 (고급)'로만 열린다)
   team: () => Popups.team(),
   diary: () => Popups.diary(),
   meeting: () => Popups.meetingRoom(),
@@ -390,6 +248,7 @@ const ACTIONS = {
   skills: () => Popups.skillBoard(),
   mcp: () => Popups.mcpShelf(),
   schedules: () => Popups.schedules(),
+  gateway: () => { if (typeof Gateway !== 'undefined') Gateway.open(); }, // 외부 연결 (MCP 연결 문, ui/gateway.js)
   remote: () => Popups.remote(),
   login: () => Popups.needLogin(),
 };
@@ -425,16 +284,14 @@ $('#command').addEventListener('submit', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && String(e.key).toLowerCase() === 'k') {
+    e.preventDefault();
+    if (typeof Finder !== 'undefined') Finder.focus();
+    return;
+  }
   if (e.key === 'Escape') {
     if (Popups.isOpen()) Popups.close();
     $('#energy-tip').hidden = true;
-  }
-  if (e.key === 'F2') {
-    e.preventDefault();
-    const on = stage.classList.toggle('debug');
-    const panel = $('#devpanel');
-    if (on && OFFICE && !panel.childElementCount) Scene.buildDevPanel(panel);
-    panel.hidden = !on;
   }
 });
 
@@ -447,28 +304,11 @@ Data.on('change', () => {
   Board.update(Data.get());
 });
 
-// 새 알림: 잠깐 동작(결재 올림·합격 도장·완료 반짝임)과 알림 말풍선
+// 새 알림: 알림 말풍선과 소리
 const EVENT_SOUND = { 'task.blocked': 'oops', 'company.stopped': 'alarm', 'skill.learned': 'cheer' };
 
 Data.on('event', (ev) => {
-  let sound = EVENT_SOUND[ev.type] || 'notify';
-  if (OFFICE && !demo && ev.who) {
-    if (ev.type === 'task.status' && ev.status === 'awaiting_approval') {
-      Scene.setState(ev.who, 'call');
-      sound = 'call';
-    }
-    if (ev.type === 'qa.finished' && ev.status === 'pass') {
-      Scene.setState(ev.who, 'celebrate', { stamp: '합격', text: '합격!' });
-      sound = 'cheer';
-    }
-    if (ev.type === 'task.status' && ev.status === 'done') {
-      const t = ev.target ? Data.task(ev.target.task) : null;
-      const plan = t ? t.kind === 'plan' : ev.role === 'producer';
-      Scene.setState(ev.who, 'celebrate', { text: plan ? '고마워요!' : '완료!' });
-    }
-    if (ev.type === 'skill.learned') Scene.setState(ev.who, 'celebrate', { text: ev.text.includes('고쳤어요') ? '고쳤어요!' : '배웠어요!' });
-  }
-  Sfx.play(sound);
+  Sfx.play(EVENT_SOUND[ev.type] || 'notify');
   notify(ev.name, ev.text, ev.target);
 });
 
@@ -479,9 +319,10 @@ Data.on('connection', (ok) => {
 });
 
 // 팝업을 열면 알림 말풍선은 접는다 (팝업의 닫기 버튼을 가리지 않게).
-// 팝업이 모두 닫히면 본사를 다시 그린다 (그사이 생긴 벽 쪽지·완성작이 이때 떨어진다).
-Popups.init({ notify, onOpen: () => $('#notice').classList.add('hidden'), onClose: render });
-Board.init($('#layer-board'), { notify, fail, office: OFFICE });
+Popups.init({ notify, onOpen: () => $('#notice').classList.add('hidden'), goRoom: (mode, key) => Board.openRoom(mode, key) });
+Board.init($('#layer-board'), { notify, fail, setView });
+// 빠른 찾기 (Ctrl K): 일·직원·스킬·화면. 화면 이동은 ACTIONS(왼쪽 메뉴와 같은 동작)를 그대로 쓴다
+if (typeof Finder !== 'undefined') Finder.init({ actions: ACTIONS, setView });
 Workbench.init($('#workbench-screen'), {
   back: () => setView('board'),
   task: (id) => { setView('board'); const t = Data.task(id); if (t) Popups.openTask(t); else Popups.taskCard(id); },
@@ -496,41 +337,11 @@ fit();
 render();
 setInterval(render, 20000);
 
-// 개발용 (캡처 비교): #demo=rest (blocked, call, stop, warp, crowd, crowdrest, bodies, bodieswork)는 장면 자세 고정 (warp = 소환 중간 모습, crowd = 2층에 연습용 직원, bodies = 몸 막대 비교),
-// #floor=2는 그 층으로 시작한다. #task=T0007은 그 작업의 결재 창으로. #view=board는 진행판으로 시작, #demo=boardflip은 진행판 보드를 뒤집은 채로 멈춘다.
+// 개발용 (캡처 비교): #view=home|board|media|novel|design|workbench는 그 화면으로 시작, #boarddemo=states|calm|long|empty는 가짜 작업 목록 (board.js),
+// #demo=boardflip은 진행판 보드를 뒤집은 채로 멈춘다. #task=T0007은 그 작업의 결재 창으로.
 // #demo=rig(진행판 인형 뼈대 맞추기)·#pose=…(멈춘 자세)는 board.js. #open=quests (inbox, diary, team, sheet, trophies, alerts, meeting, customize, skills, jobcard, grades)는 그 팝업으로 시작한다.
-// 직원을 누르면 상태창. 막혀 있으면 막힌 일 카드(이유·재시도·취소)를 바로 연다 — 무엇을 해 줘야 하는지 바로 보이게.
-function openPerson(id) {
-  const p = Data.BY_ID[id];
-  if (p && p.state === 'blocked' && p.task && Data.task(p.task)) Popups.taskCard(p.task);
-  else Popups.employee(id);
-}
-
-Scene.init($('#layer-sprites'), openPerson, { background: $('#layer-bg .bg'), floorChanged: onFloorChanged, headless: !OFFICE }).then(() => {
-  const startFloor = Number(hash.get('floor'));
-  if (startFloor > 1) Scene.showFloor(startFloor);
-  if (demo) {
-    const first = ['rest', 'blocked'].includes(demo) ? demo : 'work';
-    for (const id of Object.keys(Scene.people)) Scene.setState(id, first, { instant: true });
-    if (demo === 'call') Object.keys(Scene.people).forEach((id) => Scene.setState(id, 'call'));
-    // #demo=crowd / crowdrest: 2층 책상 8개에 연습용 직원(기본 직원 그림을 빌림)을 앉힌다 — 2층 자리 확인·캡처용
-    // #demo=bodies: 선 자리에서 서 있는 자세로 멈춰 둔다 (몸 막대 비교용, 말풍선 없이)
-    if (demo === 'bodies') Object.keys(Scene.people).forEach((id) => Scene.holdPose(id, 'stand', 'step'));
-    if (demo.startsWith('crowd')) {
-      const TPL = [['sol', 'builder', '개발'], ['luna', 'analyst', '리서치'], ['hana', 'producer', '기획'], ['clo', 'reviewer', '리뷰']];
-      for (let i = 0; i < 8; i++) {
-        const [sprite, job, title] = TPL[i % 4];
-        Scene.addPerson(`demo${i}`, { job, desk: 6 + i, name: `연습${i + 1}`, title, sprite });
-        Scene.setState(`demo${i}`, demo === 'crowdrest' ? 'rest' : 'work', { instant: true });
-      }
-    }
-    if (demo === 'warp') {
-      Scene.holdWarp('hana', 'rest', 'out', 0.45);
-      Scene.holdWarp('sol', 'rest', 'in', 0.35);
-      Scene.holdWarp('clo', 'rest', 'in', 0.7);
-      Scene.holdWarp('luna', 'rest', 'out', 0.8);
-    }
-  }
+// 직원 그림 띠 목록을 읽은 뒤에 시작한다: 직원 상태창·꾸미기·회의실의 정지 그림(Stills.still)이 쓴다.
+Stills.init().then(() => {
   if (demo === 'boardflip') Board.demoFlip(); // 진행판 보드를 뒤집은 채로 (캡처용)
   // 개발용 (인형 엔진): #demo=rig는 큰 인형 + 영역 색 + 슬라이더 판, #pose=angleZ:1,hairSway:-1은 그 값으로 멈춘 자세 (서버에 아무것도 보내지 않는다)
   if (demo === 'rig') Board.demoRig(hash.get('pose'), hash.get('overlay'));
@@ -549,10 +360,23 @@ Scene.init($('#layer-sprites'), openPerson, { background: $('#layer-bg .bg'), fl
     skills: () => Popups.skillBoard(),
     mcp: () => Popups.mcpShelf(),
     schedules: () => Popups.schedules(),
+    gateway: () => Gateway.open(),
     remote: () => Popups.remote(),
     jobcard: () => Popups.jobCard('luna'),
     grades: () => Popups.skillGrades(),
     workshop: () => Popups.wardrobeOrder('sol'),
+    digest: () => Home.digest(),
+    taskcard: () => { const t = Data.get().tasks.find((x) => x.status !== 'cancelled'); if (t) Popups.taskCard(t.id); },
+    approval: () => { const all = Data.get().tasks; const t = all.find((x) => x.status === 'awaiting_approval') || all[0]; if (t) Popups.openTask(t); },
+    skilldetail: () => { const k = Data.get().skills[0]; if (k) Popups.skillDetail(k.slug); },
+    mcpdetail: () => { const m = Data.get().mcp[0]; if (m) Popups.mcpDetail(m.name); },
+    hire: () => Popups.hireForm(),
+    login: () => Popups.needLogin(),
+    finder: () => { // 개발용: 빠른 찾기를 연다 (#open=finder&q=솔 이면 그 글로)
+      Finder.focus();
+      const box = document.getElementById('board-search');
+      if (box && hash.get('q')) { box.value = hash.get('q'); box.dispatchEvent(new Event('input', { bubbles: true })); }
+    },
   };
   const opener = OPEN[hash.get('open')];
   if (opener) setTimeout(opener, 400); // 첫 상태를 읽은 뒤

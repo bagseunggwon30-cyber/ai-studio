@@ -8,20 +8,30 @@ import base64
 import hashlib
 import hmac
 import re
-from . import evidence, gitops
+from . import evidence, gitops, modes
 from .checkpoints import digest
-from .model import FINAL
+from .model import FINAL, STATUS_LABELS
 from .util import read_json
 
 NAME = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 TASK = re.compile(r"^T[0-9]{4,12}$")
-READ = {"status", "events", "result", "artifact"}
+READ = {"status", "events", "result", "artifact", "projects", "tasks"}
+WRITE = {"submit", "cancel", "run"}  # run = 자기가 맡긴 일의 실행 시작 (CEO가 프로젝트마다 켠 곳만, 결재·병합·완료는 아님)
+MAX_RUNNING = 3  # 한 연결이 동시에 실행을 시작해 둘 수 있는 일
+TASK_FILTERS = {"all", "open", *STATUS_LABELS}  # tasks 목록 거르기: 전체 · 안 끝난 일 · 상태 하나
 
 
 class AccessError(ValueError):
     def __init__(self, message, status=403):
         super().__init__(message)
         self.status = status
+
+
+def can_run(actor):
+    """이 신분이 실행 시작을 할 수 있는 프로젝트가 하나라도 있는지 (도구 목록에 run_task를 보일지 정할 때 쓴다)."""
+    projects = actor.get("projects") if isinstance(actor, dict) else None
+    return isinstance(projects, dict) and any(
+        isinstance(g, dict) and g.get("read") is True and g.get("write") is True and g.get("run") is True for g in projects.values())
 
 
 def text(value, name, limit, empty=False):
@@ -101,22 +111,36 @@ class Supervisor:
         except AccessError:
             self.store.event("supervisor.auth_denied","외부 감독 인증 거절")
             raise
+        return self.call_as(actor, request)
+
+    def call_as(self, actor, request):
+        """이미 확인된 신분({id, projects})으로 같은 권한 검사를 거쳐 호출한다.
+        MCP 연결 문(studio/mcp_gateway.py)이 OAuth 토큰을 신분으로 바꾼 뒤 쓴다. 토큰 확인은 호출한 쪽 책임."""
         operation = request.get("operation") if isinstance(request, dict) else None
         try:
             result = self._call(actor, request)
         except (AccessError, ValueError) as exc:
-            self.store.event("supervisor.denied", "외부 감독 요청 거절", actor=actor["id"], operation=operation if isinstance(operation,str) and operation in READ | {"submit", "cancel"} else "unknown")
+            self.store.event("supervisor.denied", "외부 감독 요청 거절", actor=actor["id"], operation=operation if isinstance(operation,str) and operation in READ | WRITE else "unknown")
             if isinstance(exc, AccessError): raise
             raise AccessError(str(exc), 400) from exc
         self.store.event("supervisor.request", "외부 감독 요청", actor=actor["id"], operation=operation, target=result.get("task", {}).get("id") if isinstance(result.get("task"),dict) else None)
         return result
 
     def _call(self, actor, request):
-        if not isinstance(request, dict) or set(request) - {"operation", "project", "task", "key", "payload", "after", "path"}:
+        if not isinstance(request, dict) or set(request) - {"operation", "project", "task", "key", "payload", "after", "path", "filter", "limit"}:
             raise AccessError("요청 형식 오류", 400)
         op = request.get("operation")
-        if not isinstance(op,str) or op not in READ | {"submit", "cancel"}:
+        if not isinstance(op,str) or op not in READ | WRITE:
             raise AccessError("외부 감독은 승인·병합·권한·설정을 바꿀 수 없습니다.")
+        if op == "projects":  # 이 연결이 읽을 수 있는 프로젝트 (권한이 있는 것만, 설정 값은 담지 않는다)
+            rows = []
+            for name, g in actor["projects"].items():
+                proj = self.cfg.projects.get(name)
+                if proj and isinstance(g, dict) and g.get("read") is True:
+                    rows.append({"project": name, "title": proj.title, "kind": proj.kind, "mode": modes.mode_of(proj.kind),
+                                 "description": (proj.description or "")[:300], "can_submit": g.get("write") is True,
+                                 "can_run": g.get("write") is True and g.get("run") is True, "paths": list(g.get("paths", []))})
+            return {"projects": rows}
         key = text(request.get("project"), "프로젝트", 80)
         grant = actor["projects"].get(key)
         if not isinstance(grant, dict) or grant.get("read") is not True or key not in self.cfg.projects:
@@ -125,6 +149,20 @@ class Supervisor:
             raise AccessError("읽기 전용 연결입니다.")
         if op == "submit":
             return self._submit(actor, grant, key, request)
+        if op == "run" and grant.get("run") is not True:  # 옛 설정(run 칸 없음)도 여기서 막힌다: 기본은 꺼짐
+            raise AccessError("실행 시작 권한이 없어요. 사장님이 이 프로젝트에서 '실행 시작'을 켜야 해요.")
+        if op == "tasks":  # 프로젝트의 최근 작업 목록: 제목·상태 정도만 (자세한 것은 status·result로 작업 번호를 지정해 읽는다)
+            flt, limit = request.get("filter", "all"), request.get("limit", 20)
+            if not isinstance(flt, str) or flt not in TASK_FILTERS or type(limit) is not int or not 1 <= limit <= 50:
+                raise AccessError("거르기는 all·open·상태 이름 중 하나, 개수는 1~50이어야 합니다.", 400)
+            proj_kind = self.cfg.projects[key].kind
+            mine = sorted((t for t in self.store.list() if t.project == key and (flt == "all" or (t.status not in FINAL if flt == "open" else t.status == flt))),
+                          key=lambda t: t.updated_at or "", reverse=True)
+            rows = [{"id": t.id, "title": t.title[:120], "kind": t.kind, "kind_label": modes.task_label(proj_kind, t.kind, t.kind), "status": t.status,
+                     "status_label": STATUS_LABELS.get(t.status, t.status), "created_at": t.created_at, "updated_at": t.updated_at,
+                     "approval_required": t.status == "awaiting_approval", "blocked_reason": (t.blocked_reason or "")[:200], "parent": t.parent}
+                    for t in mine[:limit]]
+            return {"project": key, "filter": flt, "total": len(mine), "count": len(rows), "tasks": rows}
         tid = request.get("task")
         if not isinstance(tid, str) or not TASK.fullmatch(tid):
             raise AccessError("작업 ID 오류", 400)
@@ -136,6 +174,8 @@ class Supervisor:
                 raise AccessError("이 연결이 제출한 작업만 취소할 수 있습니다.")
             if task.status not in FINAL:
                 task = self.engine.cancel(tid, by="supervisor:" + actor["id"])
+        if op == "run":
+            return self._run(actor, task)
         if op == "events":
             after = request.get("after", 0)
             if type(after) is not int or after < 0:
@@ -173,8 +213,38 @@ class Supervisor:
                          and (not coverage["strict"] or coverage["complete"]))
         return {"task":{**task.summary(),"children":task.children},"progress":self.engine.journal.progress(task.id),
                 "approval_required":task.status == "awaiting_approval", "approval_route":"CEO 대시보드 또는 짝지은 휴대폰",
-                "blocked_reason":task.blocked_reason,"implemented":bool(task.candidate_sha),
+                "blocked_reason":task.blocked_reason,"run_requested":task.run_requested,"implemented":bool(task.candidate_sha),
                 "validated":validated,"approved":task.status == "done"}
+
+    def _run(self, actor, task):
+        """자기가 맡긴 일의 실행을 시작시킨다 (`Engine.request_run` = 화면의 [실행]과 같은 길). 호출 전에 프로젝트의 쓰기·실행 권한은 확인됐다.
+        결재·병합·완료는 여기서 하지 않는다. 같은 호출을 다시 해도 안전하다 (이미 시작됐으면 지금 상태만 돌려준다)."""
+        mine = "supervisor:" + actor["id"]
+        with self.store.lock:
+            task = self.store.get(task.id) or task
+            if task.created_by != mine:
+                raise AccessError("이 연결이 맡긴 일만 실행을 시작할 수 있어요.")
+            if task.status in FINAL:
+                raise AccessError("이미 끝난 일이라 실행을 시작할 수 없어요.", 409)
+            if task.status == "blocked":
+                raise AccessError("막힌 일이라 실행을 시작할 수 없어요. 사장님이 막힌 까닭을 확인하고 다시 시도해야 해요.", 409)
+            state = self.store.get_state()
+            if state.get("stopped") or self.engine._stop.is_set():
+                raise AccessError("회사가 긴급 정지 중이라 실행을 시작할 수 없어요. 사장님이 다시 시작해야 해요.", 409)
+            waiting = task.status in ("queued", "ready")
+            if not waiting or task.run_requested:  # 이미 시작했거나 시작을 요청해 둔 일: 오류가 아니라 지금 상태를 그대로
+                return {**self.describe(task), "started": True, "replayed": True}
+            # 동시 상한: 이 연결이 맡긴 일 중 실행 중이거나 실행을 요청해 두고 기다리는 일 (결재를 기다리는 일은 세지 않는다)
+            busy = [t for t in self.store.list() if t.created_by == mine and t.status not in FINAL
+                    and (t.status in ("running", "checking") or (t.run_requested and t.status in ("queued", "ready")))]
+            if len(busy) >= MAX_RUNNING:
+                raise AccessError(f"동시에 실행을 시작한 일이 {len(busy)}개예요. 끝난 뒤에 다시 시도해 주세요.", 409)
+            try:
+                self.engine.request_run(task.id)
+            except ValueError as exc:  # EngineError: 준비 상태가 아닌 일 등
+                raise AccessError(str(exc), 400) from exc
+            self.store.event("supervisor.run", f"{task.id} 외부 연결이 실행을 시작시켰어요", task=task.id, actor=actor["id"])
+            return {**self.describe(self.store.get(task.id) or task), "started": True, "replayed": False}
 
     def _artifacts(self, task, grant):
         if not task.candidate_sha or not task.qa or task.qa.get("candidate_sha") != task.candidate_sha:
